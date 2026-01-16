@@ -13,7 +13,7 @@ describe('Card', () => {
     const card = screen.getByTestId('card');
     expect(card).toHaveClass('rounded-lg');
     expect(card).toHaveClass('border');
-    expect(card).toHaveClass('bg-white');
+    expect(card).toHaveClass('bg-[var(--color-card)]');
   });
 
   it('merges custom className', () => {

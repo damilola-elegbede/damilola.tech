@@ -44,7 +44,7 @@ export function Experience() {
                 className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2"
                 aria-expanded={expandedId === exp.id}
               >
-                <div className="rounded-lg border border-[var(--color-border)] bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-sm transition-shadow hover:shadow-md">
                   <div className="mb-2 flex items-start justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-[var(--color-primary)]">

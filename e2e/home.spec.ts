@@ -91,3 +91,69 @@ test.describe('Experience Section Interaction', () => {
     await expect(firstExperience).toHaveAttribute('aria-expanded', 'true');
   });
 });
+
+test.describe('Dark Mode', () => {
+  test.beforeEach(async ({ page }) => {
+    // Clear localStorage before each test
+    await page.addInitScript(() => {
+      window.localStorage.clear();
+    });
+    await page.goto('/');
+  });
+
+  test('should display theme toggle button', async ({ page }) => {
+    const themeToggle = page.getByRole('button', { name: /switch to dark mode/i });
+    await expect(themeToggle).toBeVisible();
+  });
+
+  test('should toggle between light and dark mode', async ({ page }) => {
+    // Initially in light mode
+    const html = page.locator('html');
+    await expect(html).not.toHaveAttribute('data-theme', 'dark');
+
+    // Click to switch to dark mode
+    const themeToggle = page.getByRole('button', { name: /switch to dark mode/i });
+    await themeToggle.click();
+
+    // Should be in dark mode now
+    await expect(html).toHaveAttribute('data-theme', 'dark');
+    await expect(
+      page.getByRole('button', { name: /switch to light mode/i })
+    ).toBeVisible();
+
+    // Click to switch back to light mode
+    await page.getByRole('button', { name: /switch to light mode/i }).click();
+    await expect(html).toHaveAttribute('data-theme', 'light');
+  });
+
+  test('should persist theme preference across page reloads', async ({ page }) => {
+    // Switch to dark mode
+    await page.getByRole('button', { name: /switch to dark mode/i }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+    // Reload the page
+    await page.reload();
+
+    // Should still be in dark mode
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(
+      page.getByRole('button', { name: /switch to light mode/i })
+    ).toBeVisible();
+  });
+
+  test('theme toggle should be keyboard accessible', async ({ page }) => {
+    const themeToggle = page.getByRole('button', { name: /switch to dark mode/i });
+
+    // Focus the button
+    await themeToggle.focus();
+    await expect(themeToggle).toBeFocused();
+
+    // Press Enter to toggle
+    await page.keyboard.press('Enter');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+    // Press Space to toggle back
+    await page.keyboard.press('Space');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  });
+});

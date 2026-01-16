@@ -17,7 +17,7 @@ export function Badge({
         {
           'bg-[var(--color-bg-alt)] text-[var(--color-text)]':
             variant === 'default',
-          'border border-[var(--color-border)] bg-white text-[var(--color-text-muted)]':
+          'border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text-muted)]':
             variant === 'outline',
           'bg-[var(--color-accent)] text-white': variant === 'accent',
         },

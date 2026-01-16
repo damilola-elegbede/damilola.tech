@@ -19,7 +19,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             // Variants
             'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-light)] focus-visible:ring-[var(--color-primary)]':
               variant === 'primary',
-            'bg-white text-[var(--color-primary)] border border-[var(--color-border)] hover:bg-[var(--color-bg-alt)] focus-visible:ring-[var(--color-accent)]':
+            'bg-[var(--color-card)] text-[var(--color-primary)] border border-[var(--color-border)] hover:bg-[var(--color-bg-alt)] focus-visible:ring-[var(--color-accent)]':
               variant === 'secondary',
             'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg-alt)] focus-visible:ring-[var(--color-accent)]':
               variant === 'ghost',

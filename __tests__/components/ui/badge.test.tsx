@@ -18,7 +18,7 @@ describe('Badge', () => {
     render(<Badge variant="outline">Outline</Badge>);
     const badge = screen.getByText('Outline');
     expect(badge).toHaveClass('border');
-    expect(badge).toHaveClass('bg-white');
+    expect(badge).toHaveClass('bg-[var(--color-card)]');
   });
 
   it('applies accent variant styles', () => {

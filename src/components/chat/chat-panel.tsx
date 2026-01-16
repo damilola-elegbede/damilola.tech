@@ -126,7 +126,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
       <div
         ref={panelRef}
         className={cn(
-          'fixed bottom-0 right-0 z-50 flex h-[100dvh] w-full flex-col bg-white shadow-2xl transition-transform duration-300 md:bottom-24 md:right-6 md:h-[600px] md:w-[400px] md:rounded-2xl',
+          'fixed bottom-0 right-0 z-50 flex h-[100dvh] w-full flex-col bg-[var(--color-card)] shadow-2xl transition-transform duration-300 md:bottom-24 md:right-6 md:h-[600px] md:w-[400px] md:rounded-2xl',
           isOpen
             ? 'translate-x-0'
             : 'translate-x-full md:translate-x-[calc(100%+24px)]'

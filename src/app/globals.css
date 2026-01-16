@@ -13,11 +13,28 @@
   /* Neutrals */
   --color-bg: #FFFFFF;
   --color-bg-alt: #F8FAFC;
+  --color-card: #FFFFFF;
   --color-text: #1E293B;
   --color-text-muted: #64748B;
   --color-border: #E2E8F0;
 
   /* Semantic */
+  --background: var(--color-bg);
+  --foreground: var(--color-text);
+}
+
+/* Dark Mode - WCAG AA Compliant */
+[data-theme="dark"] {
+  --color-primary: #F8FAFC;
+  --color-primary-light: #E2E8F0;
+  --color-accent: #3385FF;
+  --color-accent-light: #66A3FF;
+  --color-bg: #0A2540;
+  --color-bg-alt: #122D4D;
+  --color-card: #0F2D4A;
+  --color-text: #F8FAFC;
+  --color-text-muted: #94A3B8;
+  --color-border: #1A3A5C;
   --background: var(--color-bg);
   --foreground: var(--color-text);
 }
@@ -30,6 +47,7 @@
   --color-accent: var(--color-accent);
   --color-accent-light: var(--color-accent-light);
   --color-bg-alt: var(--color-bg-alt);
+  --color-card: var(--color-card);
   --color-text-muted: var(--color-text-muted);
   --color-border: var(--color-border);
   --font-sans: var(--font-geist-sans);
