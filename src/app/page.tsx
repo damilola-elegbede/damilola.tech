@@ -3,14 +3,13 @@
 import { useState } from 'react';
 import {
   Hero,
-  About,
   Experience,
-  Skills,
+  SkillsAssessment,
   Education,
   Contact,
 } from '@/components/sections';
+import { BackToTop } from '@/components/ui';
 import { ChatFab, ChatPanel } from '@/components/chat';
-import { ThemeToggle } from '@/components/theme';
 
 export default function Home() {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -26,16 +25,15 @@ export default function Home() {
       >
         Skip to main content
       </a>
-      <ThemeToggle className="fixed right-4 top-4 z-50" />
       <main id="main-content">
         <Hero onOpenChat={toggleChat} />
-        <About />
         <Experience />
-        <Skills />
+        <SkillsAssessment />
         <Education />
         <Contact />
       </main>
 
+      <BackToTop />
       <ChatFab onClick={toggleChat} isOpen={isChatOpen} />
       <ChatPanel isOpen={isChatOpen} onClose={closeChat} />
     </>

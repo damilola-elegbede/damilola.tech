@@ -32,7 +32,7 @@ export function CardTitle({ className, children, ...props }: CardTitleProps) {
   return (
     <h3
       className={cn(
-        'text-lg font-semibold text-[var(--color-primary)]',
+        'text-lg font-semibold text-[var(--color-text)]',
         className
       )}
       {...props}

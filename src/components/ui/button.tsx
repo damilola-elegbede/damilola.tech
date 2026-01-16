@@ -17,9 +17,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           'inline-flex items-center justify-center rounded-full font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
           {
             // Variants
-            'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-light)] focus-visible:ring-[var(--color-primary)]':
+            'bg-[var(--color-accent)] text-white hover:bg-[#4B92E5] focus-visible:ring-[var(--color-accent)]':
               variant === 'primary',
-            'bg-[var(--color-card)] text-[var(--color-primary)] border border-[var(--color-border)] hover:bg-[var(--color-bg-alt)] focus-visible:ring-[var(--color-accent)]':
+            'bg-[var(--color-card)] text-[var(--color-text)] border border-[var(--color-border)] hover:bg-[var(--color-bg-alt)] focus-visible:ring-[var(--color-accent)]':
               variant === 'secondary',
             'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg-alt)] focus-visible:ring-[var(--color-accent)]':
               variant === 'ghost',

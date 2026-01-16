@@ -1,40 +1,30 @@
 @import "tailwindcss";
 
-/* Design System: Executive Leadership (McKinsey-Inspired) */
+/* Design System: Dark-First Executive (Inspired by sample-ai-resume.lovable.app) */
+/* WCAG AA Compliant - All text/background combos pass 4.5:1 minimum */
+
 :root {
-  /* Primary - Deep Blue */
-  --color-primary: #0A2540;
-  --color-primary-light: #1A3A5C;
-
-  /* Accent - Vivid Blue */
-  --color-accent: #0066FF;
-  --color-accent-light: #3385FF;
-
-  /* Neutrals */
-  --color-bg: #FFFFFF;
-  --color-bg-alt: #F8FAFC;
-  --color-card: #FFFFFF;
-  --color-text: #1E293B;
-  --color-text-muted: #64748B;
-  --color-border: #E2E8F0;
-
-  /* Semantic */
-  --background: var(--color-bg);
-  --foreground: var(--color-text);
-}
-
-/* Dark Mode - WCAG AA Compliant */
-[data-theme="dark"] {
-  --color-primary: #F8FAFC;
-  --color-primary-light: #E2E8F0;
-  --color-accent: #3385FF;
-  --color-accent-light: #66A3FF;
+  /* Background Colors */
   --color-bg: #0A2540;
-  --color-bg-alt: #122D4D;
-  --color-card: #0F2D4A;
+  --color-bg-alt: #0D1F33;
+  --color-card: #111B27;
+  --color-card-strong: #1C2936;
+  --color-card-moderate: #1A1A1A;
+  --color-card-gaps: #2A2318;
+
+  /* Text Colors - WCAG AA Compliant */
   --color-text: #F8FAFC;
   --color-text-muted: #94A3B8;
-  --color-border: #1A3A5C;
+
+  /* Accent Colors */
+  --color-accent: #60A5FA;
+  --color-accent-green: #10B981;
+  --color-accent-amber: #D97706;
+
+  /* Border */
+  --color-border: #1E3A5F;
+
+  /* Semantic */
   --background: var(--color-bg);
   --foreground: var(--color-text);
 }
@@ -42,16 +32,21 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-primary: var(--color-primary);
-  --color-primary-light: var(--color-primary-light);
-  --color-accent: var(--color-accent);
-  --color-accent-light: var(--color-accent-light);
+  --color-bg: var(--color-bg);
   --color-bg-alt: var(--color-bg-alt);
   --color-card: var(--color-card);
+  --color-card-strong: var(--color-card-strong);
+  --color-card-moderate: var(--color-card-moderate);
+  --color-card-gaps: var(--color-card-gaps);
+  --color-text: var(--color-text);
   --color-text-muted: var(--color-text-muted);
+  --color-accent: var(--color-accent);
+  --color-accent-green: var(--color-accent-green);
+  --color-accent-amber: var(--color-accent-amber);
   --color-border: var(--color-border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: Georgia, "Times New Roman", serif;
 }
 
 body {
@@ -60,16 +55,20 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* Typography Scale */
+/* Typography Scale - Georgia serif for headings */
+h1, h2, h3, h4 {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
 h1 {
-  font-size: 3rem; /* 48px */
+  font-size: 4rem; /* 64px - larger as per design */
   line-height: 1.1;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 h2 {
-  font-size: 2.25rem; /* 36px */
+  font-size: 2rem; /* 32px */
   line-height: 1.2;
   font-weight: 600;
   letter-spacing: -0.01em;

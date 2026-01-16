@@ -8,6 +8,7 @@ export const resumeData: ResumeData = {
     'An engineering leader who is an engineer at heart with business acumen. Known for building effective teams through cross-collaboration with strategic partners. Guided by the 3P\'s (People, Process, Product) and principles of servant-leadership, growth, and inclusion.',
   email: 'damilola.elegbede@gmail.com',
   linkedin: 'https://linkedin.com/in/damilola-elegbede/',
+  github: 'https://github.com/damilola-elegbede',
   location: 'Boulder, CO',
   experiences: [
     {
@@ -112,6 +113,26 @@ export const resumeData: ResumeData = {
       ],
     },
   ],
+  skillsAssessment: {
+    strong: [
+      'Platform/Infrastructure Architecture',
+      'API Design & Versioning',
+      'Technical Strategy',
+      'Cross-functional Leadership',
+      'Technical Debt Cleanup',
+      'Developer Experience',
+    ],
+    moderate: [
+      'Data Engineering',
+      'Security & Compliance',
+      'Team Building',
+    ],
+    gaps: [
+      'Consumer Product',
+      'Mobile Development',
+      'Growth/Experimentation',
+    ],
+  },
   education: [
     {
       id: 'mba',

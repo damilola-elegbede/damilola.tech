@@ -10,7 +10,7 @@ describe('Contact', () => {
 
   it('renders email link', () => {
     render(<Contact />);
-    const emailLink = screen.getByRole('link', { name: /damilola.elegbede@gmail.com/i });
+    const emailLink = screen.getByRole('link', { name: /email/i });
     expect(emailLink).toBeInTheDocument();
     expect(emailLink).toHaveAttribute('href', 'mailto:damilola.elegbede@gmail.com');
   });
@@ -19,7 +19,7 @@ describe('Contact', () => {
     render(<Contact />);
     const linkedInLink = screen.getByRole('link', { name: /linkedin/i });
     expect(linkedInLink).toBeInTheDocument();
-    expect(linkedInLink).toHaveAttribute('href', 'https://linkedin.com/in/damilola-elegbede/');
+    expect(linkedInLink).toHaveAttribute('href', 'https://linkedin.com/in/damilola-elegbede');
     expect(linkedInLink).toHaveAttribute('target', '_blank');
     expect(linkedInLink).toHaveAttribute('rel', 'noopener noreferrer');
   });

@@ -14,6 +14,12 @@ export interface Skill {
   items: string[];
 }
 
+export interface SkillsAssessment {
+  strong: string[];
+  moderate: string[];
+  gaps: string[];
+}
+
 export interface Education {
   id: string;
   degree: string;
@@ -28,9 +34,11 @@ export interface ResumeData {
   brandingStatement: string;
   email: string;
   linkedin: string;
+  github: string;
   location: string;
   experiences: Experience[];
   skills: Skill[];
+  skillsAssessment: SkillsAssessment;
   education: Education[];
 }
 
