@@ -1,12 +1,22 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo, type FormEvent } from 'react';
+import {
+  useState,
+  useRef,
+  useEffect,
+  useMemo,
+  useCallback,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { ChatMessage } from './chat-message';
 import { Button } from '@/components/ui';
 import { suggestedQuestions } from '@/lib/resume-data';
 import { cn } from '@/lib/utils';
+
+const MAX_MESSAGE_LENGTH = 2000;
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -18,6 +28,8 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: '/api/chat' }),
@@ -45,6 +57,34 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
     }
   }, [isOpen]);
 
+  // Handle escape key and focus trap
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+
+      // Focus trap - cycle focus within panel
+      if (e.key === 'Tab' && panelRef.current) {
+        const focusableElements = panelRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey && document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement?.focus();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement?.focus();
+        }
+      }
+    },
+    [onClose]
+  );
+
   const handleSuggestedQuestion = (question: string) => {
     setInput(question);
     setHasInteracted(true);
@@ -52,11 +92,14 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (input.trim() && !isLoading) {
-      sendMessage({ role: 'user', parts: [{ type: 'text', text: input }] });
+    const trimmedInput = input.trim();
+    if (trimmedInput && !isLoading && trimmedInput.length <= MAX_MESSAGE_LENGTH) {
+      sendMessage({ role: 'user', parts: [{ type: 'text', text: trimmedInput }] });
       setInput('');
     }
   };
+
+  const isInputTooLong = input.length > MAX_MESSAGE_LENGTH;
 
   // Extract text content from message parts
   const getMessageContent = (message: (typeof messages)[number]): string => {
@@ -81,14 +124,19 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
 
       {/* Panel */}
       <div
+        ref={panelRef}
         className={cn(
           'fixed bottom-0 right-0 z-50 flex h-[100dvh] w-full flex-col bg-white shadow-2xl transition-transform duration-300 md:bottom-24 md:right-6 md:h-[600px] md:w-[400px] md:rounded-2xl',
           isOpen
             ? 'translate-x-0'
             : 'translate-x-full md:translate-x-[calc(100%+24px)]'
         )}
+        id="chat-panel"
         role="dialog"
+        aria-modal="true"
         aria-label="Chat with AI assistant"
+        aria-describedby="chat-description"
+        onKeyDown={handleKeyDown}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--color-border)] p-4">
@@ -96,11 +144,12 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
             <h3 className="font-semibold text-[var(--color-primary)]">
               Ask About My Experience
             </h3>
-            <p className="text-sm text-[var(--color-text-muted)]">
+            <p id="chat-description" className="text-sm text-[var(--color-text-muted)]">
               AI-powered career assistant
             </p>
           </div>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             className="rounded-full p-2 transition-colors hover:bg-[var(--color-bg-alt)] md:hidden"
             aria-label="Close chat"
@@ -189,13 +238,21 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask a question..."
-              className="flex-1 rounded-full border border-[var(--color-border)] px-4 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+              aria-label="Type your message"
+              aria-invalid={isInputTooLong}
+              maxLength={MAX_MESSAGE_LENGTH + 100}
+              className={cn(
+                'flex-1 rounded-full border px-4 py-2 text-sm focus:outline-none focus:ring-1',
+                isInputTooLong
+                  ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                  : 'border-[var(--color-border)] focus:border-[var(--color-accent)] focus:ring-[var(--color-accent)]'
+              )}
               disabled={isLoading}
             />
             <Button
               type="submit"
               size="sm"
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || !input.trim() || isInputTooLong}
               className="rounded-full"
             >
               <svg

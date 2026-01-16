@@ -23,11 +23,16 @@ export async function fetchBlob(filename: string): Promise<string> {
     }
 
     const blobUrl = `https://${blobStoreId}.blob.vercel-storage.com/${filename}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
     const response = await fetch(blobUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.warn(`Blob not found or error: ${filename} (${response.status})`);

@@ -18,6 +18,8 @@ export function ChatFab({ onClick, isOpen }: ChatFabProps) {
           : 'bg-[var(--color-accent)] hover:bg-[var(--color-accent-light)]'
       )}
       aria-label={isOpen ? 'Close chat' : 'Open chat'}
+      aria-expanded={isOpen}
+      aria-controls="chat-panel"
     >
       {isOpen ? (
         <svg
