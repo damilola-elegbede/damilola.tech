@@ -4,25 +4,27 @@
 /* WCAG AA Compliant - All text/background combos pass 4.5:1 minimum */
 
 :root {
-  /* Background Colors */
-  --color-bg: #0A2540;
-  --color-bg-alt: #0D1F33;
-  --color-card: #111B27;
-  --color-card-strong: #1C2936;
-  --color-card-moderate: #1A1A1A;
-  --color-card-gaps: #2A2318;
+  /* Background Colors - Near-black base */
+  --color-bg: #0D1117;
+  --color-bg-alt: #161B22;
+  --color-card: #1C2128;
+  --color-card-strong: #0D2818;
+  --color-card-moderate: #2D2A18;
+  --color-card-gaps: #2A1818;
 
   /* Text Colors - WCAG AA Compliant */
-  --color-text: #F8FAFC;
-  --color-text-muted: #94A3B8;
+  --color-text: #F0F6FC;
+  --color-text-muted: #8B949E;
+  --color-text-title: #C9A227;
 
   /* Accent Colors */
   --color-accent: #60A5FA;
-  --color-accent-green: #10B981;
-  --color-accent-amber: #D97706;
+  --color-accent-green: #4ADE80;
+  --color-accent-mustard: #EAB308;
+  --color-accent-red: #F87171;
 
   /* Border */
-  --color-border: #1E3A5F;
+  --color-border: #30363D;
 
   /* Semantic */
   --background: var(--color-bg);
@@ -40,9 +42,11 @@
   --color-card-gaps: var(--color-card-gaps);
   --color-text: var(--color-text);
   --color-text-muted: var(--color-text-muted);
+  --color-text-title: var(--color-text-title);
   --color-accent: var(--color-accent);
   --color-accent-green: var(--color-accent-green);
-  --color-accent-amber: var(--color-accent-amber);
+  --color-accent-mustard: var(--color-accent-mustard);
+  --color-accent-red: var(--color-accent-red);
   --color-border: var(--color-border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { NavMenu } from '@/components/ui/nav-menu';
 
@@ -14,11 +14,16 @@ describe('NavMenu', () => {
 
     fireEvent.click(button);
 
-    expect(screen.getByRole('navigation')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /experience/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /skills/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /education/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /contact/i })).toBeInTheDocument();
+    // There should now be two navigations (desktop + mobile dropdown)
+    const navs = screen.getAllByRole('navigation');
+    expect(navs.length).toBe(2);
+
+    // Get the mobile dropdown nav (the second one)
+    const mobileNav = navs[1];
+    expect(within(mobileNav).getByRole('link', { name: /experience/i })).toBeInTheDocument();
+    expect(within(mobileNav).getByRole('link', { name: /skills/i })).toBeInTheDocument();
+    expect(within(mobileNav).getByRole('link', { name: /education/i })).toBeInTheDocument();
+    expect(within(mobileNav).getByRole('link', { name: /contact/i })).toBeInTheDocument();
   });
 
   it('closes menu on button click when open', () => {
@@ -27,20 +32,35 @@ describe('NavMenu', () => {
 
     // Open menu
     fireEvent.click(button);
-    expect(screen.getByRole('navigation')).toBeInTheDocument();
+    expect(screen.getAllByRole('navigation').length).toBe(2);
 
     // Close menu
     fireEvent.click(screen.getByRole('button', { name: /close menu/i }));
-    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    // Should only have desktop nav remaining
+    expect(screen.getAllByRole('navigation').length).toBe(1);
   });
 
   it('nav links have correct hrefs', () => {
     render(<NavMenu />);
     fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
 
-    expect(screen.getByRole('link', { name: /experience/i })).toHaveAttribute('href', '#experience');
-    expect(screen.getByRole('link', { name: /skills/i })).toHaveAttribute('href', '#skills-assessment');
-    expect(screen.getByRole('link', { name: /education/i })).toHaveAttribute('href', '#education');
-    expect(screen.getByRole('link', { name: /contact/i })).toHaveAttribute('href', '#contact');
+    // Get the mobile dropdown nav (the second one)
+    const navs = screen.getAllByRole('navigation');
+    const mobileNav = navs[1];
+
+    expect(within(mobileNav).getByRole('link', { name: /experience/i })).toHaveAttribute('href', '#experience');
+    expect(within(mobileNav).getByRole('link', { name: /skills/i })).toHaveAttribute('href', '#skills-assessment');
+    expect(within(mobileNav).getByRole('link', { name: /education/i })).toHaveAttribute('href', '#education');
+    expect(within(mobileNav).getByRole('link', { name: /contact/i })).toHaveAttribute('href', '#contact');
+  });
+
+  it('renders desktop navigation links', () => {
+    render(<NavMenu />);
+    const desktopNav = screen.getAllByRole('navigation')[0];
+
+    expect(within(desktopNav).getByRole('link', { name: /experience/i })).toBeInTheDocument();
+    expect(within(desktopNav).getByRole('link', { name: /skills/i })).toBeInTheDocument();
+    expect(within(desktopNav).getByRole('link', { name: /education/i })).toBeInTheDocument();
+    expect(within(desktopNav).getByRole('link', { name: /contact/i })).toBeInTheDocument();
   });
 });

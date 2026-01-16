@@ -5,7 +5,7 @@ export function Education() {
   return (
     <section id="education" className="px-6 py-20">
       <div className="mx-auto max-w-3xl">
-        <h2 className="mb-12 text-center text-[var(--color-text)]">
+        <h2 className="mb-12 text-3xl text-[var(--color-text)] md:text-4xl">
           Education
         </h2>
         <div className="space-y-4">

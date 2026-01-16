@@ -10,6 +10,15 @@ export const resumeData: ResumeData = {
   linkedin: 'https://linkedin.com/in/damilola-elegbede/',
   github: 'https://github.com/damilola-elegbede',
   location: 'Boulder, CO',
+  openToRoles: [
+    'Engineering Manager',
+    'Senior Engineering Manager',
+  ],
+  experienceTags: [
+    'Ex-Verily',
+    'Ex-Qualcomm',
+    'MBA + MS CS',
+  ],
   experiences: [
     {
       id: 'verily',

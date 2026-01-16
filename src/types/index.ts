@@ -36,6 +36,8 @@ export interface ResumeData {
   linkedin: string;
   github: string;
   location: string;
+  openToRoles: string[];
+  experienceTags: string[];
   experiences: Experience[];
   skills: Skill[];
   skillsAssessment: SkillsAssessment;

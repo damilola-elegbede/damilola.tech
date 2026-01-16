@@ -29,11 +29,11 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
       titleColor: 'text-[var(--color-accent-green)]',
     },
     moderate: {
-      border: 'border-[var(--color-text-muted)]',
+      border: 'border-[var(--color-accent-mustard)]',
       bg: 'bg-[var(--color-card-moderate)]',
       icon: (
         <svg
-          className="h-5 w-5 text-[var(--color-text-muted)]"
+          className="h-5 w-5 text-[var(--color-accent-mustard)]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -41,14 +41,14 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
           <circle cx="12" cy="12" r="3" strokeWidth={2} />
         </svg>
       ),
-      titleColor: 'text-[var(--color-text-muted)]',
+      titleColor: 'text-[var(--color-accent-mustard)]',
     },
     gaps: {
-      border: 'border-[var(--color-accent-amber)]',
+      border: 'border-[var(--color-accent-red)]',
       bg: 'bg-[var(--color-card-gaps)]',
       icon: (
         <svg
-          className="h-5 w-5 text-[var(--color-accent-amber)]"
+          className="h-5 w-5 text-[var(--color-accent-red)]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -61,7 +61,7 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
           />
         </svg>
       ),
-      titleColor: 'text-[var(--color-accent-amber)]',
+      titleColor: 'text-[var(--color-accent-red)]',
     },
   };
 
@@ -92,7 +92,7 @@ export function SkillsAssessment() {
   return (
     <section id="skills-assessment" className="bg-[var(--color-bg-alt)] px-6 py-20">
       <div className="mx-auto max-w-5xl">
-        <h2 className="mb-12 text-center text-[var(--color-text)]">
+        <h2 className="mb-12 text-3xl text-[var(--color-text)] md:text-4xl">
           Skills Assessment
         </h2>
         <div className="grid gap-6 md:grid-cols-3">

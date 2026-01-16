@@ -7,8 +7,8 @@ export function Contact() {
       id="contact"
       className="border-t border-[var(--color-border)] bg-[var(--color-bg)] px-6 py-16"
     >
-      <div className="mx-auto max-w-3xl text-center">
-        <h2 className="mb-8 text-[var(--color-text)]">Let&apos;s Connect</h2>
+      <div className="mx-auto max-w-3xl">
+        <h2 className="mb-8 text-3xl text-[var(--color-text)] md:text-4xl">Let&apos;s Connect</h2>
 
         {/* Social Links */}
         <SocialLinks className="mb-8 justify-center" iconSize="lg" />

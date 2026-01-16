@@ -22,13 +22,13 @@ describe('Hero', () => {
 
   it('renders the CTA button', () => {
     render(<Hero onOpenChat={() => {}} />);
-    expect(screen.getByRole('button', { name: /ask ai about my experience/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ask ai about me/i })).toBeInTheDocument();
   });
 
   it('calls onOpenChat when CTA is clicked', () => {
     const handleOpenChat = vi.fn();
     render(<Hero onOpenChat={handleOpenChat} />);
-    fireEvent.click(screen.getByRole('button', { name: /ask ai about my experience/i }));
+    fireEvent.click(screen.getByRole('button', { name: /ask ai about me/i }));
     expect(handleOpenChat).toHaveBeenCalledTimes(1);
   });
 
