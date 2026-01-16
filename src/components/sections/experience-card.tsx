@@ -30,7 +30,7 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
       <ul className="space-y-3">
         {experience.highlights.map((highlight, i) => (
           <li key={i} className="flex items-start text-[var(--color-text)]">
-            <span className="mr-3 mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[var(--color-accent)]" />
+            <span className="mr-3 mt-0.5 flex-shrink-0 text-[var(--color-accent)]">›</span>
             <span>{highlight}</span>
           </li>
         ))}
@@ -42,10 +42,8 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
         className="mt-6 flex items-center gap-2 text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-accent)]"
         aria-expanded={isAiContextOpen}
       >
-        <span className="flex h-6 w-6 items-center justify-center rounded bg-[var(--color-bg-alt)]">
-          🤖
-        </span>
-        <span>AI Context</span>
+        <span className="text-[var(--color-accent)]">✨</span>
+        <span>View AI Context</span>
         <svg
           className={cn(
             'h-4 w-4 transition-transform',

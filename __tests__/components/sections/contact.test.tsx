@@ -3,9 +3,11 @@ import { describe, it, expect } from 'vitest';
 import { Contact } from '@/components/sections/contact';
 
 describe('Contact', () => {
-  it('renders the section heading', () => {
+  it('renders social links', () => {
     render(<Contact />);
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent("Let's Connect");
+    expect(screen.getByRole('link', { name: /github/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /linkedin/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /email/i })).toBeInTheDocument();
   });
 
   it('renders email link', () => {

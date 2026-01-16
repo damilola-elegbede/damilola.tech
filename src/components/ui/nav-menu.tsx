@@ -29,7 +29,7 @@ export function NavMenu({ className }: NavMenuProps) {
           <span key={item.href} className="flex items-center">
             <a
               href={item.href}
-              className="px-3 py-2 text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]"
+              className="px-3 py-2 text-base text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]"
             >
               {item.label}
             </a>

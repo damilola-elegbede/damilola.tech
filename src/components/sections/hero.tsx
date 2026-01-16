@@ -11,7 +11,7 @@ export function Hero({ onOpenChat }: HeroProps) {
   return (
     <>
       {/* Fixed Header */}
-      <header className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between bg-[var(--color-bg)]/80 px-6 py-4 backdrop-blur-sm">
+      <header className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between border-b border-[var(--color-border)]/50 bg-[var(--color-bg)]/80 px-6 py-4 backdrop-blur-sm">
         <InitialsBadge />
         <NavMenu />
       </header>
@@ -22,19 +22,11 @@ export function Hero({ onOpenChat }: HeroProps) {
         className="flex min-h-screen flex-col justify-center px-6 py-20"
       >
         <div className="mx-auto w-full max-w-5xl">
-          {/* Status Pill */}
-          <div className="mb-8 flex items-center gap-2">
-            <span className="inline-block h-2 w-2 rounded-full bg-[var(--color-accent-green)]" />
-            <span className="text-sm text-[var(--color-text-muted)]">
-              Open to {resumeData.openToRoles.join(', ')} roles
-            </span>
-          </div>
-
           {/* Name */}
           <h1 className="mb-4 text-[var(--color-text)]">{resumeData.name}</h1>
 
           {/* Title */}
-          <p className="mb-4 text-3xl font-medium text-[var(--color-text-title)] md:text-4xl">
+          <p className="mb-4 text-3xl font-medium text-[var(--color-accent)] md:text-4xl">
             {resumeData.title}
           </p>
 
@@ -44,7 +36,7 @@ export function Hero({ onOpenChat }: HeroProps) {
           </p>
 
           {/* Experience Tags */}
-          <div className="mb-10 flex flex-wrap gap-3">
+          <div className="mb-6 flex flex-wrap gap-3">
             {resumeData.experienceTags.map((tag) => (
               <span
                 key={tag}
@@ -55,19 +47,22 @@ export function Hero({ onOpenChat }: HeroProps) {
             ))}
           </div>
 
-          {/* CTA Button */}
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={onOpenChat}
-              size="lg"
-              className="bg-[var(--color-accent-green)] text-[var(--color-bg)] hover:bg-[var(--color-accent-green)]/90"
-            >
-              Ask AI About Me
-            </Button>
-            <span className="rounded-full bg-[var(--color-accent-green)]/20 px-2 py-1 text-xs font-medium text-[var(--color-accent-green)]">
-              New
+          {/* Status Pill */}
+          <div className="mb-8 flex items-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-full bg-[var(--color-accent)]" />
+            <span className="text-sm text-[var(--color-text-muted)]">
+              Open to {resumeData.openToRoles.join(', ')} roles
             </span>
           </div>
+
+          {/* CTA Button */}
+          <Button
+            onClick={onOpenChat}
+            size="lg"
+            className="bg-[var(--color-accent)] text-[var(--color-bg)] hover:bg-[var(--color-accent)]/90"
+          >
+            Ask AI About Me
+          </Button>
         </div>
 
         {/* Scroll Indicator */}
