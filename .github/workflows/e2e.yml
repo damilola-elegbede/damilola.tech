@@ -24,6 +24,12 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ matrix.project }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: playwright-${{ matrix.project }}-
       - run: npx playwright install --with-deps ${{ matrix.project == 'mobile-chrome' && 'chromium' || matrix.project == 'mobile-safari' && 'webkit' || matrix.project }}
       - run: npx playwright test --project=${{ matrix.project }}
         env:

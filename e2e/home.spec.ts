@@ -5,15 +5,19 @@ test.describe('Home Page', () => {
     await page.goto('/');
   });
 
-  test('should display the hero section', async ({ page }) => {
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Damilola Elegbede');
-    await expect(page.getByText('Engineering Manager')).toBeVisible();
-    await expect(
-      page.getByText('Building high-performance organizations that deliver enterprise-scale solutions')
-    ).toBeVisible();
-  });
+  test('should display hero section with CTA and correct title', async ({ page }) => {
+    // Page title
+    await expect(page).toHaveTitle(/Damilola Elegbede/);
 
-  test('should display the CTA button in hero', async ({ page }) => {
+    // Hero content - use locator scoped to hero section
+    const hero = page.locator('#hero');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Damilola Elegbede');
+    await expect(hero.getByText('Engineering Manager', { exact: true })).toBeVisible();
+    await expect(
+      hero.getByText('Building high-performance organizations that deliver enterprise-scale solutions')
+    ).toBeVisible();
+
+    // CTA button
     await expect(page.getByRole('button', { name: /ask ai about me/i })).toBeVisible();
   });
 
@@ -23,7 +27,7 @@ test.describe('Home Page', () => {
 
     // Experience
     await expect(page.locator('#experience')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Experience' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Experience', exact: true })).toBeVisible();
 
     // Skills Assessment
     await expect(page.locator('#skills-assessment')).toBeVisible();
@@ -37,9 +41,16 @@ test.describe('Home Page', () => {
     await expect(page.locator('#contact')).toBeVisible();
   });
 
-  test('should display experience entries', async ({ page }) => {
+  test('should display experience section content', async ({ page }) => {
+    // Experience entries
     await expect(page.getByText('Verily Life Sciences')).toBeVisible();
     await expect(page.getByText('Qualcomm Technologies').first()).toBeVisible();
+
+    // Experience highlights
+    await expect(page.getByText(/enterprise-wide GCP cloud transformation/i)).toBeVisible();
+
+    // Expand button for experiences with many bullets
+    await expect(page.getByRole('button', { name: /show 3 more/i }).first()).toBeVisible();
   });
 
   test('should display skills assessment cards', async ({ page }) => {
@@ -49,52 +60,29 @@ test.describe('Home Page', () => {
   });
 
   test('should display education entries', async ({ page }) => {
-    await expect(page.getByText('MBA')).toBeVisible();
-    await expect(page.getByText('MS Computer Science')).toBeVisible();
+    const educationSection = page.locator('#education');
+    await expect(educationSection.getByText('MBA')).toBeVisible();
+    await expect(educationSection.getByText('MS Computer Science')).toBeVisible();
   });
 
   test('should display contact links in footer', async ({ page }) => {
-    await expect(page.getByRole('link', { name: /linkedin/i })).toBeVisible();
-    await expect(page.getByText('Boulder, CO')).toBeVisible();
+    const footer = page.locator('#contact');
+    await expect(footer.getByRole('link', { name: /linkedin/i })).toBeVisible();
+    await expect(footer.getByText('Boulder, CO', { exact: true })).toBeVisible();
   });
 
-  test('should have correct page title', async ({ page }) => {
-    await expect(page).toHaveTitle(/Damilola Elegbede/);
-  });
-});
+  test('should display navigation with correct links', async ({ page, isMobile }) => {
+    // Skip on mobile - navigation is hidden behind hamburger menu
+    test.skip(isMobile, 'Navigation links are hidden on mobile');
 
-test.describe('Experience Section Interaction', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-  });
-
-  test('should display experience highlights', async ({ page }) => {
-    // Check that highlights are visible for the first experience
-    await expect(page.getByText(/enterprise-wide GCP cloud transformation/i)).toBeVisible();
-  });
-
-  test('should show expand button for experiences with many bullets', async ({ page }) => {
-    // The Verily entry has 6 bullets, so should show "Show 3 more" button
-    await expect(page.getByRole('button', { name: /show 3 more/i }).first()).toBeVisible();
-  });
-});
-
-test.describe('Navigation', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-  });
-
-  test('should display navigation links', async ({ page }) => {
+    // Navigation links visible on desktop
     await expect(page.getByRole('link', { name: /experience/i }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: /skills/i }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: /education/i }).first()).toBeVisible();
-  });
 
-  test('should not display contact in navigation', async ({ page }) => {
-    // Contact should NOT be in the main nav (only 3 items)
+    // Only 3 nav links (Contact not in nav)
     const navLinks = page.locator('nav a');
     const count = await navLinks.count();
-    // Desktop nav has 3 links (Experience, Skills, Education)
     expect(count).toBe(3);
   });
 });
