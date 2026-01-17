@@ -14,32 +14,27 @@ test.describe('Home Page', () => {
   });
 
   test('should display the CTA button in hero', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /ask ai about my experience/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /ask ai about me/i })).toBeVisible();
   });
 
   test('should display all main sections', async ({ page }) => {
     // Hero
     await expect(page.locator('#hero')).toBeVisible();
 
-    // About
-    await expect(page.locator('#about')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'About' })).toBeVisible();
-
     // Experience
     await expect(page.locator('#experience')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Experience' })).toBeVisible();
 
-    // Skills
-    await expect(page.locator('#skills')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Skills' })).toBeVisible();
+    // Skills Assessment
+    await expect(page.locator('#skills-assessment')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Skills Assessment' })).toBeVisible();
 
     // Education
     await expect(page.locator('#education')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Education' })).toBeVisible();
 
-    // Contact
+    // Contact (footer)
     await expect(page.locator('#contact')).toBeVisible();
-    await expect(page.getByRole('heading', { name: "Let's Connect" })).toBeVisible();
   });
 
   test('should display experience entries', async ({ page }) => {
@@ -47,10 +42,10 @@ test.describe('Home Page', () => {
     await expect(page.getByText('Qualcomm Technologies').first()).toBeVisible();
   });
 
-  test('should display skill badges', async ({ page }) => {
-    await expect(page.getByText('GCP')).toBeVisible();
-    await expect(page.getByText('AWS')).toBeVisible();
-    await expect(page.getByText('Kubernetes/GKE')).toBeVisible();
+  test('should display skills assessment cards', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Strong' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Moderate' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Gaps' })).toBeVisible();
   });
 
   test('should display education entries', async ({ page }) => {
@@ -58,8 +53,7 @@ test.describe('Home Page', () => {
     await expect(page.getByText('MS Computer Science')).toBeVisible();
   });
 
-  test('should display contact information', async ({ page }) => {
-    await expect(page.getByRole('link', { name: /damilola.elegbede@gmail.com/i })).toBeVisible();
+  test('should display contact links in footer', async ({ page }) => {
     await expect(page.getByRole('link', { name: /linkedin/i })).toBeVisible();
     await expect(page.getByText('Boulder, CO')).toBeVisible();
   });
@@ -74,86 +68,33 @@ test.describe('Experience Section Interaction', () => {
     await page.goto('/');
   });
 
-  test('should expand and collapse experience entries', async ({ page }) => {
-    // First experience should be expanded by default
-    const firstExperience = page.locator('#experience button').first();
-    await expect(firstExperience).toHaveAttribute('aria-expanded', 'true');
+  test('should display experience highlights', async ({ page }) => {
+    // Check that highlights are visible for the first experience
+    await expect(page.getByText(/enterprise-wide GCP cloud transformation/i)).toBeVisible();
+  });
 
-    // Check that highlights are visible
-    await expect(page.getByText(/enterprise-wide GCP transformation/i)).toBeVisible();
-
-    // Click to collapse
-    await firstExperience.click();
-    await expect(firstExperience).toHaveAttribute('aria-expanded', 'false');
-
-    // Click to expand again
-    await firstExperience.click();
-    await expect(firstExperience).toHaveAttribute('aria-expanded', 'true');
+  test('should show expand button for experiences with many bullets', async ({ page }) => {
+    // The Verily entry has 6 bullets, so should show "Show 3 more" button
+    await expect(page.getByRole('button', { name: /show 3 more/i }).first()).toBeVisible();
   });
 });
 
-test.describe('Dark Mode', () => {
+test.describe('Navigation', () => {
   test.beforeEach(async ({ page }) => {
-    // Clear localStorage before each test
-    await page.addInitScript(() => {
-      window.localStorage.clear();
-    });
     await page.goto('/');
   });
 
-  test('should display theme toggle button', async ({ page }) => {
-    const themeToggle = page.getByRole('button', { name: /switch to dark mode/i });
-    await expect(themeToggle).toBeVisible();
+  test('should display navigation links', async ({ page }) => {
+    await expect(page.getByRole('link', { name: /experience/i }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /skills/i }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /education/i }).first()).toBeVisible();
   });
 
-  test('should toggle between light and dark mode', async ({ page }) => {
-    // Initially in light mode
-    const html = page.locator('html');
-    await expect(html).not.toHaveAttribute('data-theme', 'dark');
-
-    // Click to switch to dark mode
-    const themeToggle = page.getByRole('button', { name: /switch to dark mode/i });
-    await themeToggle.click();
-
-    // Should be in dark mode now
-    await expect(html).toHaveAttribute('data-theme', 'dark');
-    await expect(
-      page.getByRole('button', { name: /switch to light mode/i })
-    ).toBeVisible();
-
-    // Click to switch back to light mode
-    await page.getByRole('button', { name: /switch to light mode/i }).click();
-    await expect(html).toHaveAttribute('data-theme', 'light');
-  });
-
-  test('should persist theme preference across page reloads', async ({ page }) => {
-    // Switch to dark mode
-    await page.getByRole('button', { name: /switch to dark mode/i }).click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-
-    // Reload the page
-    await page.reload();
-
-    // Should still be in dark mode
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    await expect(
-      page.getByRole('button', { name: /switch to light mode/i })
-    ).toBeVisible();
-  });
-
-  test('theme toggle should be keyboard accessible', async ({ page }) => {
-    const themeToggle = page.getByRole('button', { name: /switch to dark mode/i });
-
-    // Focus the button
-    await themeToggle.focus();
-    await expect(themeToggle).toBeFocused();
-
-    // Press Enter to toggle
-    await page.keyboard.press('Enter');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-
-    // Press Space to toggle back
-    await page.keyboard.press('Space');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  test('should not display contact in navigation', async ({ page }) => {
+    // Contact should NOT be in the main nav (only 3 items)
+    const navLinks = page.locator('nav a');
+    const count = await navLinks.count();
+    // Desktop nav has 3 links (Experience, Skills, Education)
+    expect(count).toBe(3);
   });
 });

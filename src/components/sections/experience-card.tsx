@@ -10,9 +10,14 @@ interface ExperienceCardProps {
 
 export function ExperienceCard({ experience }: ExperienceCardProps) {
   const [isAiContextOpen, setIsAiContextOpen] = useState(false);
+  const [showAllHighlights, setShowAllHighlights] = useState(false);
+
+  const displayedHighlights = showAllHighlights
+    ? experience.highlights
+    : experience.highlights.slice(0, 3);
 
   return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6">
+    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6 transition-all duration-200 hover:border-[var(--color-accent)] hover:shadow-[0_0_20px_rgba(96,165,250,0.2)]">
       {/* Header */}
       <div className="mb-4">
         <h3 className="text-xl font-semibold text-[var(--color-text)]">
@@ -28,13 +33,25 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
 
       {/* Highlights */}
       <ul className="space-y-3">
-        {experience.highlights.map((highlight, i) => (
+        {displayedHighlights.map((highlight, i) => (
           <li key={i} className="flex items-start text-[var(--color-text)]">
             <span className="mr-3 mt-0.5 flex-shrink-0 text-[var(--color-accent)]">›</span>
             <span>{highlight}</span>
           </li>
         ))}
       </ul>
+
+      {/* Show More/Less Button */}
+      {experience.highlights.length > 3 && (
+        <button
+          onClick={() => setShowAllHighlights(!showAllHighlights)}
+          className="mt-4 text-sm text-[var(--color-accent)] transition-colors hover:underline"
+        >
+          {showAllHighlights
+            ? '‹ Show less'
+            : `Show ${experience.highlights.length - 3} more ›`}
+        </button>
+      )}
 
       {/* AI Context Toggle */}
       <button

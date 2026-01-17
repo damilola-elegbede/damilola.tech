@@ -23,7 +23,6 @@ describe('NavMenu', () => {
     expect(within(mobileNav).getByRole('link', { name: /experience/i })).toBeInTheDocument();
     expect(within(mobileNav).getByRole('link', { name: /skills/i })).toBeInTheDocument();
     expect(within(mobileNav).getByRole('link', { name: /education/i })).toBeInTheDocument();
-    expect(within(mobileNav).getByRole('link', { name: /contact/i })).toBeInTheDocument();
   });
 
   it('closes menu on button click when open', () => {
@@ -51,7 +50,6 @@ describe('NavMenu', () => {
     expect(within(mobileNav).getByRole('link', { name: /experience/i })).toHaveAttribute('href', '#experience');
     expect(within(mobileNav).getByRole('link', { name: /skills/i })).toHaveAttribute('href', '#skills-assessment');
     expect(within(mobileNav).getByRole('link', { name: /education/i })).toHaveAttribute('href', '#education');
-    expect(within(mobileNav).getByRole('link', { name: /contact/i })).toHaveAttribute('href', '#contact');
   });
 
   it('renders desktop navigation links', () => {
@@ -61,6 +59,5 @@ describe('NavMenu', () => {
     expect(within(desktopNav).getByRole('link', { name: /experience/i })).toBeInTheDocument();
     expect(within(desktopNav).getByRole('link', { name: /skills/i })).toBeInTheDocument();
     expect(within(desktopNav).getByRole('link', { name: /education/i })).toBeInTheDocument();
-    expect(within(desktopNav).getByRole('link', { name: /contact/i })).toBeInTheDocument();
   });
 });

@@ -1,4 +1,8 @@
+'use client';
+
 import { resumeData } from '@/lib/resume-data';
+import { useScrollReveal } from '@/hooks/use-scroll-reveal';
+import { cn } from '@/lib/utils';
 
 interface SkillCardProps {
   title: string;
@@ -11,6 +15,8 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
     strong: {
       border: 'border-[var(--color-accent-green)]',
       bg: 'bg-[var(--color-card-strong)]',
+      hoverBorder: 'hover:border-[var(--color-accent-green)]',
+      hoverShadow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.2)]',
       icon: (
         <svg
           className="h-5 w-5 text-[var(--color-accent-green)]"
@@ -31,6 +37,8 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
     moderate: {
       border: 'border-[var(--color-accent-mustard)]',
       bg: 'bg-[var(--color-card-moderate)]',
+      hoverBorder: 'hover:border-[var(--color-accent-mustard)]',
+      hoverShadow: 'hover:shadow-[0_0_20px_rgba(234,179,8,0.2)]',
       icon: (
         <svg
           className="h-5 w-5 text-[var(--color-accent-mustard)]"
@@ -46,6 +54,8 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
     gaps: {
       border: 'border-[var(--color-accent-red)]',
       bg: 'bg-[var(--color-card-gaps)]',
+      hoverBorder: 'hover:border-[var(--color-accent-red)]',
+      hoverShadow: 'hover:shadow-[0_0_20px_rgba(239,68,68,0.2)]',
       icon: (
         <svg
           className="h-5 w-5 text-[var(--color-accent-red)]"
@@ -69,7 +79,13 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
 
   return (
     <div
-      className={`rounded-lg border-2 ${styles.border} ${styles.bg} p-6`}
+      className={cn(
+        'rounded-lg border-2 p-6 transition-all duration-200',
+        styles.border,
+        styles.bg,
+        styles.hoverBorder,
+        styles.hoverShadow
+      )}
     >
       <h3 className={`mb-4 text-lg font-semibold ${styles.titleColor}`}>
         {title}
@@ -88,9 +104,17 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
 
 export function SkillsAssessment() {
   const { skillsAssessment } = resumeData;
+  const { ref, isVisible } = useScrollReveal();
 
   return (
-    <section id="skills-assessment" className="bg-[var(--color-bg-alt)] px-6 py-20">
+    <section
+      id="skills-assessment"
+      ref={ref as React.RefObject<HTMLElement>}
+      className={cn(
+        'bg-[var(--color-bg-alt)] px-6 py-20 transition-all duration-700 ease-out',
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      )}
+    >
       <div className="mx-auto max-w-5xl">
         <h2 className="mb-12 text-3xl text-[var(--color-text)] md:text-4xl">
           Skills Assessment

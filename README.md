@@ -80,7 +80,7 @@ src/
 └── types/              # TypeScript type definitions
 
 content/                # Local dev content (mirrored to Vercel Blob)
-__tests__/              # Unit tests
+tests/                  # Unit tests
 e2e/                    # Playwright E2E tests
 ```
 

@@ -2,11 +2,16 @@ name: E2E Tests
 
 on:
   deployment_status:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
     name: Playwright Tests
-    if: github.event.deployment_status.state == 'success'
+    if: github.event.deployment_status.state == 'success' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,7 +23,7 @@ jobs:
       - run: npx playwright install --with-deps
       - run: npx playwright test
         env:
-          PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.target_url }}
+          PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.target_url || 'http://localhost:3000' }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

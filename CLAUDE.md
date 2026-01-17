@@ -31,7 +31,7 @@ Recruiters can ask the AI about experience, skills, and role fit.
 - `src/components/` - React components (ui/, sections/, chat/)
 - `src/lib/` - Utilities (blob fetching, system prompt)
 - `content/` - Local dev content (mirrored to Vercel Blob)
-- `__tests__/` - Unit test files
+- `tests/` - Unit test files
 - `e2e/` - Playwright E2E tests
 
 ## Environment Variables
