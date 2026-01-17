@@ -44,6 +44,7 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
       {/* Show More/Less Button */}
       {experience.highlights.length > 3 && (
         <button
+          type="button"
           onClick={() => setShowAllHighlights(!showAllHighlights)}
           className="mt-4 text-sm text-[var(--color-accent)] transition-colors hover:underline"
         >
@@ -55,9 +56,11 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
 
       {/* AI Context Toggle */}
       <button
+        type="button"
         onClick={() => setIsAiContextOpen(!isAiContextOpen)}
         className="mt-6 flex items-center gap-2 text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-accent)]"
         aria-expanded={isAiContextOpen}
+        aria-controls={`ai-context-${experience.id}`}
       >
         <span className="text-[var(--color-accent)]">✨</span>
         <span>View AI Context</span>
@@ -81,7 +84,10 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
 
       {/* AI Context Content */}
       {isAiContextOpen && (
-        <div className="mt-4 rounded-lg bg-[var(--color-bg-alt)] p-4 text-sm text-[var(--color-text-muted)]">
+        <div
+          id={`ai-context-${experience.id}`}
+          className="mt-4 rounded-lg bg-[var(--color-bg-alt)] p-4 text-sm text-[var(--color-text-muted)]"
+        >
           <p>
             Ask the AI chatbot for deeper insights about this role, including
             specific projects, challenges overcome, technologies used, and

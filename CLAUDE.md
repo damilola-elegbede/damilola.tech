@@ -5,7 +5,7 @@ Personal job search landing page with AI chatbot for Damilola Elegbede.
 Recruiters can ask the AI about experience, skills, and role fit.
 
 ## Tech Stack
-- Next.js 14 (App Router)
+- Next.js 16 (App Router)
 - TypeScript (strict mode)
 - Tailwind CSS
 - Vitest + React Testing Library + Playwright

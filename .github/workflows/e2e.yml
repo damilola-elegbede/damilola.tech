@@ -10,9 +10,13 @@ concurrency:
 
 jobs:
   e2e:
-    name: Playwright Tests
+    name: E2E (${{ matrix.project }})
     if: github.event.deployment_status.state == 'success' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit, mobile-chrome, mobile-safari]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,13 +24,13 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npx playwright install --with-deps
-      - run: npx playwright test
+      - run: npx playwright install --with-deps ${{ matrix.project == 'mobile-chrome' && 'chromium' || matrix.project == 'mobile-safari' && 'webkit' || matrix.project }}
+      - run: npx playwright test --project=${{ matrix.project }}
         env:
           PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.target_url || 'http://localhost:3000' }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: playwright-report/
           retention-days: 7

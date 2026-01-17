@@ -19,7 +19,7 @@ export function Hero({ onOpenChat }: HeroProps) {
       {/* Hero Section */}
       <section
         id="hero"
-        className="flex min-h-screen flex-col justify-center px-6 py-20"
+        className="relative flex min-h-screen flex-col justify-center px-6 py-20"
       >
         <div className="mx-auto w-full max-w-5xl">
           {/* Name */}
@@ -71,6 +71,8 @@ export function Hero({ onOpenChat }: HeroProps) {
             Scroll to explore
           </p>
           <svg
+            aria-hidden="true"
+            focusable="false"
             className="mx-auto h-5 w-5 animate-bounce text-[var(--color-text-muted)]"
             fill="none"
             viewBox="0 0 24 24"

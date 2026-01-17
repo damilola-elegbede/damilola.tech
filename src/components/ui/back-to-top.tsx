@@ -20,6 +20,9 @@ export function BackToTop({ className, showAfter = 400 }: BackToTopProps) {
       }
     };
 
+    // Check initial scroll position
+    toggleVisibility();
+
     window.addEventListener('scroll', toggleVisibility);
     return () => window.removeEventListener('scroll', toggleVisibility);
   }, [showAfter]);
@@ -33,6 +36,7 @@ export function BackToTop({ className, showAfter = 400 }: BackToTopProps) {
 
   return (
     <button
+      type="button"
       onClick={scrollToTop}
       className={cn(
         'fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg transition-all hover:bg-[var(--color-bg-alt)]',
@@ -40,6 +44,8 @@ export function BackToTop({ className, showAfter = 400 }: BackToTopProps) {
         className
       )}
       aria-label="Back to top"
+      aria-hidden={!isVisible}
+      tabIndex={isVisible ? 0 : -1}
     >
       <svg
         className="h-5 w-5 text-[var(--color-text)]"

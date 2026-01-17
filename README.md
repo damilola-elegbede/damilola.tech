@@ -32,7 +32,7 @@ cp .env.example .env.local
 
 Create a `.env.local` file with:
 
-```
+```env
 ANTHROPIC_API_KEY=your_api_key_here
 BLOB_READ_WRITE_TOKEN=your_blob_token_here
 ```
@@ -62,7 +62,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the site.
 
 ## Project Structure
 
-```
+```text
 src/
 ├── app/                 # Next.js App Router
 │   ├── api/chat/       # AI chat API endpoint

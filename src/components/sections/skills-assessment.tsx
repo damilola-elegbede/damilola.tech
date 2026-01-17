@@ -19,6 +19,8 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
       hoverShadow: 'hover:shadow-[0_0_20px_rgba(34,197,94,0.2)]',
       icon: (
         <svg
+          aria-hidden="true"
+          focusable="false"
           className="h-5 w-5 text-[var(--color-accent-green)]"
           fill="none"
           viewBox="0 0 24 24"
@@ -41,6 +43,8 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
       hoverShadow: 'hover:shadow-[0_0_20px_rgba(234,179,8,0.2)]',
       icon: (
         <svg
+          aria-hidden="true"
+          focusable="false"
           className="h-5 w-5 text-[var(--color-accent-mustard)]"
           fill="none"
           viewBox="0 0 24 24"
@@ -58,6 +62,8 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
       hoverShadow: 'hover:shadow-[0_0_20px_rgba(239,68,68,0.2)]',
       icon: (
         <svg
+          aria-hidden="true"
+          focusable="false"
           className="h-5 w-5 text-[var(--color-accent-red)]"
           fill="none"
           viewBox="0 0 24 24"
