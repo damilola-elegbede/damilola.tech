@@ -53,37 +53,22 @@ async function generatePrompt(): Promise<void> {
   console.log(`   ${contentStatus.anecdotes} anecdotes.md`);
   console.log('');
 
-  // Step 3: Replace placeholders
+  // Step 3: Replace placeholders (use global regex for all occurrences)
   console.log('3. Replacing placeholders...');
-  const prompt = template
-    .replace(
-      '{{STAR_STORIES}}',
-      content.starStories || '*STAR stories not available in current build.*'
-    )
-    .replace(
-      '{{RESUME}}',
-      content.resume || '*Resume content not available in current build.*'
-    )
-    .replace(
-      '{{LEADERSHIP_PHILOSOPHY}}',
-      content.leadershipPhilosophy ||
-        '*Leadership philosophy details not available in current build.*'
-    )
-    .replace(
-      '{{TECHNICAL_EXPERTISE}}',
-      content.technicalExpertise ||
-        '*Technical expertise details not available in current build.*'
-    )
-    .replace(
-      '{{VERILY_FEEDBACK}}',
-      content.verilyFeedback ||
-        '*Performance feedback not available in current build.*'
-    )
-    .replace(
-      '{{ANECDOTES}}',
-      content.anecdotes ||
-        '*Additional context and anecdotes not available in current build.*'
-    );
+  const replacements: Record<string, string> = {
+    '{{STAR_STORIES}}': content.starStories || '*STAR stories not available in current build.*',
+    '{{RESUME}}': content.resume || '*Resume content not available in current build.*',
+    '{{LEADERSHIP_PHILOSOPHY}}': content.leadershipPhilosophy || '*Leadership philosophy details not available in current build.*',
+    '{{TECHNICAL_EXPERTISE}}': content.technicalExpertise || '*Technical expertise details not available in current build.*',
+    '{{VERILY_FEEDBACK}}': content.verilyFeedback || '*Performance feedback not available in current build.*',
+    '{{ANECDOTES}}': content.anecdotes || '*Additional context and anecdotes not available in current build.*',
+  };
+
+  let prompt = template;
+  for (const [placeholder, value] of Object.entries(replacements)) {
+    // Use global regex to replace all occurrences of each placeholder
+    prompt = prompt.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
+  }
   console.log('   ✓ Placeholders replaced\n');
 
   // Step 4: Generate output file
