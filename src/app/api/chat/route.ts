@@ -1,8 +1,12 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { streamText } from 'ai';
+import { SYSTEM_PROMPT } from '@/lib/generated/system-prompt';
 import { getFullSystemPrompt } from '@/lib/system-prompt';
 
 export const runtime = 'edge';
+
+// Use generated prompt in production, fall back to runtime fetch in development
+const isGeneratedPromptAvailable = SYSTEM_PROMPT !== '__DEVELOPMENT_PLACEHOLDER__';
 
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_MESSAGES = 50;
@@ -37,9 +41,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get full system prompt (resume + STAR stories + guidelines)
-    // This is fetched from Vercel Blob and cached in memory
-    const systemPrompt = await getFullSystemPrompt();
+    // Use build-time generated prompt (production) or fetch at runtime (development)
+    const systemPrompt = isGeneratedPromptAvailable
+      ? SYSTEM_PROMPT
+      : await getFullSystemPrompt();
 
     // Stream response
     const result = streamText({

@@ -15,6 +15,12 @@ import { ChatMessage } from './chat-message';
 import { Button } from '@/components/ui';
 import { suggestedQuestions } from '@/lib/resume-data';
 import { cn } from '@/lib/utils';
+import {
+  loadSession,
+  saveSession,
+  clearSession,
+  type StoredMessage,
+} from '@/lib/chat-storage';
 
 const MAX_MESSAGE_LENGTH = 2000;
 
@@ -24,7 +30,16 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
-  const [hasInteracted, setHasInteracted] = useState(false);
+  // Load stored messages on mount (lazy initialization)
+  const [initialMessages] = useState<StoredMessage[]>(() => {
+    // Only run on client
+    if (typeof window === 'undefined') return [];
+    return loadSession() || [];
+  });
+
+  const [hasInteracted, setHasInteracted] = useState(
+    () => initialMessages.length > 0
+  );
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,12 +51,33 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
     []
   );
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status, setMessages } = useChat({
     transport,
+    messages: initialMessages,
     onFinish: () => {
       setHasInteracted(true);
     },
   });
+
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Convert to StoredMessage format
+      const toStore: StoredMessage[] = messages.map((m) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        parts: m.parts?.filter((p): p is { type: 'text'; text: string } => p.type === 'text') || [],
+      }));
+      saveSession(toStore);
+    }
+  }, [messages]);
+
+  // Handle clearing the chat
+  const handleClearChat = useCallback(() => {
+    clearSession();
+    setMessages([]);
+    setHasInteracted(false);
+  }, [setMessages]);
 
   const isLoading = status === 'streaming' || status === 'submitted';
 
@@ -148,26 +184,51 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
               AI-powered career assistant
             </p>
           </div>
-          <button
-            ref={closeButtonRef}
-            onClick={onClose}
-            className="rounded-full p-2 transition-colors hover:bg-[var(--color-bg-alt)] md:hidden"
-            aria-label="Close chat"
-          >
-            <svg
-              className="h-5 w-5 text-[var(--color-text-muted)]"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+          <div className="flex items-center gap-2">
+            {/* Clear chat button - only show when there are messages */}
+            {messages.length > 0 && (
+              <button
+                onClick={handleClearChat}
+                className="rounded-full p-2 text-xs text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-text)]"
+                aria-label="Clear chat history"
+                title="Clear chat"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+              </button>
+            )}
+            <button
+              ref={closeButtonRef}
+              onClick={onClose}
+              className="rounded-full p-2 transition-colors hover:bg-[var(--color-bg-alt)] md:hidden"
+              aria-label="Close chat"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+              <svg
+                className="h-5 w-5 text-[var(--color-text-muted)]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Messages area */}
