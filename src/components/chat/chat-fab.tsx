@@ -12,7 +12,7 @@ export function ChatFab({ onClick, isOpen }: ChatFabProps) {
     <button
       onClick={onClick}
       className={cn(
-        'fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2',
+        'fixed bottom-6 right-6 z-[60] flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2',
         isOpen
           ? 'bg-[var(--color-text-muted)] hover:bg-[var(--color-text)]'
           : 'bg-[var(--color-accent)] hover:bg-[var(--color-accent-light)]'
