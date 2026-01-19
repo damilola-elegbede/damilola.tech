@@ -46,6 +46,8 @@ export function FitAssessment() {
       background: white !important;
       color: #1a1a1a !important;
       padding: 20px !important;
+      font-size: 12px !important;
+      line-height: 1.5 !important;
     `;
     // Apply dark text to all child elements
     clone.querySelectorAll('*').forEach((el) => {
@@ -53,16 +55,57 @@ export function FitAssessment() {
       element.style.color = '#1a1a1a';
       element.style.borderColor = '#e5e5e5';
     });
-    // Style headings
-    clone.querySelectorAll('h1, h2, h3, h4').forEach((el) => {
+    // Style headings with appropriate document sizes
+    clone.querySelectorAll('h1').forEach((el) => {
       const element = el as HTMLElement;
       element.style.color = '#0a2540';
+      element.style.fontSize = '20px';
+      element.style.marginTop = '16px';
+      element.style.marginBottom = '8px';
+    });
+    clone.querySelectorAll('h2').forEach((el) => {
+      const element = el as HTMLElement;
+      element.style.color = '#0a2540';
+      element.style.fontSize = '16px';
+      element.style.marginTop = '14px';
+      element.style.marginBottom = '6px';
+    });
+    clone.querySelectorAll('h3').forEach((el) => {
+      const element = el as HTMLElement;
+      element.style.color = '#0a2540';
+      element.style.fontSize = '14px';
+      element.style.marginTop = '12px';
+      element.style.marginBottom = '4px';
+    });
+    clone.querySelectorAll('h4').forEach((el) => {
+      const element = el as HTMLElement;
+      element.style.color = '#0a2540';
+      element.style.fontSize = '13px';
+      element.style.marginTop = '10px';
+      element.style.marginBottom = '4px';
     });
     // Style table headers
     clone.querySelectorAll('th').forEach((el) => {
       const element = el as HTMLElement;
       element.style.backgroundColor = '#f5f5f5';
       element.style.color = '#1a1a1a';
+      element.style.fontSize = '11px';
+    });
+    // Style table cells
+    clone.querySelectorAll('td').forEach((el) => {
+      const element = el as HTMLElement;
+      element.style.fontSize = '11px';
+    });
+    // Style paragraphs
+    clone.querySelectorAll('p').forEach((el) => {
+      const element = el as HTMLElement;
+      element.style.fontSize = '12px';
+      element.style.marginBottom = '8px';
+    });
+    // Style list items
+    clone.querySelectorAll('li').forEach((el) => {
+      const element = el as HTMLElement;
+      element.style.fontSize = '12px';
     });
 
     // Temporarily add clone to DOM for rendering
