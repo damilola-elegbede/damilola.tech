@@ -4,17 +4,19 @@
  * This script:
  * 1. Fetches shared-context.md template (REQUIRED - fails if missing)
  * 2. Fetches chatbot-instructions.md template (REQUIRED - fails if missing)
- * 3. Fetches all content files (optional - graceful degradation)
- * 4. Produces TWO outputs:
- *    - SHARED_CONTEXT: Profile data only (for fit assessment)
+ * 3. Fetches fit-assessment-instructions.md template (REQUIRED - fails if missing)
+ * 4. Fetches all content files (optional - graceful degradation)
+ * 5. Produces THREE outputs:
+ *    - SHARED_CONTEXT: Profile data only (for custom use cases)
  *    - CHATBOT_SYSTEM_PROMPT: Shared context + chatbot instructions (for chat)
- * 5. Writes the final prompts to src/lib/generated/system-prompt.ts
+ *    - FIT_ASSESSMENT_PROMPT: Shared context + fit assessment instructions (for fit assessment)
+ * 6. Writes the final prompts to src/lib/generated/system-prompt.ts
  *
  * Run: npm run generate-prompt
  * Or automatically via: npm run build (prebuild hook)
  */
 
-import { fetchSharedContext, fetchChatbotInstructions, fetchAllContent } from '../src/lib/blob';
+import { fetchSharedContext, fetchChatbotInstructions, fetchFitAssessmentInstructionsRequired, fetchAllContent } from '../src/lib/blob';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -57,8 +59,19 @@ async function generatePrompt(): Promise<void> {
     throw error;
   }
 
-  // Step 3: Fetch content files (optional)
-  console.log('3. Fetching content files...');
+  // Step 3: Fetch fit assessment instructions template (REQUIRED in production)
+  console.log('3. Fetching fit assessment instructions template...');
+  let fitAssessmentInstructionsTemplate: string;
+  try {
+    fitAssessmentInstructionsTemplate = await fetchFitAssessmentInstructionsRequired();
+    console.log('   ✓ fit-assessment-instructions.md fetched successfully\n');
+  } catch (error) {
+    console.error('   ✗ Failed to fetch fit assessment instructions template');
+    throw error;
+  }
+
+  // Step 4: Fetch content files (optional)
+  console.log('4. Fetching content files...');
   const content = await fetchAllContent();
 
   const contentStatus = {
@@ -80,8 +93,8 @@ async function generatePrompt(): Promise<void> {
   console.log(`   ${contentStatus.chatbotArchitecture} chatbot-architecture.md`);
   console.log('');
 
-  // Step 4: Define placeholder replacements
-  // Shared replacements (used by both prompts)
+  // Step 5: Define placeholder replacements
+  // Shared replacements (used by all prompts)
   const sharedReplacements: Record<string, string> = {
     '{{STAR_STORIES}}': content.starStories || '*STAR stories not available in current build.*',
     '{{RESUME}}': content.resume || '*Resume content not available in current build.*',
@@ -96,8 +109,8 @@ async function generatePrompt(): Promise<void> {
     '{{CHATBOT_ARCHITECTURE}}': content.chatbotArchitecture || '*Chatbot architecture details not available.*',
   };
 
-  // Step 5: Generate SHARED_CONTEXT (profile data only, no chatbot instructions)
-  console.log('4. Generating SHARED_CONTEXT...');
+  // Step 6: Generate SHARED_CONTEXT (profile data only, no chatbot instructions)
+  console.log('5. Generating SHARED_CONTEXT...');
   let sharedContext = sharedContextTemplate;
   for (const [placeholder, value] of Object.entries(sharedReplacements)) {
     sharedContext = sharedContext.replace(
@@ -107,8 +120,8 @@ async function generatePrompt(): Promise<void> {
   }
   console.log('   ✓ SHARED_CONTEXT generated\n');
 
-  // Step 6: Generate CHATBOT_SYSTEM_PROMPT (shared context + chatbot instructions)
-  console.log('5. Generating CHATBOT_SYSTEM_PROMPT...');
+  // Step 7: Generate CHATBOT_SYSTEM_PROMPT (shared context + chatbot instructions)
+  console.log('6. Generating CHATBOT_SYSTEM_PROMPT...');
   const combinedTemplate = sharedContextTemplate + '\n\n---\n\n' + chatbotInstructionsTemplate;
   let chatbotPrompt = combinedTemplate;
 
@@ -129,18 +142,32 @@ async function generatePrompt(): Promise<void> {
   }
   console.log('   ✓ CHATBOT_SYSTEM_PROMPT generated\n');
 
-  // Step 7: Generate output file with both exports
-  console.log('6. Generating output file...');
+  // Step 8: Generate FIT_ASSESSMENT_PROMPT (shared context + fit assessment instructions)
+  console.log('7. Generating FIT_ASSESSMENT_PROMPT...');
+  const fitAssessmentTemplate = sharedContextTemplate + '\n\n---\n\n' + fitAssessmentInstructionsTemplate;
+  let fitAssessmentPrompt = fitAssessmentTemplate;
+
+  // Apply shared replacements
+  for (const [placeholder, value] of Object.entries(sharedReplacements)) {
+    fitAssessmentPrompt = fitAssessmentPrompt.replace(
+      new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'),
+      () => value
+    );
+  }
+  console.log('   ✓ FIT_ASSESSMENT_PROMPT generated\n');
+
+  // Step 9: Generate output file with all exports
+  console.log('8. Generating output file...');
   const output = `// AUTO-GENERATED FILE - DO NOT EDIT DIRECTLY
 // Generated at: ${new Date().toISOString()}
-// Template sources: shared-context.md, chatbot-instructions.md (Vercel Blob)
+// Template sources: shared-context.md, chatbot-instructions.md, fit-assessment-instructions.md (Vercel Blob)
 //
 // To regenerate: npm run generate-prompt
 // This file is automatically regenerated during build.
 
 /**
  * Shared context containing Damilola's profile data only.
- * Use this for fit assessment (no chatbot-specific instructions).
+ * Use this for custom use cases that need profile data without instructions.
  */
 export const SHARED_CONTEXT: string = ${JSON.stringify(sharedContext)};
 
@@ -149,6 +176,12 @@ export const SHARED_CONTEXT: string = ${JSON.stringify(sharedContext)};
  * Use this for the chat feature.
  */
 export const CHATBOT_SYSTEM_PROMPT: string = ${JSON.stringify(chatbotPrompt)};
+
+/**
+ * Fit assessment system prompt with shared context + fit assessment instructions.
+ * Use this for the fit assessment feature.
+ */
+export const FIT_ASSESSMENT_PROMPT: string = ${JSON.stringify(fitAssessmentPrompt)};
 
 /**
  * @deprecated Use CHATBOT_SYSTEM_PROMPT instead.
@@ -161,6 +194,7 @@ export const PROMPT_STATS = {
   generatedAt: '${new Date().toISOString()}',
   sharedContextSize: ${sharedContext.length},
   chatbotPromptSize: ${chatbotPrompt.length},
+  fitAssessmentPromptSize: ${fitAssessmentPrompt.length},
   contentIncluded: {
     starStories: ${!!content.starStories},
     resume: ${!!content.resume},
@@ -184,6 +218,7 @@ export const PROMPT_STATS = {
   console.log('=== Generation Complete ===');
   console.log(`SHARED_CONTEXT size: ${sharedContext.length.toLocaleString()} characters`);
   console.log(`CHATBOT_SYSTEM_PROMPT size: ${chatbotPrompt.length.toLocaleString()} characters`);
+  console.log(`FIT_ASSESSMENT_PROMPT size: ${fitAssessmentPrompt.length.toLocaleString()} characters`);
   console.log('');
 }
 
@@ -205,6 +240,7 @@ async function createDevelopmentPlaceholder(): Promise<void> {
 
 export const SHARED_CONTEXT: string = '__DEVELOPMENT_PLACEHOLDER__';
 export const CHATBOT_SYSTEM_PROMPT: string = '__DEVELOPMENT_PLACEHOLDER__';
+export const FIT_ASSESSMENT_PROMPT: string = '__DEVELOPMENT_PLACEHOLDER__';
 export const SYSTEM_PROMPT: string = '__DEVELOPMENT_PLACEHOLDER__';
 
 // Prompt statistics
@@ -212,6 +248,7 @@ export const PROMPT_STATS = {
   generatedAt: '${new Date().toISOString()}',
   sharedContextSize: 0,
   chatbotPromptSize: 0,
+  fitAssessmentPromptSize: 0,
   contentIncluded: {
     starStories: false,
     resume: false,
@@ -242,6 +279,6 @@ generatePrompt()
     console.error('\n=== Build Failed ===');
     console.error(error.message);
     console.error('\nThe system prompt templates are required for the build to succeed.');
-    console.error('Ensure shared-context.md and chatbot-instructions.md are uploaded to Vercel Blob.');
+    console.error('Ensure shared-context.md, chatbot-instructions.md, and fit-assessment-instructions.md are uploaded to Vercel Blob.');
     process.exit(1);
   });

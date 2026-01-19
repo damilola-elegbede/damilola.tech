@@ -1,7 +1,8 @@
-import { fetchAllReferenceMaterials } from './blob';
+import { fetchAllReferenceMaterials, fetchFitAssessmentInstructions } from './blob';
 
 let cachedChatbotPrompt: string | null = null;
 let cachedSharedContext: string | null = null;
+let cachedFitAssessmentPrompt: string | null = null;
 
 /**
  * Build the full chatbot system prompt with all reference materials.
@@ -42,11 +43,33 @@ export async function getSharedContext(): Promise<string> {
 }
 
 /**
+ * Build the fit assessment prompt with shared context + fit assessment instructions.
+ * This is used as a runtime fallback when the generated prompt isn't available.
+ */
+export async function getFitAssessmentPrompt(): Promise<string> {
+  // Return cached prompt if available
+  if (cachedFitAssessmentPrompt) {
+    return cachedFitAssessmentPrompt;
+  }
+
+  // Fetch shared context and fit assessment instructions
+  const [sharedContext, fitInstructions] = await Promise.all([
+    getSharedContext(),
+    fetchFitAssessmentInstructions(),
+  ]);
+
+  // Combine: shared context + fit assessment instructions
+  cachedFitAssessmentPrompt = sharedContext + '\n\n---\n\n' + fitInstructions;
+  return cachedFitAssessmentPrompt;
+}
+
+/**
  * Clear the cached system prompts (useful for development)
  */
 export function clearSystemPromptCache(): void {
   cachedChatbotPrompt = null;
   cachedSharedContext = null;
+  cachedFitAssessmentPrompt = null;
 }
 
 /**

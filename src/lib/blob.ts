@@ -257,6 +257,14 @@ export async function fetchFitAssessmentInstructions(): Promise<string> {
 }
 
 /**
+ * Fetch fit assessment instructions (REQUIRED version for build-time).
+ * Throws error if file not found - build will fail.
+ */
+export async function fetchFitAssessmentInstructionsRequired(): Promise<string> {
+  return fetchWithLocalFallbackRequired('fit-assessment-instructions.md');
+}
+
+/**
  * Fetch example JDs for the fit assessment feature.
  * Falls back to local files in development when blob token is not configured.
  */

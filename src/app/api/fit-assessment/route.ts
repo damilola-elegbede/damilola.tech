@@ -1,7 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { SHARED_CONTEXT } from '@/lib/generated/system-prompt';
-import { getSharedContext } from '@/lib/system-prompt';
-import { fetchFitAssessmentInstructions } from '@/lib/blob';
+import { FIT_ASSESSMENT_PROMPT } from '@/lib/generated/system-prompt';
+import { getFitAssessmentPrompt } from '@/lib/system-prompt';
 
 // Use Node.js runtime (not edge) to allow local file fallback in development
 export const runtime = 'nodejs';
@@ -9,19 +8,10 @@ export const runtime = 'nodejs';
 const client = new Anthropic();
 
 // Use generated prompt in production, fall back to runtime fetch in development
-const isGeneratedPromptAvailable = SHARED_CONTEXT !== '__DEVELOPMENT_PLACEHOLDER__';
+const isGeneratedPromptAvailable = FIT_ASSESSMENT_PROMPT !== '__DEVELOPMENT_PLACEHOLDER__';
 
 const MAX_JD_LENGTH = 10000;
 const MAX_BODY_SIZE = 50 * 1024; // 50KB max request body
-
-// Cache the instructions (same pattern as system prompt)
-let cachedInstructions: string | null = null;
-
-async function getInstructions(): Promise<string> {
-  if (cachedInstructions) return cachedInstructions;
-  cachedInstructions = await fetchFitAssessmentInstructions();
-  return cachedInstructions;
-}
 
 export async function POST(req: Request) {
   console.log('[fit-assessment] Request received');
@@ -47,21 +37,12 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Job description too long.' }, { status: 400 });
     }
 
-    // Fetch shared context (profile data only, no chatbot instructions)
-    console.log('[fit-assessment] Loading shared context (generated:', isGeneratedPromptAvailable, ')');
-    const sharedContext = isGeneratedPromptAvailable
-      ? SHARED_CONTEXT
-      : await getSharedContext();
-    console.log('[fit-assessment] Shared context loaded, length:', sharedContext.length);
-
-    // Fetch fit assessment instructions
-    console.log('[fit-assessment] Loading fit instructions');
-    const fitInstructions = await getInstructions();
-    console.log('[fit-assessment] Fit instructions loaded, length:', fitInstructions.length);
-
-    // Combine: shared context + fit assessment instructions
-    const systemPrompt = sharedContext + '\n\n---\n\n' + fitInstructions;
-    console.log('[fit-assessment] System prompt ready, total length:', systemPrompt.length);
+    // Use generated prompt in production, fall back to runtime fetch in development
+    console.log('[fit-assessment] Loading system prompt (generated:', isGeneratedPromptAvailable, ')');
+    const systemPrompt = isGeneratedPromptAvailable
+      ? FIT_ASSESSMENT_PROMPT
+      : await getFitAssessmentPrompt();
+    console.log('[fit-assessment] System prompt loaded, length:', systemPrompt.length);
 
     console.log('[fit-assessment] Calling Anthropic API (streaming)...');
 
@@ -73,7 +54,7 @@ export async function POST(req: Request) {
       messages: [
         {
           role: 'user',
-          content: `Generate a CONCISE Executive Fit Report (under 1000 words). Focus on top 3-5 alignments and gaps.\n\n${jobDescription}`,
+          content: `Generate an Executive Fit Report for this job description:\n\n${jobDescription}`,
         },
       ],
     });

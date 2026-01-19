@@ -53,16 +53,20 @@ export async function POST(req: Request) {
     }
 
     // Use build-time generated prompt (production) or fetch at runtime (development)
-    const systemPrompt = isGeneratedPromptAvailable
+    const basePrompt = isGeneratedPromptAvailable
       ? CHATBOT_SYSTEM_PROMPT
       : await getFullSystemPrompt();
+
+    // Reinforce brevity at the system level
+    const brevityPrefix = `CRITICAL: Keep responses SHORT. Default: 2-4 sentences. Simple factual questions: 1-2 sentences. Only use STAR format for behavioral questions. Never volunteer extra context unless asked.\n\n`;
+    const systemPrompt = brevityPrefix + basePrompt;
 
     console.log('[chat] Starting stream, messages:', messages.length);
 
     // Use Anthropic SDK streaming
     const stream = client.messages.stream({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
+      max_tokens: 512, // Reduced to encourage brevity
       system: systemPrompt,
       messages: messages.map((m) => ({
         role: m.role,
