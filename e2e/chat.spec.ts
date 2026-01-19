@@ -76,9 +76,9 @@ test.describe('Chat Functionality', () => {
 
     await expect(chatPanel).toBeVisible();
 
-    // Desktop: panel should have constrained dimensions (allow 1px for rounding)
+    // Desktop: panel should have constrained dimensions (md:w-[500px] md:h-[700px], allow 1px for rounding)
     boundingBox = await chatPanel.boundingBox();
-    expect(boundingBox?.width).toBeLessThanOrEqual(401);
-    expect(boundingBox?.height).toBeLessThanOrEqual(601);
+    expect(boundingBox?.width).toBeLessThanOrEqual(501);
+    expect(boundingBox?.height).toBeLessThanOrEqual(701);
   });
 });

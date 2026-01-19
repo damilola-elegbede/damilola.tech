@@ -299,15 +299,40 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
               AI-powered career assistant
             </p>
           </div>
-          {/* Clear chat button - only show when there are messages */}
-          {messages.length > 0 && (
+          <div className="flex items-center gap-2">
+            {/* Clear chat button - only show when there are messages */}
+            {messages.length > 0 && (
+              <button
+                onClick={handleClearChat}
+                className="group relative rounded-full p-2 text-xs text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-text)]"
+                aria-label="Clear chat history"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity delay-150 group-hover:opacity-100">
+                  Clear chat
+                </span>
+              </button>
+            )}
+            {/* Close button - mobile only (desktop has FAB and click-outside) */}
             <button
-              onClick={handleClearChat}
-              className="group relative rounded-full p-2 text-xs text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-text)]"
-              aria-label="Clear chat history"
+              onClick={onClose}
+              className="rounded-full p-2 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-text)] md:hidden"
+              aria-label="Close chat"
             >
               <svg
-                className="h-4 w-4"
+                className="h-5 w-5"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -316,14 +341,11 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
-              <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity delay-150 group-hover:opacity-100">
-                Clear chat
-              </span>
             </button>
-          )}
+          </div>
         </div>
 
         {/* Messages area */}
