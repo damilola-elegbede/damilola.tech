@@ -39,7 +39,7 @@ describe('FitAssessment', () => {
   it('renders the section heading', () => {
     render(<FitAssessment />);
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
-      'Honest Fit Assessment'
+      'Fit Assessment'
     );
   });
 

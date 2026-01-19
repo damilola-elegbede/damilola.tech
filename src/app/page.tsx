@@ -30,8 +30,8 @@ export default function Home() {
         <Hero onOpenChat={toggleChat} />
         <Experience />
         <SkillsAssessment />
-        <FitAssessment />
         <Education />
+        <FitAssessment />
         <Contact />
       </main>
 

@@ -61,7 +61,7 @@ export function FitAssessment() {
         )}
       >
         <h2 className="mb-4 text-3xl text-[var(--color-text)] md:text-4xl">
-          Honest Fit Assessment
+          Fit Assessment
         </h2>
         <p className="mb-8 text-lg text-[var(--color-text-muted)]">
           Paste a job description. Get an honest assessment of whether I&apos;m the
@@ -69,7 +69,7 @@ export function FitAssessment() {
         </p>
 
         {/* Example Buttons */}
-        <div className="mb-4 flex flex-wrap gap-3">
+        <div className="mb-4 flex flex-wrap justify-center gap-3">
           <Button
             variant="secondary"
             size="sm"
@@ -86,6 +86,14 @@ export function FitAssessment() {
           >
             Weak Fit Example
           </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setJobDescription('')}
+            disabled={!jobDescription}
+          >
+            Clear
+          </Button>
         </div>
 
         {/* Textarea */}
@@ -93,7 +101,7 @@ export function FitAssessment() {
           value={jobDescription}
           onChange={(e) => setJobDescription(e.target.value)}
           placeholder="Paste job description here..."
-          className="mb-4 h-48 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-4 text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          className="mb-4 h-[30rem] w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-4 text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
           aria-label="Job description"
         />
 

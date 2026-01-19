@@ -35,7 +35,7 @@ test.describe('Home Page', () => {
 
     // Fit Assessment
     await expect(page.locator('#fit-assessment')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Honest Fit Assessment' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Fit Assessment' })).toBeVisible();
 
     // Education
     await expect(page.locator('#education')).toBeVisible();

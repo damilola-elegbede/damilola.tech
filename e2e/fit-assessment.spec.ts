@@ -7,7 +7,7 @@ test.describe('Fit Assessment', () => {
 
   test('should display fit assessment section', async ({ page }) => {
     await expect(page.locator('#fit-assessment')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Honest Fit Assessment' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Fit Assessment' })).toBeVisible();
   });
 
   test('should display example buttons and form elements', async ({ page }) => {
