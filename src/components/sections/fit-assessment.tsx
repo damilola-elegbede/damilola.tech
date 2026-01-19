@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useCompletion } from '@ai-sdk/react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -14,14 +13,13 @@ interface ExampleJDs {
 
 export function FitAssessment() {
   const [jobDescription, setJobDescription] = useState('');
+  const [completion, setCompletion] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [examples, setExamples] = useState<ExampleJDs | null>(null);
   const [examplesLoading, setExamplesLoading] = useState(true);
   const [examplesError, setExamplesError] = useState(false);
   const { ref, isVisible } = useScrollReveal();
-
-  const { completion, isLoading, complete, setCompletion } = useCompletion({
-    api: '/api/fit-assessment',
-  });
 
   // Fetch example JDs on mount
   useEffect(() => {
@@ -34,8 +32,8 @@ export function FitAssessment() {
         } else {
           setExamplesError(true);
         }
-      } catch (error) {
-        console.error('Failed to load example JDs:', error);
+      } catch (err) {
+        console.error('Failed to load example JDs:', err);
         setExamplesError(true);
       } finally {
         setExamplesLoading(false);
@@ -44,12 +42,33 @@ export function FitAssessment() {
     loadExamples();
   }, []);
 
-  const handleAnalyze = useCallback(() => {
-    if (jobDescription.trim()) {
-      setCompletion('');
-      complete(jobDescription);
+  const handleAnalyze = useCallback(async () => {
+    if (!jobDescription.trim()) return;
+
+    setIsLoading(true);
+    setError(null);
+    setCompletion('');
+
+    try {
+      const res = await fetch('/api/fit-assessment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: jobDescription }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to analyze fit');
+      }
+
+      setCompletion(data.text);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
     }
-  }, [jobDescription, complete, setCompletion]);
+  }, [jobDescription]);
 
   return (
     <section id="fit-assessment" className="bg-[var(--color-bg-alt)] px-6 py-20">
@@ -113,6 +132,14 @@ export function FitAssessment() {
         >
           {isLoading ? 'Analyzing...' : 'Analyze Fit'}
         </Button>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-400">
+            <p className="font-medium">Unable to analyze fit</p>
+            <p className="text-sm mt-1">{error}</p>
+          </div>
+        )}
 
         {/* Assessment Result */}
         {(completion || isLoading) && (

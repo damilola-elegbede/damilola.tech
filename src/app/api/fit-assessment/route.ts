@@ -1,11 +1,12 @@
-import { anthropic } from '@ai-sdk/anthropic';
-import { streamText } from 'ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { SHARED_CONTEXT } from '@/lib/generated/system-prompt';
 import { getSharedContext } from '@/lib/system-prompt';
 import { fetchFitAssessmentInstructions } from '@/lib/blob';
 
 // Use Node.js runtime (not edge) to allow local file fallback in development
 export const runtime = 'nodejs';
+
+const client = new Anthropic();
 
 // Use generated prompt in production, fall back to runtime fetch in development
 const isGeneratedPromptAvailable = SHARED_CONTEXT !== '__DEVELOPMENT_PLACEHOLDER__';
@@ -30,10 +31,7 @@ export async function POST(req: Request) {
     console.log('[fit-assessment] Content-Length:', contentLength);
     if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
       console.log('[fit-assessment] Request body too large, rejecting');
-      return new Response(
-        JSON.stringify({ error: 'Request body too large.' }),
-        { status: 413, headers: { 'Content-Type': 'application/json' } }
-      );
+      return Response.json({ error: 'Request body too large.' }, { status: 413 });
     }
 
     const { prompt: jobDescription } = await req.json();
@@ -41,18 +39,12 @@ export async function POST(req: Request) {
 
     if (!jobDescription || typeof jobDescription !== 'string') {
       console.log('[fit-assessment] Invalid job description, rejecting');
-      return new Response(
-        JSON.stringify({ error: 'Job description is required.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return Response.json({ error: 'Job description is required.' }, { status: 400 });
     }
 
     if (jobDescription.length > MAX_JD_LENGTH) {
       console.log('[fit-assessment] Job description too long, rejecting');
-      return new Response(
-        JSON.stringify({ error: 'Job description too long.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return Response.json({ error: 'Job description too long.' }, { status: 400 });
     }
 
     // Fetch shared context (profile data only, no chatbot instructions)
@@ -71,21 +63,32 @@ export async function POST(req: Request) {
     const systemPrompt = sharedContext + '\n\n---\n\n' + fitInstructions;
     console.log('[fit-assessment] System prompt ready, total length:', systemPrompt.length);
 
-    console.log('[fit-assessment] Starting AI stream');
-    const result = streamText({
-      model: anthropic('claude-sonnet-4-20250514'),
+    console.log('[fit-assessment] Calling Anthropic API...');
+
+    // Direct Anthropic SDK call - non-streaming for simpler debugging
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
       system: systemPrompt,
-      prompt: `Generate an Executive Fit Report for this job description:\n\n${jobDescription}`,
+      messages: [
+        {
+          role: 'user',
+          content: `Generate an Executive Fit Report for this job description:\n\n${jobDescription}`,
+        },
+      ],
     });
 
-    console.log('[fit-assessment] Stream initiated, returning response');
-    return result.toTextStreamResponse();
+    const text = message.content[0].type === 'text' ? message.content[0].text : '';
+    console.log('[fit-assessment] Response received, length:', text.length);
+
+    return Response.json({ text });
   } catch (error) {
     console.error('[fit-assessment] Error:', error);
     console.error('[fit-assessment] Stack:', error instanceof Error ? error.stack : 'No stack');
-    return new Response(
-      JSON.stringify({ error: 'An error occurred.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return Response.json(
+      { error: `AI service error: ${errorMessage}` },
+      { status: 503 }
     );
   }
 }

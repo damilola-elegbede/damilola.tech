@@ -4,13 +4,10 @@ import {
   useState,
   useRef,
   useEffect,
-  useMemo,
   useCallback,
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
-import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
 import { ChatMessage } from './chat-message';
 import { Button } from '@/components/ui';
 import { suggestedQuestions } from '@/lib/resume-data';
@@ -24,6 +21,14 @@ import {
 
 const MAX_MESSAGE_LENGTH = 2000;
 
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  parts: { type: 'text'; text: string }[];
+}
+
+type ChatStatus = 'idle' | 'submitted' | 'streaming' | 'error';
+
 interface ChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -33,23 +38,13 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [status, setStatus] = useState<ChatStatus>('idle');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const lastSavedRef = useRef<string>('');
-
-  const transport = useMemo(
-    () => new DefaultChatTransport({ api: '/api/chat' }),
-    []
-  );
-
-  const { messages, sendMessage, status, setMessages } = useChat({
-    transport,
-    onFinish: () => {
-      setHasInteracted(true);
-    },
-  });
 
   // Load stored messages after hydration (fixes SSR mismatch)
   // Uses queueMicrotask to batch state updates and avoid cascading render warnings
@@ -62,7 +57,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
       }
       setIsHydrated(true);
     });
-  }, [setMessages]);
+  }, []);
 
   // Persist messages to localStorage only when not streaming (avoids excessive writes)
   useEffect(() => {
@@ -72,8 +67,8 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
     // Convert to StoredMessage format
     const toStore: StoredMessage[] = messages.map((m) => ({
       id: m.id,
-      role: m.role as 'user' | 'assistant',
-      parts: m.parts?.filter((p): p is { type: 'text'; text: string } => p.type === 'text') || [],
+      role: m.role,
+      parts: m.parts,
     }));
 
     // Only save if content changed (avoid redundant writes)
@@ -89,9 +84,94 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
     clearSession();
     setMessages([]);
     setHasInteracted(false);
-  }, [setMessages]);
+  }, []);
 
   const isLoading = status === 'streaming' || status === 'submitted';
+
+  // Send message with streaming fetch
+  const sendMessage = useCallback(
+    async (userText: string) => {
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        parts: [{ type: 'text', text: userText }],
+      };
+
+      setMessages((prev) => [...prev, userMessage]);
+      setStatus('submitted');
+      setHasInteracted(true);
+
+      try {
+        // Convert messages to API format
+        const apiMessages = [...messages, { role: 'user', content: userText }].map(
+          (m) => {
+            if ('parts' in m && m.parts) {
+              return {
+                role: m.role,
+                content: m.parts.find((p) => p.type === 'text')?.text || '',
+              };
+            }
+            return m;
+          }
+        );
+
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: apiMessages }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get response');
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No reader available');
+
+        const decoder = new TextDecoder();
+        let assistantText = '';
+        const assistantId = crypto.randomUUID();
+
+        // Add empty assistant message
+        setMessages((prev) => [
+          ...prev,
+          { id: assistantId, role: 'assistant', parts: [{ type: 'text', text: '' }] },
+        ]);
+
+        setStatus('streaming');
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          assistantText += decoder.decode(value, { stream: true });
+
+          // Update assistant message with streamed content
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, parts: [{ type: 'text', text: assistantText }] }
+                : m
+            )
+          );
+        }
+
+        setStatus('idle');
+      } catch (error) {
+        console.error('[chat] Error:', error);
+        setStatus('error');
+        // Remove the empty assistant message on error
+        setMessages((prev) => {
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg?.role === 'assistant' && !lastMsg.parts[0]?.text) {
+            return prev.slice(0, -1);
+          }
+          return prev;
+        });
+      }
+    },
+    [messages]
+  );
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -142,7 +222,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
     e.preventDefault();
     const trimmedInput = input.trim();
     if (trimmedInput && !isLoading && trimmedInput.length <= MAX_MESSAGE_LENGTH) {
-      sendMessage({ role: 'user', parts: [{ type: 'text', text: trimmedInput }] });
+      sendMessage(trimmedInput);
       setInput('');
     }
   };
@@ -150,12 +230,10 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
   const isInputTooLong = input.length > MAX_MESSAGE_LENGTH;
 
   // Extract text content from message parts
-  const getMessageContent = (message: (typeof messages)[number]): string => {
+  const getMessageContent = (message: Message): string => {
     if (!message.parts || message.parts.length === 0) return '';
     return message.parts
-      .filter(
-        (part): part is { type: 'text'; text: string } => part.type === 'text'
-      )
+      .filter((part) => part.type === 'text')
       .map((part) => part.text)
       .join('');
   };
@@ -273,7 +351,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
               {messages.map((message) => (
                 <ChatMessage
                   key={message.id}
-                  role={message.role as 'user' | 'assistant'}
+                  role={message.role}
                   content={getMessageContent(message)}
                 />
               ))}

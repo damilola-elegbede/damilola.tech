@@ -2,37 +2,35 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FitAssessment } from '@/components/sections/fit-assessment';
 
-// Mock useCompletion hook from @ai-sdk/react
-const mockComplete = vi.fn();
-const mockSetCompletion = vi.fn();
-let mockIsLoading = false;
-let mockCompletion = '';
-
-vi.mock('@ai-sdk/react', () => ({
-  useCompletion: () => ({
-    completion: mockCompletion,
-    isLoading: mockIsLoading,
-    complete: mockComplete,
-    setCompletion: mockSetCompletion,
-  }),
-}));
-
-// Mock fetch for examples API
+// Mock fetch for examples and fit-assessment APIs
 const mockExamples = {
   strong: '# Engineering Manager, Platform Infrastructure\nThis is a strong fit example...',
   weak: '# Staff Frontend Engineer\nThis is a weak fit example...',
 };
 
+const mockFitResponse = {
+  text: '# Fit Assessment: Engineering Manager\n\n**Fit Rating: Strong Match**',
+};
+
 describe('FitAssessment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsLoading = false;
-    mockCompletion = '';
 
     // Mock global fetch
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockExamples),
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/fit-examples') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockExamples),
+        });
+      }
+      if (url === '/api/fit-assessment') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockFitResponse),
+        });
+      }
+      return Promise.reject(new Error('Unknown URL'));
     });
   });
 
@@ -116,43 +114,96 @@ describe('FitAssessment', () => {
     expect(button).not.toBeDisabled();
   });
 
-  it('calls complete when analyze button is clicked', async () => {
+  it('calls fit-assessment API when analyze button is clicked', async () => {
     render(<FitAssessment />);
     const textarea = screen.getByRole('textbox', { name: /job description/i });
 
     fireEvent.change(textarea, { target: { value: 'Engineering Manager role' } });
     fireEvent.click(screen.getByRole('button', { name: /analyze fit/i }));
 
-    expect(mockSetCompletion).toHaveBeenCalledWith('');
-    expect(mockComplete).toHaveBeenCalledWith('Engineering Manager role');
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/fit-assessment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: 'Engineering Manager role' }),
+      });
+    });
   });
 
-  it('shows loading state during analysis', () => {
-    mockIsLoading = true;
+  it('shows loading state during analysis', async () => {
+    // Mock a slow response
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/fit-examples') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockExamples),
+        });
+      }
+      if (url === '/api/fit-assessment') {
+        return new Promise((resolve) =>
+          setTimeout(() => resolve({
+            ok: true,
+            json: () => Promise.resolve(mockFitResponse),
+          }), 1000)
+        );
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
     render(<FitAssessment />);
 
     const textarea = screen.getByRole('textbox', { name: /job description/i });
     fireEvent.change(textarea, { target: { value: 'Some job description' } });
+    fireEvent.click(screen.getByRole('button', { name: /analyze fit/i }));
 
-    expect(screen.getByRole('button', { name: /analyzing/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /analyzing/i })).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /analyzing/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /analyzing/i })).toBeDisabled();
+    });
   });
 
-  it('displays assessment result when completion is available', () => {
-    mockCompletion = '# Fit Assessment: Engineering Manager\n\n**Fit Rating: Strong Match**';
+  it('displays assessment result after analysis completes', async () => {
     render(<FitAssessment />);
 
-    // The completion should be rendered as markdown
-    expect(screen.getByText(/Fit Assessment: Engineering Manager/)).toBeInTheDocument();
-    expect(screen.getByText(/Strong Match/)).toBeInTheDocument();
+    const textarea = screen.getByRole('textbox', { name: /job description/i });
+    fireEvent.change(textarea, { target: { value: 'Engineering Manager role' } });
+    fireEvent.click(screen.getByRole('button', { name: /analyze fit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Fit Assessment: Engineering Manager/)).toBeInTheDocument();
+      expect(screen.getByText(/Strong Match/)).toBeInTheDocument();
+    });
   });
 
-  it('shows placeholder text during loading with no completion', () => {
-    mockIsLoading = true;
-    mockCompletion = '';
+  it('shows placeholder text during loading', async () => {
+    // Mock a slow response
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/fit-examples') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockExamples),
+        });
+      }
+      if (url === '/api/fit-assessment') {
+        return new Promise((resolve) =>
+          setTimeout(() => resolve({
+            ok: true,
+            json: () => Promise.resolve(mockFitResponse),
+          }), 1000)
+        );
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
     render(<FitAssessment />);
 
-    expect(screen.getByText(/Analyzing job fit/i)).toBeInTheDocument();
+    const textarea = screen.getByRole('textbox', { name: /job description/i });
+    fireEvent.change(textarea, { target: { value: 'Some job description' } });
+    fireEvent.click(screen.getByRole('button', { name: /analyze fit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Analyzing job fit/i)).toBeInTheDocument();
+    });
   });
 
   it('fetches examples on mount', async () => {
@@ -164,17 +215,51 @@ describe('FitAssessment', () => {
   });
 
   it('disables example buttons while loading examples', () => {
-    // Set up fetch to be slow
-    global.fetch = vi.fn().mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve({
-        ok: true,
-        json: () => Promise.resolve(mockExamples),
-      }), 1000))
-    );
+    // Set up fetch to be slow for examples
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/fit-examples') {
+        return new Promise((resolve) =>
+          setTimeout(() => resolve({
+            ok: true,
+            json: () => Promise.resolve(mockExamples),
+          }), 1000)
+        );
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
 
     render(<FitAssessment />);
 
     expect(screen.getByRole('button', { name: /strong fit example/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /weak fit example/i })).toBeDisabled();
+  });
+
+  it('displays error message when API returns an error', async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/fit-examples') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockExamples),
+        });
+      }
+      if (url === '/api/fit-assessment') {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: 'AI service unavailable' }),
+        });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    render(<FitAssessment />);
+
+    const textarea = screen.getByRole('textbox', { name: /job description/i });
+    fireEvent.change(textarea, { target: { value: 'Some job description' } });
+    fireEvent.click(screen.getByRole('button', { name: /analyze fit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Unable to analyze fit/i)).toBeInTheDocument();
+      expect(screen.getByText(/AI service unavailable/i)).toBeInTheDocument();
+    });
   });
 });
