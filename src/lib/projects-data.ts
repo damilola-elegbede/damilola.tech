@@ -23,11 +23,18 @@ export const projectsData: Project[] = [
     stats: {
       label: 'Technical Achievements',
       items: [
-        '3,229 tests across 104 files with 92% coverage',
-        '333 pull requests merged during development',
-        '$3,850 revenue processed at first event (47 tickets)',
+        '451K lines of code across 931 JavaScript files',
+        '3,229 tests at 92% coverage with 71 DB migrations',
+        '$3,850 revenue processed at first event',
       ],
     },
+    highlights: [
+      'Circuit breaker pattern with automatic database failover and health monitoring',
+      'Multi-tier caching (Redis L2 + Memory L1) with intelligent promotion',
+      'Live scoring system with real-time WebSocket updates for competitions',
+      '3-tier disaster recovery: PITR (24h) + daily backups (30d) + monthly snapshots',
+      'Apple Wallet and Google Wallet pass generation with JWT-based QR codes',
+    ],
     categories: [
       {
         title: 'Ticketing & Payments',
@@ -86,7 +93,7 @@ export const projectsData: Project[] = [
   },
   {
     id: 'damilola-tech',
-    name: 'damilola.tech',
+    name: 'Personal Website for Damilola Elegbede',
     subtitle: 'This site — AI-powered career landing page',
     description:
       'Personal portfolio with an AI chatbot that answers recruiter questions about experience, skills, and role fit using Claude with full context.',
@@ -106,17 +113,17 @@ export const projectsData: Project[] = [
     stats: {
       label: 'Technical Metrics',
       items: [
-        '490+ test assertions with 61% test-to-code ratio',
-        '35+ ARIA attributes for WCAG accessibility compliance',
-        '3,455 lines of TypeScript in strict mode',
+        '~3,600 source LOC with 78% test coverage',
+        '22 unit tests + 3 E2E suites across 5 browsers',
+        '18 React components with 4 streaming API routes',
       ],
     },
     highlights: [
-      'Streaming AI responses with ReadableStream chunked delivery',
-      'Full context window approach — 100K+ tokens of career data, no RAG',
-      'Real-time Fit Assessment with PDF export and role title extraction',
-      'Session persistence via localStorage with 50-message history',
-      'Build-time prompt compilation with split-template architecture',
+      'Full-context LLM (no RAG) with Anthropic prompt caching for cost optimization',
+      'Build-time prompt generation eliminates runtime blob fetches',
+      'Split-template architecture: shared context + role-specific instructions',
+      'Streaming responses with abort controller and ReadableStream management',
+      'Security-first: sensitive data in Vercel Blob, public repo clean',
     ],
   },
   {
@@ -124,8 +131,8 @@ export const projectsData: Project[] = [
     name: 'Pipedream Automation Suite',
     subtitle: 'AI-powered productivity automation with bidirectional sync',
     description:
-      '5 production workflows automating task management across Gmail, Notion, and Google Tasks with Claude AI scoring.',
-    techStack: ['Pipedream', 'Node.js', 'Claude API', 'Notion API', 'Gmail API'],
+      '10 production workflows with custom CI/CD pipeline (1,634 LOC) solving Pipedream\u0027s missing deployment API. AI-powered task prioritization using Claude Opus 4.5.',
+    techStack: ['Python', 'Playwright', 'Claude API', 'Notion API', 'Gmail API', 'Pipedream'],
     links: [
       {
         label: 'GitHub',
@@ -134,19 +141,19 @@ export const projectsData: Project[] = [
       },
     ],
     stats: {
-      label: 'Automation Metrics',
+      label: 'Technical Metrics',
       items: [
-        '5 deployed workflows with 2,349 lines of automation code',
-        '19 pull requests refining workflow logic and error handling',
-        'Parallel execution with 6-10 concurrent workers',
+        '10 workflows with 8,620 LOC across 40 Python files',
+        '6 APIs integrated with 60%+ test coverage enforced',
+        'Custom deployment engine: 2,678 LOC browser automation',
       ],
     },
     highlights: [
-      'Gmail → Notion task creation with HTML extraction and deduplication',
-      'Bidirectional sync between Notion tasks and Google Tasks',
-      'AI-powered Horizon scoring (0-100) using Claude for task prioritization',
-      'Exponential backoff with rate limit handling for API reliability',
-      'Multi-threaded execution for scoring 100+ tasks in parallel',
+      'Built CI/CD when vendor has no API: Playwright automation with Google SSO',
+      'AI task scoring using Claude Opus 4.5 with batch processing (40 tasks/batch)',
+      'Production resilience: 4 different rate limit strategies across services',
+      'Bidirectional sync: Gmail/Notion/Tasks/Calendar with idempotency guarantees',
+      'ThreadPoolExecutor parallelization: 6 Claude workers, 10 Notion workers',
     ],
   },
   {
@@ -154,8 +161,8 @@ export const projectsData: Project[] = [
     name: 'Claude Configuration System',
     subtitle: 'Enterprise-grade AI assistant customization framework',
     description:
-      'Comprehensive Claude Code configuration powering 550 PRs and 39 issues (77% resolved) across 16 repositories.',
-    techStack: ['YAML', 'Markdown', 'Claude Code', 'Shell', 'Git'],
+      'Production AI orchestration framework: 12 agents (consolidated from 31) achieving 4-6x performance through multi-instance parallelization.',
+    techStack: ['YAML', 'Markdown', 'Python', 'Shell', 'Claude Code', 'GitHub Actions'],
     links: [
       {
         label: 'GitHub',
@@ -164,20 +171,20 @@ export const projectsData: Project[] = [
       },
     ],
     stats: {
-      label: 'Scale & Impact',
+      label: 'Framework Scale',
       items: [
-        '550 pull requests generated across 16 active repositories',
-        '39 issues tracked with 77% resolution rate (30 closed, 9 open)',
-        '1,743 versioned backups tracking configuration evolution',
+        '107K+ lines with 80 automation scripts',
+        '12 agents, 20 commands, 17 skills, 85+ docs',
+        '4-6x performance via multi-instance parallelization',
       ],
     },
     highlights: [
-      '20 custom slash commands (/ship-it, /review, /commit, /debug, /pr, etc.)',
-      '12 specialized agents with domain expertise routing',
-      '17 integrated skills for career, coding, and automation tasks',
-      'Three orchestration patterns: Parallel, Pipeline, Analyze-Then-Execute',
-      'Binary delegation framework for optimal task classification',
-      'Quality gates enforcement — never bypass hooks or skip tests',
+      'Strategic consolidation: 31 agents merged to 12 while maintaining full functionality',
+      'SYSTEM BOUNDARY security architecture prevents unauthorized agent escalation',
+      'Thinking-level calibration: ultrathink tokens (31,999) for complex reasoning',
+      'One-command deployment (/sync) with automatic backup and rollback',
+      'Three-tier execution model: Direct, Skills, Agents for optimal efficiency',
+      'Composable workflows: /ship-it supports flags (-d -t -c -r -p -pr)',
     ],
   },
 ];

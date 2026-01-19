@@ -23,7 +23,7 @@ describe('Projects', () => {
     render(<Projects />);
 
     expect(screen.getByRole('heading', { name: 'A Lo Cubano Boulder Fest' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'damilola.tech' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Personal Website for Damilola Elegbede' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Pipedream Automation Suite' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Claude Configuration System' })).toBeInTheDocument();
   });
