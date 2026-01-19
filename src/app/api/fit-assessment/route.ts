@@ -11,6 +11,7 @@ export const runtime = 'nodejs';
 const isGeneratedPromptAvailable = SHARED_CONTEXT !== '__DEVELOPMENT_PLACEHOLDER__';
 
 const MAX_JD_LENGTH = 10000;
+const MAX_BODY_SIZE = 50 * 1024; // 50KB max request body
 
 // Cache the instructions (same pattern as system prompt)
 let cachedInstructions: string | null = null;
@@ -23,6 +24,15 @@ async function getInstructions(): Promise<string> {
 
 export async function POST(req: Request) {
   try {
+    // Check content-length to prevent DoS via large payloads
+    const contentLength = req.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'Request body too large.' }),
+        { status: 413, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { prompt: jobDescription } = await req.json();
 
     if (!jobDescription || typeof jobDescription !== 'string') {

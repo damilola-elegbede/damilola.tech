@@ -16,6 +16,7 @@ export function FitAssessment() {
   const [jobDescription, setJobDescription] = useState('');
   const [examples, setExamples] = useState<ExampleJDs | null>(null);
   const [examplesLoading, setExamplesLoading] = useState(true);
+  const [examplesError, setExamplesError] = useState(false);
   const { ref, isVisible } = useScrollReveal();
 
   const { completion, isLoading, complete, setCompletion } = useCompletion({
@@ -30,9 +31,12 @@ export function FitAssessment() {
         if (res.ok) {
           const data = await res.json();
           setExamples(data);
+        } else {
+          setExamplesError(true);
         }
       } catch (error) {
         console.error('Failed to load example JDs:', error);
+        setExamplesError(true);
       } finally {
         setExamplesLoading(false);
       }
@@ -104,7 +108,11 @@ export function FitAssessment() {
 
         {/* Assessment Result */}
         {(completion || isLoading) && (
-          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6">
+          <div
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             <div className="prose prose-invert max-w-none">
               <ReactMarkdown>{completion || 'Analyzing job fit...'}</ReactMarkdown>
             </div>
