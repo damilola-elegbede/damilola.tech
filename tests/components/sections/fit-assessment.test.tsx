@@ -381,7 +381,8 @@ describe('FitAssessment', () => {
       fireEvent.click(screen.getByRole('button', { name: /download md/i }));
 
       expect(capturedAnchor).not.toBeNull();
-      expect(capturedAnchor!.download).toBe('fit-assessment.md');
+      // Dynamic filename based on extracted role title from "# Fit Assessment: Engineering Manager"
+      expect(capturedAnchor!.download).toBe('engineering-manager.md');
 
       vi.mocked(document.createElement).mockRestore();
     });
