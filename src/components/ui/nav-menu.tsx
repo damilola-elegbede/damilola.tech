@@ -7,6 +7,7 @@ const navItems = [
   { label: 'Experience', href: '#experience' },
   { label: 'Skills', href: '#skills-assessment' },
   { label: 'Education', href: '#education' },
+  { label: 'Fit Check', href: '#fit-assessment' },
 ];
 
 interface NavMenuProps {
@@ -78,6 +79,16 @@ export function NavMenu({ className }: NavMenuProps) {
             <div
               className="fixed inset-0 z-40"
               onClick={() => setIsOpen(false)}
+              onKeyDown={(e) => {
+                const isActivate = e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar';
+                if (e.key === 'Escape' || isActivate) {
+                  if (isActivate) e.preventDefault();
+                  setIsOpen(false);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="Close menu"
             />
             {/* Menu */}
             <nav

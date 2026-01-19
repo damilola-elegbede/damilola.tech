@@ -5,10 +5,10 @@ import {
   Hero,
   Experience,
   SkillsAssessment,
+  FitAssessment,
   Education,
   Contact,
 } from '@/components/sections';
-import { BackToTop } from '@/components/ui';
 import { ChatFab, ChatPanel } from '@/components/chat';
 
 export default function Home() {
@@ -30,10 +30,10 @@ export default function Home() {
         <Experience />
         <SkillsAssessment />
         <Education />
+        <FitAssessment />
         <Contact />
       </main>
 
-      <BackToTop />
       <ChatFab onClick={toggleChat} isOpen={isChatOpen} />
       <ChatPanel isOpen={isChatOpen} onClose={closeChat} />
     </>

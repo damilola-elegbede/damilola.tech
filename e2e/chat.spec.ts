@@ -46,10 +46,11 @@ test.describe('Chat Functionality', () => {
 
   test('should close chat panel when close button is clicked', async ({ page }) => {
     await page.getByLabel('Open chat').click();
-    await expect(page.getByRole('dialog', { name: /chat/i })).toBeVisible();
+    const chatPanel = page.getByRole('dialog', { name: /chat/i });
+    await expect(chatPanel).toBeVisible();
 
-    // Use the FAB button to close (it becomes close button when panel is open)
-    await page.getByRole('button', { name: 'Close chat' }).first().click();
+    // Use the close button inside the chat panel header
+    await chatPanel.getByLabel('Close chat').click();
 
     // FAB should be visible again (panel closed)
     await expect(page.getByLabel('Open chat')).toBeVisible();
@@ -76,9 +77,9 @@ test.describe('Chat Functionality', () => {
 
     await expect(chatPanel).toBeVisible();
 
-    // Desktop: panel should have constrained dimensions (allow 1px for rounding)
+    // Desktop: panel should have constrained dimensions (md:w-[500px] md:h-[700px], allow 1px for rounding)
     boundingBox = await chatPanel.boundingBox();
-    expect(boundingBox?.width).toBeLessThanOrEqual(401);
-    expect(boundingBox?.height).toBeLessThanOrEqual(601);
+    expect(boundingBox?.width).toBeLessThanOrEqual(501);
+    expect(boundingBox?.height).toBeLessThanOrEqual(701);
   });
 });

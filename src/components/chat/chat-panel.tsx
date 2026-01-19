@@ -4,13 +4,10 @@ import {
   useState,
   useRef,
   useEffect,
-  useMemo,
   useCallback,
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
-import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
 import { ChatMessage } from './chat-message';
 import { Button } from '@/components/ui';
 import { suggestedQuestions } from '@/lib/resume-data';
@@ -24,6 +21,14 @@ import {
 
 const MAX_MESSAGE_LENGTH = 2000;
 
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  parts: { type: 'text'; text: string }[];
+}
+
+type ChatStatus = 'idle' | 'submitted' | 'streaming' | 'error';
+
 interface ChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -33,23 +38,13 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [status, setStatus] = useState<ChatStatus>('idle');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const lastSavedRef = useRef<string>('');
-
-  const transport = useMemo(
-    () => new DefaultChatTransport({ api: '/api/chat' }),
-    []
-  );
-
-  const { messages, sendMessage, status, setMessages } = useChat({
-    transport,
-    onFinish: () => {
-      setHasInteracted(true);
-    },
-  });
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load stored messages after hydration (fixes SSR mismatch)
   // Uses queueMicrotask to batch state updates and avoid cascading render warnings
@@ -62,7 +57,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
       }
       setIsHydrated(true);
     });
-  }, [setMessages]);
+  }, []);
 
   // Persist messages to localStorage only when not streaming (avoids excessive writes)
   useEffect(() => {
@@ -72,8 +67,8 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
     // Convert to StoredMessage format
     const toStore: StoredMessage[] = messages.map((m) => ({
       id: m.id,
-      role: m.role as 'user' | 'assistant',
-      parts: m.parts?.filter((p): p is { type: 'text'; text: string } => p.type === 'text') || [],
+      role: m.role,
+      parts: m.parts,
     }));
 
     // Only save if content changed (avoid redundant writes)
@@ -89,9 +84,123 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
     clearSession();
     setMessages([]);
     setHasInteracted(false);
-  }, [setMessages]);
+  }, []);
 
   const isLoading = status === 'streaming' || status === 'submitted';
+
+  // Send message with streaming fetch
+  const sendMessage = useCallback(
+    async (userText: string) => {
+      // Abort any existing request
+      abortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        parts: [{ type: 'text', text: userText }],
+      };
+
+      setMessages((prev) => [...prev, userMessage]);
+      setStatus('submitted');
+      setHasInteracted(true);
+
+      try {
+        // Convert messages to API format
+        const apiMessages = [...messages, { role: 'user', content: userText }].map(
+          (m) => {
+            if ('parts' in m && m.parts) {
+              return {
+                role: m.role,
+                content: m.parts.find((p) => p.type === 'text')?.text || '',
+              };
+            }
+            return m;
+          }
+        );
+
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: apiMessages }),
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get response');
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No reader available');
+
+        const decoder = new TextDecoder();
+        let assistantText = '';
+        const assistantId = crypto.randomUUID();
+
+        // Add empty assistant message
+        setMessages((prev) => [
+          ...prev,
+          { id: assistantId, role: 'assistant', parts: [{ type: 'text', text: '' }] },
+        ]);
+
+        setStatus('streaming');
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          assistantText += decoder.decode(value, { stream: true });
+
+          // Update assistant message with streamed content
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, parts: [{ type: 'text', text: assistantText }] }
+                : m
+            )
+          );
+        }
+
+        // Flush any remaining buffered bytes
+        assistantText += decoder.decode();
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, parts: [{ type: 'text', text: assistantText }] }
+              : m
+          )
+        );
+
+        setStatus('idle');
+        abortControllerRef.current = null;
+      } catch (error) {
+        // Don't treat abort as an error
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
+        console.error('[chat] Error:', error);
+        setStatus('error');
+        // Remove the empty assistant message on error
+        setMessages((prev) => {
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg?.role === 'assistant' && !lastMsg.parts[0]?.text) {
+            return prev.slice(0, -1);
+          }
+          return prev;
+        });
+        abortControllerRef.current = null;
+      }
+    },
+    [messages]
+  );
+
+  // Cleanup abort controller on unmount or panel close
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -104,6 +213,32 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
+
+  // Click outside to close (desktop only)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(target) &&
+        !target.closest('[aria-controls="chat-panel"]')
+      ) {
+        onClose();
+      }
+    };
+
+    // Delay adding listener to prevent immediate close on open
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
 
   // Handle escape key and focus trap
   const handleKeyDown = useCallback(
@@ -142,7 +277,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
     e.preventDefault();
     const trimmedInput = input.trim();
     if (trimmedInput && !isLoading && trimmedInput.length <= MAX_MESSAGE_LENGTH) {
-      sendMessage({ role: 'user', parts: [{ type: 'text', text: trimmedInput }] });
+      sendMessage(trimmedInput);
       setInput('');
     }
   };
@@ -150,12 +285,10 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
   const isInputTooLong = input.length > MAX_MESSAGE_LENGTH;
 
   // Extract text content from message parts
-  const getMessageContent = (message: (typeof messages)[number]): string => {
+  const getMessageContent = (message: Message): string => {
     if (!message.parts || message.parts.length === 0) return '';
     return message.parts
-      .filter(
-        (part): part is { type: 'text'; text: string } => part.type === 'text'
-      )
+      .filter((part) => part.type === 'text')
       .map((part) => part.text)
       .join('');
   };
@@ -174,7 +307,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
       <div
         ref={panelRef}
         className={cn(
-          'fixed bottom-0 right-0 z-50 flex h-[100dvh] w-full flex-col bg-[var(--color-card)] shadow-2xl transition-transform duration-300 md:bottom-24 md:right-6 md:h-[600px] md:w-[400px] md:rounded-2xl',
+          'fixed bottom-0 right-0 z-50 flex h-[100dvh] w-full flex-col bg-[var(--color-card)] shadow-2xl transition-transform duration-300 md:bottom-24 md:right-6 md:h-[min(700px,calc(100vh-120px))] md:w-[500px] md:rounded-2xl',
           isOpen
             ? 'translate-x-0'
             : 'translate-x-full md:translate-x-[calc(100%+24px)]'
@@ -201,9 +334,8 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
             {messages.length > 0 && (
               <button
                 onClick={handleClearChat}
-                className="rounded-full p-2 text-xs text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-text)]"
+                className="group relative rounded-full p-2 text-xs text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-text)]"
                 aria-label="Clear chat history"
-                title="Clear chat"
               >
                 <svg
                   className="h-4 w-4"
@@ -218,16 +350,19 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                   />
                 </svg>
+                <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity delay-150 group-hover:opacity-100">
+                  Clear chat
+                </span>
               </button>
             )}
+            {/* Close button */}
             <button
-              ref={closeButtonRef}
               onClick={onClose}
-              className="rounded-full p-2 transition-colors hover:bg-[var(--color-bg-alt)] md:hidden"
+              className="rounded-full p-2 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-text)]"
               aria-label="Close chat"
             >
               <svg
-                className="h-5 w-5 text-[var(--color-text-muted)]"
+                className="h-5 w-5"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -273,7 +408,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
               {messages.map((message) => (
                 <ChatMessage
                   key={message.id}
-                  role={message.role as 'user' | 'assistant'}
+                  role={message.role}
                   content={getMessageContent(message)}
                 />
               ))}

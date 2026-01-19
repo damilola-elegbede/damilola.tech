@@ -67,7 +67,10 @@ Open [http://localhost:3000](http://localhost:3000) to view the site.
 ```text
 src/
 ├── app/                 # Next.js App Router
-│   ├── api/chat/       # AI chat API endpoint
+│   ├── api/
+│   │   ├── chat/       # AI chat API endpoint
+│   │   ├── fit-assessment/ # Role fit analysis endpoint
+│   │   └── fit-examples/   # Example JDs for fit assessment
 │   ├── layout.tsx      # Root layout
 │   └── page.tsx        # Home page
 ├── components/
@@ -100,14 +103,17 @@ The chatbot uses a full context window approach (no RAG) with:
 
 ### Build-Time Prompt Generation
 
-The system prompt is assembled at build time using a template + placeholders architecture:
+The system prompt is assembled at build time using a split-template architecture:
 
-1. **Template**: `chatbot-system-prompt.md` in Vercel Blob defines structure and placeholders
-2. **Content**: Separate blob files (`star-stories.json`, `resume-full.json`, etc.) fill placeholders
-3. **Generation**: `npm run build` runs `scripts/generate-prompt.ts` as prebuild step
-4. **Output**: Final prompt written to `src/lib/generated/system-prompt.ts`
+1. **Shared Context**: `shared-context.md` contains profile data (resume, STAR stories, skills)
+2. **Chatbot Instructions**: `chatbot-instructions.md` contains chatbot-specific behavior (3rd person voice, how to answer)
+3. **Content Files**: Separate blob files (`star-stories.json`, `resume-full.json`, etc.) fill placeholders
+4. **Generation**: `npm run build` runs `scripts/generate-prompt.ts` as prebuild step
+5. **Output**: Two prompts written to `src/lib/generated/system-prompt.ts`:
+   - `SHARED_CONTEXT`: Profile data only (used by Fit Assessment)
+   - `CHATBOT_SYSTEM_PROMPT`: Shared context + chatbot instructions (used by Chat)
 
-This eliminates first-request latency and enables effective prompt caching.
+This architecture ensures the Fit Assessment feature gets clean profile data without chatbot-specific instructions leaking in.
 
 ### Content Security
 

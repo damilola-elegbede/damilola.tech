@@ -33,8 +33,9 @@ describe('NavMenu', () => {
     fireEvent.click(button);
     expect(screen.getAllByRole('navigation').length).toBe(2);
 
-    // Close menu
-    fireEvent.click(screen.getByRole('button', { name: /close menu/i }));
+    // Close menu by clicking the hamburger button again (now shows "Close menu")
+    // Use the same button reference since it toggles
+    fireEvent.click(button);
     // Should only have desktop nav remaining
     expect(screen.getAllByRole('navigation').length).toBe(1);
   });

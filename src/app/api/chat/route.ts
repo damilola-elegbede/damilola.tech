@@ -1,12 +1,14 @@
-import { anthropic } from '@ai-sdk/anthropic';
-import { streamText } from 'ai';
-import { SYSTEM_PROMPT } from '@/lib/generated/system-prompt';
+import Anthropic from '@anthropic-ai/sdk';
+import { CHATBOT_SYSTEM_PROMPT } from '@/lib/generated/system-prompt';
 import { getFullSystemPrompt } from '@/lib/system-prompt';
 
-export const runtime = 'edge';
+// Use Node.js runtime for reliable Anthropic SDK streaming
+export const runtime = 'nodejs';
+
+const client = new Anthropic();
 
 // Use generated prompt in production, fall back to runtime fetch in development
-const isGeneratedPromptAvailable = SYSTEM_PROMPT !== '__DEVELOPMENT_PLACEHOLDER__';
+const isGeneratedPromptAvailable = CHATBOT_SYSTEM_PROMPT !== '__DEVELOPMENT_PLACEHOLDER__';
 
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_MESSAGES = 50;
@@ -33,48 +35,78 @@ function validateMessages(messages: unknown): messages is ChatMessage[] {
 }
 
 export async function POST(req: Request) {
+  console.log('[chat] Request received');
   try {
     // Check content-length to prevent DoS via large payloads
     const contentLength = req.headers.get('content-length');
     if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
-      return new Response(
-        JSON.stringify({ error: 'Request body too large.' }),
-        { status: 413, headers: { 'Content-Type': 'application/json' } }
-      );
+      return Response.json({ error: 'Request body too large.' }, { status: 413 });
     }
 
     const { messages } = await req.json();
 
     if (!validateMessages(messages)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid messages format or content too long.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      return Response.json(
+        { error: 'Invalid messages format or content too long.' },
+        { status: 400 }
       );
     }
 
     // Use build-time generated prompt (production) or fetch at runtime (development)
-    const systemPrompt = isGeneratedPromptAvailable
-      ? SYSTEM_PROMPT
+    const basePrompt = isGeneratedPromptAvailable
+      ? CHATBOT_SYSTEM_PROMPT
       : await getFullSystemPrompt();
 
-    // Stream response
-    const result = streamText({
-      model: anthropic('claude-sonnet-4-20250514'),
+    // Reinforce brevity at the system level
+    const brevityPrefix = `CRITICAL: Keep responses SHORT. Default: 2-4 sentences. Simple factual questions: 1-2 sentences. Only use STAR format for behavioral questions. Never volunteer extra context unless asked.\n\n`;
+    const systemPrompt = brevityPrefix + basePrompt;
+
+    console.log('[chat] Starting stream, messages:', messages.length);
+
+    // Use Anthropic SDK streaming
+    const stream = client.messages.stream({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 512, // Reduced to encourage brevity
       system: systemPrompt,
-      messages,
+      messages: messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
     });
 
-    return result.toTextStreamResponse();
+    // Convert to ReadableStream for the response
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const event of stream) {
+            if (
+              event.type === 'content_block_delta' &&
+              event.delta.type === 'text_delta'
+            ) {
+              controller.enqueue(encoder.encode(event.delta.text));
+            }
+          }
+          controller.close();
+          console.log('[chat] Stream completed');
+        } catch (error) {
+          console.error('[chat] Stream error:', error);
+          controller.error(error);
+        }
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+      },
+    });
   } catch (error) {
-    console.error('Chat API error:', error);
-    return new Response(
-      JSON.stringify({
-        error: 'An error occurred while processing your request.',
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
+    console.error('[chat] Error:', error);
+    return Response.json(
+      { error: 'Chat service error.' },
+      { status: 500 }
     );
   }
 }

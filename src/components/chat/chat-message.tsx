@@ -27,10 +27,24 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
         )}
       >
         {role === 'assistant' ? (
-          <div className="prose prose-sm max-w-none prose-p:my-2 prose-ul:my-2 prose-li:my-0 prose-strong:text-[var(--color-primary)]">
+          <div className="prose prose-sm max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0 prose-headings:mt-4 prose-strong:text-[var(--color-primary)]">
             <ReactMarkdown
               disallowedElements={DISALLOWED_ELEMENTS}
               unwrapDisallowed
+              components={{
+                h1: ({ children }) => (
+                  <p className="mt-3 mb-1 text-sm font-semibold">{children}</p>
+                ),
+                h2: ({ children }) => (
+                  <p className="mt-3 mb-1 text-sm font-semibold">{children}</p>
+                ),
+                h3: ({ children }) => (
+                  <p className="mt-2 mb-1 text-sm font-medium">{children}</p>
+                ),
+                h4: ({ children }) => (
+                  <p className="mt-2 mb-1 text-sm font-medium">{children}</p>
+                ),
+              }}
             >
               {content}
             </ReactMarkdown>
