@@ -5,6 +5,7 @@ import {
   Hero,
   Experience,
   SkillsAssessment,
+  FitAssessment,
   Education,
   Contact,
 } from '@/components/sections';
@@ -29,6 +30,7 @@ export default function Home() {
         <Hero onOpenChat={toggleChat} />
         <Experience />
         <SkillsAssessment />
+        <FitAssessment />
         <Education />
         <Contact />
       </main>

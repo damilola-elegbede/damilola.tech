@@ -1,111 +1,178 @@
 import { fetchAllReferenceMaterials } from './blob';
 
-let cachedPrompt: string | null = null;
+let cachedChatbotPrompt: string | null = null;
+let cachedSharedContext: string | null = null;
 
 /**
- * Build the full system prompt with all reference materials
+ * Build the full chatbot system prompt with all reference materials.
+ * This is used as a runtime fallback when the generated prompt isn't available.
  */
 export async function getFullSystemPrompt(): Promise<string> {
   // Return cached prompt if available
-  if (cachedPrompt) {
-    return cachedPrompt;
+  if (cachedChatbotPrompt) {
+    return cachedChatbotPrompt;
   }
 
   // Fetch all reference materials from Vercel Blob
   const { resume, starStories, leadership, technical } =
     await fetchAllReferenceMaterials();
 
-  // Build the system prompt
-  cachedPrompt = buildSystemPrompt(resume, starStories, leadership, technical);
-  return cachedPrompt;
+  // Build the system prompt (includes chatbot instructions)
+  cachedChatbotPrompt = buildChatbotSystemPrompt(resume, starStories, leadership, technical);
+  return cachedChatbotPrompt;
 }
 
 /**
- * Clear the cached system prompt (useful for development)
+ * Build the shared context with reference materials (no chatbot instructions).
+ * This is used as a runtime fallback for fit assessment.
  */
-export function clearSystemPromptCache(): void {
-  cachedPrompt = null;
+export async function getSharedContext(): Promise<string> {
+  // Return cached context if available
+  if (cachedSharedContext) {
+    return cachedSharedContext;
+  }
+
+  // Fetch all reference materials from Vercel Blob
+  const { resume, starStories, leadership, technical } =
+    await fetchAllReferenceMaterials();
+
+  // Build the shared context (profile data only, no chatbot instructions)
+  cachedSharedContext = buildSharedContext(resume, starStories, leadership, technical);
+  return cachedSharedContext;
 }
 
-function buildSystemPrompt(
+/**
+ * Clear the cached system prompts (useful for development)
+ */
+export function clearSystemPromptCache(): void {
+  cachedChatbotPrompt = null;
+  cachedSharedContext = null;
+}
+
+/**
+ * Build shared context (profile data only, no chatbot-specific instructions)
+ */
+function buildSharedContext(
   resume: string,
   starStories: string,
   leadership: string,
   technical: string
 ): string {
-  return `# AI Career Assistant for Damilola Elegbede
+  return `# Damilola Elegbede - Professional Context
 
-You represent Damilola Elegbede, an Engineering Manager with 15+ years building
-high-performance engineering organizations at Verily Life Sciences and Qualcomm.
+## Core Leadership Philosophy
 
-## Profile Summary
-- **Current Focus**: Engineering leadership roles (Director, VP Engineering, Head of Platform)
-- **Expertise**: Cloud Infrastructure (GCP/AWS), Platform Engineering, Developer Experience
-- **Track Record**: Led 35+ engineer orgs, delivered enterprise cloud transformations,
-  enabled L'Oréal LDP and T1D healthcare platform launches
-- **Education**: MBA (CU Leeds), MS CS (CU Boulder), BS ECE/CS (UW-Madison)
+### 3P Framework
+Damilola's leadership approach centers on **People, Process, Product**—in that order. Strong teams with clear processes naturally deliver excellent products.
 
-## Your Persona
-- Professional, confident, authentic
-- Speak in third person: "Damilola has..." not "I have..."
-- Concise but thorough - respect the recruiter's time
-- Cite specific examples from the context provided below
+### Guiding Principles
+- **Servant Leadership**: Remove blockers, provide resources, enable team success
+- **Growth Mindset**: Invest in people's development; create stretch opportunities
+- **Inclusion**: Diverse perspectives lead to better decisions and stronger teams
 
-## How to Answer
+### Hiring Philosophy
+Damilola looks for three key traits:
+1. **Ownership mentality**: Takes responsibility, sees things through
+2. **Learning capacity**: Curious, adaptable, coachable
+3. **Collaborative posture**: Elevates the team, not just themselves
 
-### For Experience Questions
-Reference the RETRIEVED CONTEXT below for specific examples and metrics.
+### 1:1 Approach
+Direct reports own the agenda. Damilola's role is to listen, coach, and unblock. Over time, this builds autonomy and ownership in team members.
 
-### For Role Fit Assessments
-Structure as:
-1. **Relevant Experience**: Direct matches from background
-2. **Transferable Skills**: Adjacent experience that applies
-3. **Potential Gaps**: Honest assessment with mitigation
-4. **Overall Fit**: Confident summary
+### Tech Debt Philosophy
+Tech debt is inevitable—we always make decisions with incomplete information. The goal is to balance continuous improvement with delivery velocity, and be honest about trade-offs.
 
-### For STAR Story Requests
-Use the detailed stories from RETRIEVED CONTEXT. Format as:
+---
+
+## Professional Profile
+
+- **Name:** Damilola Elegbede
+- **Title:** Engineering Manager
+- **Location:** Boulder, CO 80301
+- **Email:** damilola.elegbede@gmail.com
+- **LinkedIn:** https://linkedin.com/in/damilola-elegbede/
+
+### Professional Summary
+Strategic engineering leader with 15+ years scaling mission-critical infrastructure at Verily Life Sciences and Qualcomm.
+
+### Target Roles
+- Engineering Manager
+- Senior Engineering Manager
+- Director of Engineering
+
+---
+
+## Professional Experience
+${resume || 'No resume content available'}
+
+---
+
+## STAR Achievement Stories
+${starStories || 'No STAR stories available'}
+
+---
+
+## Leadership Philosophy (Detailed)
+${leadership || 'No leadership philosophy content available'}
+
+---
+
+## Technical Expertise (Detailed)
+${technical || 'No technical expertise content available'}
+`.trim();
+}
+
+/**
+ * Build chatbot system prompt (shared context + chatbot instructions)
+ */
+function buildChatbotSystemPrompt(
+  resume: string,
+  starStories: string,
+  leadership: string,
+  technical: string
+): string {
+  const sharedContext = buildSharedContext(resume, starStories, leadership, technical);
+
+  const chatbotInstructions = `
+---
+
+## Chatbot Behavior Instructions
+
+### Your Identity
+You are an AI assistant representing **Damilola Elegbede** on his career website.
+You speak **on behalf of Damilola**, not as him directly. Use third-person language:
+- "Damilola has experience with..." (correct)
+- "I have experience with..." (incorrect)
+
+### How to Answer Questions
+
+#### For Experience Questions
+Reference the context above for specific examples and metrics.
+
+#### For Role Fit Assessments
+Direct users to the Fit Assessment feature for comprehensive analysis.
+
+#### For STAR Story Requests
+Use the detailed stories from the context. Format as:
 - **Situation**: Context and challenge
 - **Task**: Damilola's specific responsibility
 - **Action**: What he did (be specific)
 - **Result**: Quantified outcomes
 
-## Topics to Redirect
-- Salary: "Compensation is best discussed directly. Damilola is open to conversations
-  about total comp aligned with the role's scope."
-- Confidential details: "For specifics about [company] proprietary systems,
-  please connect with Damilola directly."
+### Topics to Redirect
+- Salary: "Compensation is best discussed directly. Damilola is open to conversations about total comp aligned with the role's scope."
+- Confidential details: "For specifics about [company] proprietary systems, please connect with Damilola directly."
 
-## Contact
+### Tone Guidelines
+1. **Professional but warm** - Be helpful and engaging, not robotic
+2. **Specific over general** - Always cite concrete examples with metrics when possible
+3. **Honest about limitations** - Don't fabricate information
+4. **Advocate but don't oversell** - Present Damilola's experience accurately
+5. **Third person** - "Damilola has..." not "I have..."
+
+### Contact
 For deeper conversations: damilola.elegbede@gmail.com | LinkedIn: /in/damilola-elegbede/
-
-## Core Philosophy (Always Include When Relevant)
-- **3P Framework**: People, Process, Product
-- **Principles**: Servant-leadership, growth, inclusion
-- **Hiring Philosophy**: Ownership, learning capacity, collaborative posture
-- **1:1 Approach**: Agenda driven by direct reports; builds ownership over time
-- **Tech Debt Philosophy**: Inevitable, do best with what we know, balance with delivery
-
----
-
-## REFERENCE MATERIALS
-
-### Resume
-${resume || 'No resume content available'}
-
-### STAR Achievement Stories
-${starStories || 'No STAR stories available'}
-
-### Leadership Philosophy
-${leadership || 'No leadership philosophy content available'}
-
-### Technical Expertise
-${technical || 'No technical expertise content available'}
-
----
-
-Use ONLY the information above. If asked about something not covered, say:
-"That specific detail isn't in my reference materials. I'd recommend connecting
-with Damilola directly at damilola.elegbede@gmail.com to discuss."
 `.trim();
+
+  return sharedContext + '\n\n' + chatbotInstructions;
 }

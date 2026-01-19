@@ -33,6 +33,10 @@ test.describe('Home Page', () => {
     await expect(page.locator('#skills-assessment')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Skills Assessment' })).toBeVisible();
 
+    // Fit Assessment
+    await expect(page.locator('#fit-assessment')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Honest Fit Assessment' })).toBeVisible();
+
     // Education
     await expect(page.locator('#education')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Education' })).toBeVisible();
@@ -78,11 +82,12 @@ test.describe('Home Page', () => {
     // Navigation links visible on desktop
     await expect(page.getByRole('link', { name: /experience/i }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: /skills/i }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /fit check/i }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: /education/i }).first()).toBeVisible();
 
-    // Only 3 nav links (Contact not in nav)
+    // 4 nav links (Contact not in nav)
     const navLinks = page.locator('nav a');
     const count = await navLinks.count();
-    expect(count).toBe(3);
+    expect(count).toBe(4);
   });
 });
