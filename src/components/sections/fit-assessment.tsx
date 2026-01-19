@@ -39,15 +39,47 @@ export function FitAssessment() {
   const handleDownloadPDF = useCallback(async () => {
     if (!resultRef.current || !completion) return;
     const html2pdf = (await import('html2pdf.js')).default;
-    const element = resultRef.current;
+
+    // Clone the element and apply print-friendly styles
+    const clone = resultRef.current.cloneNode(true) as HTMLElement;
+    clone.style.cssText = `
+      background: white !important;
+      color: #1a1a1a !important;
+      padding: 20px !important;
+    `;
+    // Apply dark text to all child elements
+    clone.querySelectorAll('*').forEach((el) => {
+      const element = el as HTMLElement;
+      element.style.color = '#1a1a1a';
+      element.style.borderColor = '#e5e5e5';
+    });
+    // Style headings
+    clone.querySelectorAll('h1, h2, h3, h4').forEach((el) => {
+      const element = el as HTMLElement;
+      element.style.color = '#0a2540';
+    });
+    // Style table headers
+    clone.querySelectorAll('th').forEach((el) => {
+      const element = el as HTMLElement;
+      element.style.backgroundColor = '#f5f5f5';
+      element.style.color = '#1a1a1a';
+    });
+
+    // Temporarily add clone to DOM for rendering
+    clone.style.position = 'absolute';
+    clone.style.left = '-9999px';
+    document.body.appendChild(clone);
+
     const opt = {
       margin: [0.5, 0.5, 0.5, 0.5] as [number, number, number, number],
       filename: 'fit-assessment.pdf',
       image: { type: 'jpeg' as const, quality: 0.98 },
-      html2canvas: { scale: 2 },
+      html2canvas: { scale: 2, backgroundColor: '#ffffff' },
       jsPDF: { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const },
     };
-    html2pdf().set(opt).from(element).save();
+
+    await html2pdf().set(opt).from(clone).save();
+    document.body.removeChild(clone);
   }, [completion]);
 
   // Fetch example JDs on mount
