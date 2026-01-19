@@ -1,8 +1,7 @@
 export interface AiContext {
-  situation: string;
-  approach: string;
-  technicalWork?: string;
-  lessonsLearned: string;
+  strategicContext: string;
+  leadershipChallenge: string;
+  keyInsight: string;
 }
 
 export interface Experience {

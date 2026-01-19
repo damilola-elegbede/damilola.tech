@@ -92,29 +92,21 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
               className="mt-4 space-y-4 rounded-lg bg-[var(--color-bg-alt)] p-4 text-sm"
             >
               <div>
-                <h4 className="font-semibold text-[var(--color-text)]">Situation</h4>
+                <h4 className="font-semibold text-[var(--color-text)]">Strategic Context</h4>
                 <p className="mt-1 text-[var(--color-text-muted)]">
-                  {experience.aiContext.situation}
+                  {experience.aiContext.strategicContext}
                 </p>
               </div>
               <div>
-                <h4 className="font-semibold text-[var(--color-text)]">Approach</h4>
+                <h4 className="font-semibold text-[var(--color-text)]">Leadership Challenge</h4>
                 <p className="mt-1 text-[var(--color-text-muted)]">
-                  {experience.aiContext.approach}
+                  {experience.aiContext.leadershipChallenge}
                 </p>
               </div>
-              {experience.aiContext.technicalWork && (
-                <div>
-                  <h4 className="font-semibold text-[var(--color-text)]">Technical Work</h4>
-                  <p className="mt-1 text-[var(--color-text-muted)]">
-                    {experience.aiContext.technicalWork}
-                  </p>
-                </div>
-              )}
               <div>
-                <h4 className="font-semibold text-[var(--color-text)]">Lessons Learned</h4>
-                <p className="mt-1 text-[var(--color-text-muted)]">
-                  {experience.aiContext.lessonsLearned}
+                <h4 className="font-semibold text-[var(--color-text)]">Key Insight</h4>
+                <p className="mt-1 italic text-[var(--color-text-muted)]">
+                  {experience.aiContext.keyInsight}
                 </p>
               </div>
             </div>

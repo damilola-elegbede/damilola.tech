@@ -54,6 +54,24 @@ Required in `.env.local` (never commit):
 - Prompt caching enabled for cost/latency optimization
 - System prompt includes resume, STAR stories, leadership philosophy
 
+## Content Management
+
+Content files (system prompts, STAR stories, feedback) live in [Vercel Blob](https://vercel.com/docs/storage/vercel-blob).
+
+### Claude Commands
+- `/content-pull` - Download all content from Blob to `.tmp/content/`
+- `/content-push` - Upload local content changes to Blob
+
+### Local Development
+Content is cached at build time in `src/lib/generated/`. For local dev without
+blob token, files are read from `.tmp/content/` fallback.
+
+### Editing Content
+1. Run `/content-pull` to get latest
+2. Edit files in `.tmp/content/`
+3. Run `/content-push` to upload changes
+4. Rebuild to regenerate cached prompts
+
 ## Section Background Pattern
 Sections alternate backgrounds for visual rhythm:
 - Odd sections (1, 3, 5): Default `var(--color-bg)`
