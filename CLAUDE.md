@@ -64,7 +64,9 @@ Current order (1-indexed):
 2. Experience - alternate (bg-[var(--color-bg-alt)])
 3. SkillsAssessment - default
 4. Education - alternate (bg-[var(--color-bg-alt)])
-5. FitAssessment - default
-6. Contact - alternate (bg-[var(--color-bg-alt)])
+5. Projects - default
+6. FitAssessment - alternate (bg-[var(--color-bg-alt)])
+
+Note: The footer (Contact component) is not a section and uses default bg.
 
 When adding new sections, maintain this alternation.
