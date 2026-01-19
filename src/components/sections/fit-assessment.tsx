@@ -42,13 +42,7 @@ export function FitAssessment() {
 
     // Clone the element and apply print-friendly styles
     const clone = resultRef.current.cloneNode(true) as HTMLElement;
-    clone.style.cssText = `
-      background: white !important;
-      color: #1a1a1a !important;
-      padding: 20px !important;
-      font-size: 12px !important;
-      line-height: 1.5 !important;
-    `;
+
     // Apply dark text to all child elements
     clone.querySelectorAll('*').forEach((el) => {
       const element = el as HTMLElement;
@@ -108,10 +102,27 @@ export function FitAssessment() {
       element.style.fontSize = '12px';
     });
 
-    // Temporarily add clone to DOM for rendering
-    clone.style.position = 'absolute';
-    clone.style.left = '-9999px';
+    // Add clone to DOM with visibility hidden but in viewport for html2canvas capture
+    // Using opacity: 0 instead of off-screen positioning because html2canvas
+    // cannot capture content positioned outside the viewport
+    clone.style.cssText = `
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 8.5in !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      z-index: -1 !important;
+      background: white !important;
+      color: #1a1a1a !important;
+      padding: 20px !important;
+      font-size: 12px !important;
+      line-height: 1.5 !important;
+    `;
     document.body.appendChild(clone);
+
+    // Wait for browser to complete layout/paint
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     const opt = {
       margin: [0.5, 0.5, 0.5, 0.5] as [number, number, number, number],
