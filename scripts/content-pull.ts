@@ -59,7 +59,7 @@ async function main() {
 
   let successCount = 0;
   let skipCount = 0;
-  let errorCount = 0;
+  const errorCount = 0;
 
   for (const filename of CONTENT_FILES) {
     const content = await fetchFile(filename);
