@@ -104,9 +104,8 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error('[chat] Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return Response.json(
-      { error: `Chat service error: ${errorMessage}` },
+      { error: 'Chat service error.' },
       { status: 500 }
     );
   }

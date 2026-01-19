@@ -201,6 +201,9 @@ export function FitAssessment() {
         text += decoder.decode(value, { stream: true });
         setCompletion(text);
       }
+      // Flush any remaining buffered bytes
+      text += decoder.decode();
+      setCompletion(text);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -256,6 +259,11 @@ export function FitAssessment() {
             Clear
           </Button>
         </div>
+        {examplesError && (
+          <p className="mb-4 text-sm text-red-400">
+            Couldn&apos;t load examples. Paste your own job description instead.
+          </p>
+        )}
 
         {/* Textarea */}
         <textarea

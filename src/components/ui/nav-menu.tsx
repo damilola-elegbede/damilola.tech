@@ -80,7 +80,9 @@ export function NavMenu({ className }: NavMenuProps) {
               className="fixed inset-0 z-40"
               onClick={() => setIsOpen(false)}
               onKeyDown={(e) => {
-                if (e.key === 'Escape' || e.key === 'Enter') {
+                const isActivate = e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar';
+                if (e.key === 'Escape' || isActivate) {
+                  if (isActivate) e.preventDefault();
                   setIsOpen(false);
                 }
               }}

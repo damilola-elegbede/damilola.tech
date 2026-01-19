@@ -61,10 +61,10 @@ Sections alternate backgrounds for visual rhythm:
 
 Current order (1-indexed):
 1. Hero - default
-2. Experience - default
-3. SkillsAssessment - alternate (bg-[var(--color-bg-alt)])
-4. Education - default
-5. FitAssessment - alternate (bg-[var(--color-bg-alt)])
-6. Contact - default
+2. Experience - alternate (bg-[var(--color-bg-alt)])
+3. SkillsAssessment - default
+4. Education - alternate (bg-[var(--color-bg-alt)])
+5. FitAssessment - default
+6. Contact - alternate (bg-[var(--color-bg-alt)])
 
 When adding new sections, maintain this alternation.

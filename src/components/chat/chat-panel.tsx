@@ -44,6 +44,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const lastSavedRef = useRef<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load stored messages after hydration (fixes SSR mismatch)
   // Uses queueMicrotask to batch state updates and avoid cascading render warnings
@@ -90,6 +91,11 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
   // Send message with streaming fetch
   const sendMessage = useCallback(
     async (userText: string) => {
+      // Abort any existing request
+      abortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       const userMessage: Message = {
         id: crypto.randomUUID(),
         role: 'user',
@@ -118,6 +124,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ messages: apiMessages }),
+          signal: abortController.signal,
         });
 
         if (!response.ok) {
@@ -155,8 +162,23 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
           );
         }
 
+        // Flush any remaining buffered bytes
+        assistantText += decoder.decode();
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, parts: [{ type: 'text', text: assistantText }] }
+              : m
+          )
+        );
+
         setStatus('idle');
+        abortControllerRef.current = null;
       } catch (error) {
+        // Don't treat abort as an error
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
         console.error('[chat] Error:', error);
         setStatus('error');
         // Remove the empty assistant message on error
@@ -167,10 +189,18 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
           }
           return prev;
         });
+        abortControllerRef.current = null;
       }
     },
     [messages]
   );
+
+  // Cleanup abort controller on unmount or panel close
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {

@@ -90,9 +90,8 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('[fit-assessment] Error:', error);
     console.error('[fit-assessment] Stack:', error instanceof Error ? error.stack : 'No stack');
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return Response.json(
-      { error: `AI service error: ${errorMessage}` },
+      { error: 'AI service error.' },
       { status: 503 }
     );
   }
