@@ -41,8 +41,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      # Use npm install to resolve platform-specific optional deps (rollup, lightningcss)
-      - run: npm install
+      - run: npm ci
       - run: npm run test -- --coverage --run
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -62,6 +61,5 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      # Use npm install to resolve platform-specific optional deps (rollup, swc, lightningcss)
-      - run: npm install
+      - run: npm ci
       - run: npm run build
