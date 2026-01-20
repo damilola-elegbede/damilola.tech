@@ -10,6 +10,12 @@ interface SkillCardProps {
   variant: 'expert' | 'proficient' | 'familiar';
 }
 
+const proficiencyLabels = {
+  expert: 'Expert',
+  proficient: 'Proficient',
+  familiar: 'Familiar',
+};
+
 function SkillCard({ title, items, variant }: SkillCardProps) {
   const variantStyles = {
     expert: {
@@ -18,7 +24,7 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
       hoverBorder: 'hover:border-[var(--color-skill-expert)]',
       hoverShadow: 'hover:shadow-[0_0_20px_rgba(96,165,250,0.2)]',
       titleColor: 'text-[var(--color-skill-expert)]',
-      pillBorder: 'border-blue-400/50',
+      pillBorder: 'border-blue-400/50 border-solid',
       pillBg: 'bg-blue-500/10',
       pillText: 'text-blue-300',
     },
@@ -28,7 +34,7 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
       hoverBorder: 'hover:border-[var(--color-skill-proficient)]',
       hoverShadow: 'hover:shadow-[0_0_20px_rgba(100,116,139,0.2)]',
       titleColor: 'text-[var(--color-skill-proficient)]',
-      pillBorder: 'border-slate-400/50',
+      pillBorder: 'border-slate-400/50 border-dashed',
       pillBg: 'bg-slate-500/10',
       pillText: 'text-slate-300',
     },
@@ -38,7 +44,7 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
       hoverBorder: 'hover:border-[var(--color-skill-familiar)]',
       hoverShadow: 'hover:shadow-[0_0_20px_rgba(71,85,105,0.2)]',
       titleColor: 'text-[var(--color-skill-familiar)]',
-      pillBorder: 'border-slate-500/50',
+      pillBorder: 'border-slate-500/50 border-dotted',
       pillBg: 'bg-slate-600/10',
       pillText: 'text-slate-400',
     },
@@ -59,10 +65,11 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
       <h3 className={`mb-4 text-lg font-semibold ${styles.titleColor}`}>
         {title}
       </h3>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2" role="list" aria-label={`${title} skills`}>
         {items.map((item, i) => (
           <span
             key={i}
+            role="listitem"
             className={cn(
               'rounded-full px-3 py-1 text-sm border',
               styles.pillBorder,
@@ -70,6 +77,7 @@ function SkillCard({ title, items, variant }: SkillCardProps) {
               styles.pillText
             )}
           >
+            <span className="sr-only">{proficiencyLabels[variant]}: </span>
             {item}
           </span>
         ))}

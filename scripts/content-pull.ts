@@ -7,7 +7,7 @@
  */
 
 import { mkdir, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { join, basename } from 'path';
 import { list } from '@vercel/blob';
 import * as dotenv from 'dotenv';
 
@@ -16,6 +16,7 @@ dotenv.config({ path: '.env.local' });
 
 const BLOB_PATH_PREFIX = 'damilola.tech/content';
 const LOCAL_CONTENT_DIR = join(process.cwd(), '.tmp/content');
+const MAX_RESPONSE_SIZE = 10 * 1024 * 1024; // 10MB limit
 
 type FetchResult =
   | { status: 'ok'; content: string }
@@ -26,12 +27,22 @@ async function fetchFile(url: string, filename: string): Promise<FetchResult> {
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+      console.error(`  [ERROR] ${filename}: ${errorMsg}`);
+      return { status: 'error', error: new Error(errorMsg) };
+    }
+
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
+      const errorMsg = `Response too large (${contentLength} bytes, max ${MAX_RESPONSE_SIZE})`;
+      console.error(`  [ERROR] ${filename}: ${errorMsg}`);
+      return { status: 'error', error: new Error(errorMsg) };
     }
 
     return { status: 'ok', content: await response.text() };
   } catch (error) {
-    console.error(`  [ERROR] ${filename}:`, error);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`  [ERROR] ${filename}: ${errorMsg}`);
     return { status: 'error', error };
   }
 }
@@ -70,8 +81,17 @@ async function main() {
   let errorCount = 0;
 
   for (const blob of blobs) {
-    // Extract filename from pathname (remove prefix)
-    const filename = blob.pathname.replace(`${BLOB_PATH_PREFIX}/`, '');
+    // Extract filename from pathname (remove prefix) and sanitize
+    const rawFilename = blob.pathname.replace(`${BLOB_PATH_PREFIX}/`, '');
+    const filename = basename(rawFilename); // Prevent path traversal
+
+    // Validate filename contains only safe characters
+    if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+      console.error(`  [SKIP] ${rawFilename}: Invalid filename characters`);
+      errorCount++;
+      continue;
+    }
+
     const result = await fetchFile(blob.url, filename);
 
     switch (result.status) {
