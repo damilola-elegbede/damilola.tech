@@ -42,6 +42,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - run: npm run generate-prompt
       - run: npm run test -- --coverage --run
       - name: Upload coverage
         uses: codecov/codecov-action@v4
