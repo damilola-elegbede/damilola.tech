@@ -834,7 +834,7 @@ describe('fit-assessment API route', () => {
 
       const { POST } = await import('@/app/api/fit-assessment/route');
 
-      const longDescription = 'x'.repeat(15000);
+      const longDescription = 'x'.repeat(25000);
 
       const request = new Request('http://localhost/api/fit-assessment', {
         method: 'POST',
