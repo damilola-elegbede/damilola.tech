@@ -147,12 +147,14 @@ export interface ContentFiles {
   technicalExpertise: string;
   verilyFeedback: string;
   anecdotes: string;
+  projectsContext: string;
   chatbotArchitecture: string;
 }
 
 /**
  * Fetch all content files for placeholder replacement.
- * These files are optional - graceful degradation if missing.
+ * All content files are REQUIRED - build fails if any are missing.
+ * Falls back to local files in development when blob token is not configured.
  */
 export async function fetchAllContent(): Promise<ContentFiles> {
   const [
@@ -162,15 +164,17 @@ export async function fetchAllContent(): Promise<ContentFiles> {
     technicalExpertise,
     verilyFeedback,
     anecdotes,
+    projectsContext,
     chatbotArchitecture,
   ] = await Promise.all([
-    fetchBlob('star-stories.json'),
-    fetchBlob('resume-full.json'),
-    fetchBlob('leadership-philosophy.md'),
-    fetchBlob('technical-expertise.md'),
-    fetchBlob('verily-feedback.md'),
-    fetchBlob('anecdotes.md'),
-    fetchBlob('chatbot-architecture.md'),
+    fetchWithLocalFallbackRequired('star-stories.json'),
+    fetchWithLocalFallbackRequired('resume-full.json'),
+    fetchWithLocalFallbackRequired('leadership-philosophy.md'),
+    fetchWithLocalFallbackRequired('technical-expertise.md'),
+    fetchWithLocalFallbackRequired('verily-feedback.md'),
+    fetchWithLocalFallbackRequired('anecdotes.md'),
+    fetchWithLocalFallbackRequired('projects-context.md'),
+    fetchWithLocalFallbackRequired('chatbot-architecture.md'),
   ]);
 
   return {
@@ -180,6 +184,7 @@ export async function fetchAllContent(): Promise<ContentFiles> {
     technicalExpertise,
     verilyFeedback,
     anecdotes,
+    projectsContext,
     chatbotArchitecture,
   };
 }
