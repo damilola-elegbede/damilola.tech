@@ -14,6 +14,21 @@ const MAX_JD_LENGTH = 10000;
 const MAX_BODY_SIZE = 50 * 1024; // 50KB max request body
 const MIN_EXTRACTED_CONTENT_LENGTH = 100;
 const URL_FETCH_TIMEOUT = 10000; // 10 seconds
+const MAX_RESPONSE_SIZE = 1024 * 1024; // 1MB max response from fetched URL
+
+// Private IP ranges and blocked hosts for SSRF protection
+const BLOCKED_HOSTNAMES = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'];
+const PRIVATE_IP_PATTERNS = [
+  /^127\./, // Loopback
+  /^10\./, // Private Class A
+  /^172\.(1[6-9]|2\d|3[01])\./, // Private Class B
+  /^192\.168\./, // Private Class C
+  /^169\.254\./, // Link-local
+  /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./, // Carrier-grade NAT
+  /^0\./, // Current network
+  /^224\./, // Multicast
+  /^240\./, // Reserved
+];
 
 /**
  * Extract text content from HTML by stripping tags and decoding entities.
@@ -55,6 +70,110 @@ function isUrl(input: string): boolean {
   return /^https?:\/\//i.test(input.trim());
 }
 
+/**
+ * Validate URL for SSRF protection.
+ * Returns error message if URL is blocked, null if allowed.
+ */
+function validateUrlForSsrf(urlString: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(urlString);
+  } catch {
+    return 'Invalid URL format.';
+  }
+
+  // Only allow http and https protocols
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    return 'Only HTTP and HTTPS URLs are supported.';
+  }
+
+  const hostname = url.hostname.toLowerCase();
+
+  // Check blocked hostnames
+  if (BLOCKED_HOSTNAMES.includes(hostname)) {
+    return 'This URL is not allowed.';
+  }
+
+  // Check if hostname is an IP address and block private ranges
+  const ipMatch = hostname.match(/^(\d{1,3}\.){3}\d{1,3}$/);
+  if (ipMatch) {
+    for (const pattern of PRIVATE_IP_PATTERNS) {
+      if (pattern.test(hostname)) {
+        return 'This URL is not allowed.';
+      }
+    }
+  }
+
+  // Block cloud metadata endpoints
+  if (hostname === '169.254.169.254') {
+    return 'This URL is not allowed.';
+  }
+
+  return null;
+}
+
+/**
+ * Fetch URL with size limit using streaming.
+ */
+async function fetchWithSizeLimit(url: string, maxSize: number, timeout: number): Promise<string> {
+  const response = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FitAssessmentBot/1.0)' },
+    signal: AbortSignal.timeout(timeout),
+    redirect: 'manual', // Don't follow redirects automatically
+  });
+
+  // Handle redirects manually to validate each hop
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get('location');
+    if (location) {
+      const redirectUrl = new URL(location, url).href;
+      const redirectError = validateUrlForSsrf(redirectUrl);
+      if (redirectError) {
+        throw new Error(`Redirect blocked: ${redirectError}`);
+      }
+      // Follow one redirect only
+      return fetchWithSizeLimit(redirectUrl, maxSize, timeout);
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  // Check content-length if available
+  const contentLength = response.headers.get('content-length');
+  if (contentLength && parseInt(contentLength, 10) > maxSize) {
+    throw new Error('Response too large');
+  }
+
+  // Stream response with size limit
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('No response body');
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalSize = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      totalSize += value.length;
+      if (totalSize > maxSize) {
+        throw new Error('Response too large');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const decoder = new TextDecoder();
+  return chunks.map((chunk) => decoder.decode(chunk, { stream: true })).join('') + decoder.decode();
+}
+
 export async function POST(req: Request) {
   console.log('[fit-assessment] Request received');
   try {
@@ -86,23 +205,20 @@ export async function POST(req: Request) {
       console.log('[fit-assessment] Detected URL, fetching content...');
       const urlToFetch = jobDescription.trim();
 
+      // SSRF protection: validate URL before fetching
+      const ssrfError = validateUrlForSsrf(urlToFetch);
+      if (ssrfError) {
+        console.log('[fit-assessment] URL blocked by SSRF protection:', ssrfError);
+        return Response.json(
+          {
+            error: `${ssrfError} Please copy and paste the job description text directly.`,
+          },
+          { status: 400 }
+        );
+      }
+
       try {
-        const response = await fetch(urlToFetch, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FitAssessmentBot/1.0)' },
-          signal: AbortSignal.timeout(URL_FETCH_TIMEOUT),
-        });
-
-        if (!response.ok) {
-          console.log('[fit-assessment] URL fetch failed with status:', response.status);
-          return Response.json(
-            {
-              error: `Could not access the job posting (HTTP ${response.status}). Please copy and paste the job description text directly.`,
-            },
-            { status: 400 }
-          );
-        }
-
-        const html = await response.text();
+        const html = await fetchWithSizeLimit(urlToFetch, MAX_RESPONSE_SIZE, URL_FETCH_TIMEOUT);
         const textContent = extractTextFromHtml(html);
         console.log('[fit-assessment] Extracted content length:', textContent.length);
 
@@ -120,6 +236,35 @@ export async function POST(req: Request) {
         jobDescriptionText = textContent;
       } catch (err) {
         console.error('[fit-assessment] URL fetch error:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+        if (errorMessage.includes('HTTP ')) {
+          return Response.json(
+            {
+              error: `Could not access the job posting (${errorMessage}). Please copy and paste the job description text directly.`,
+            },
+            { status: 400 }
+          );
+        }
+
+        if (errorMessage.includes('Response too large')) {
+          return Response.json(
+            {
+              error: 'The page is too large to process. Please copy and paste the job description text directly.',
+            },
+            { status: 400 }
+          );
+        }
+
+        if (errorMessage.includes('Redirect blocked')) {
+          return Response.json(
+            {
+              error: 'The URL redirected to a blocked destination. Please copy and paste the job description text directly.',
+            },
+            { status: 400 }
+          );
+        }
+
         return Response.json(
           {
             error:
