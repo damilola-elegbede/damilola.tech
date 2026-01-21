@@ -572,7 +572,7 @@ describe('fit-assessment API route', () => {
       expect(data.error).toContain('not allowed');
     });
 
-    it('should reject non-HTTP protocols', async () => {
+    it('should reject loopback IP (127.0.0.1)', async () => {
       vi.doMock('@/lib/generated/system-prompt', () => ({
         FIT_ASSESSMENT_PROMPT: 'Test system prompt',
       }));

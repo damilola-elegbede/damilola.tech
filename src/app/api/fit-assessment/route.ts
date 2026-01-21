@@ -163,10 +163,21 @@ function validateUrlForSsrf(urlString: string): string | null {
   return null;
 }
 
+const MAX_REDIRECTS = 5;
+
 /**
  * Fetch URL with size limit using streaming.
  */
-async function fetchWithSizeLimit(url: string, maxSize: number, timeout: number): Promise<string> {
+async function fetchWithSizeLimit(
+  url: string,
+  maxSize: number,
+  timeout: number,
+  redirectCount = 0
+): Promise<string> {
+  if (redirectCount >= MAX_REDIRECTS) {
+    throw new Error('Too many redirects');
+  }
+
   const response = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FitAssessmentBot/1.0)' },
     signal: AbortSignal.timeout(timeout),
@@ -182,8 +193,7 @@ async function fetchWithSizeLimit(url: string, maxSize: number, timeout: number)
       if (redirectError) {
         throw new Error(`Redirect blocked: ${redirectError}`);
       }
-      // Follow one redirect only
-      return fetchWithSizeLimit(redirectUrl, maxSize, timeout);
+      return fetchWithSizeLimit(redirectUrl, maxSize, timeout, redirectCount + 1);
     }
   }
 
