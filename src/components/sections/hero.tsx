@@ -64,7 +64,7 @@ export function Hero({ onOpenChat }: HeroProps) {
             <Button
               onClick={onOpenChat}
               size="lg"
-              className="bg-[var(--color-accent)] text-[var(--color-bg)] hover:bg-[var(--color-accent)]/90"
+              className="bg-[var(--color-accent)] text-[var(--color-bg)] hover:bg-[var(--color-accent)]/90 hover:shadow-[0_0_20px_rgba(0,102,255,0.4)] transition-shadow"
             >
               Ask AI About Me
             </Button>
@@ -75,7 +75,8 @@ export function Hero({ onOpenChat }: HeroProps) {
                   ?.scrollIntoView({ behavior: 'smooth' });
               }}
               size="lg"
-              variant="secondary"
+              className="bg-[var(--color-accent)] text-[var(--color-bg)] hover:bg-[var(--color-accent)]/90 hover:shadow-[0_0_20px_rgba(0,102,255,0.4)] transition-shadow"
+              aria-label="Scroll to fit assessment section"
             >
               Run Fit Assessment
             </Button>
