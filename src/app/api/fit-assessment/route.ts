@@ -18,6 +18,37 @@ const MAX_RESPONSE_SIZE = 1024 * 1024; // 1MB max response from fetched URL
 
 // Private IP ranges and blocked hosts for SSRF protection
 const BLOCKED_HOSTNAMES = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'];
+
+// Keywords that indicate content is a job description
+const JD_KEYWORDS = [
+  'responsibilities',
+  'qualifications',
+  'requirements',
+  'experience',
+  'skills',
+  'job description',
+  'position',
+  'duties',
+  'about the role',
+  'what you\'ll do',
+  'who you are',
+  'what we\'re looking for',
+  'minimum requirements',
+  'preferred qualifications',
+  'about this job',
+  'the role',
+  'your responsibilities',
+  'must have',
+  'nice to have',
+  'benefits',
+  'compensation',
+  'salary',
+  'apply',
+];
+
+// Minimum number of JD keywords required to validate content
+const MIN_JD_KEYWORDS = 2;
+
 const PRIVATE_IP_PATTERNS = [
   /^127\./, // Loopback
   /^10\./, // Private Class A
@@ -68,6 +99,26 @@ function extractTextFromHtml(html: string): string {
  */
 function isUrl(input: string): boolean {
   return /^https?:\/\//i.test(input.trim());
+}
+
+/**
+ * Validate that extracted content looks like a job description.
+ * Returns true if content contains enough JD-related keywords.
+ */
+function looksLikeJobDescription(content: string): boolean {
+  const lowerContent = content.toLowerCase();
+  let matchCount = 0;
+
+  for (const keyword of JD_KEYWORDS) {
+    if (lowerContent.includes(keyword.toLowerCase())) {
+      matchCount++;
+      if (matchCount >= MIN_JD_KEYWORDS) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -228,6 +279,18 @@ export async function POST(req: Request) {
             {
               error:
                 'Could not extract job description from that URL. The page may require login or block automated access. Please copy and paste the job description text directly.',
+            },
+            { status: 400 }
+          );
+        }
+
+        // Validate that the extracted content looks like a job description
+        if (!looksLikeJobDescription(textContent)) {
+          console.log('[fit-assessment] Extracted content does not look like a job description');
+          return Response.json(
+            {
+              error:
+                'The URL does not appear to contain a job description. Please ensure the URL points directly to a job posting, or copy and paste the job description text directly.',
             },
             { status: 400 }
           );

@@ -439,7 +439,7 @@ describe('fit-assessment API route', () => {
       });
 
       global.fetch = vi.fn().mockResolvedValue(createMockStreamingResponse(
-            '<html><body><p>This role requires &amp; demands excellence. Salary range: $100k&ndash;$150k. This is a great opportunity for growth and development in our company.</p></body></html>'
+            '<html><body><p>Job Description: This role requires &amp; demands excellence. Requirements: 5+ years experience. Salary range: $100k&ndash;$150k.</p></body></html>'
           ));
 
       const { POST } = await import('@/app/api/fit-assessment/route');

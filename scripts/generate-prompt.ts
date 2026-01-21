@@ -81,6 +81,7 @@ async function generatePrompt(): Promise<void> {
     technicalExpertise: content.technicalExpertise ? '✓' : '○',
     verilyFeedback: content.verilyFeedback ? '✓' : '○',
     anecdotes: content.anecdotes ? '✓' : '○',
+    projectsContext: content.projectsContext ? '✓' : '○',
     chatbotArchitecture: content.chatbotArchitecture ? '✓' : '○',
   };
 
@@ -90,6 +91,7 @@ async function generatePrompt(): Promise<void> {
   console.log(`   ${contentStatus.technicalExpertise} technical-expertise.md`);
   console.log(`   ${contentStatus.verilyFeedback} verily-feedback.md`);
   console.log(`   ${contentStatus.anecdotes} anecdotes.md`);
+  console.log(`   ${contentStatus.projectsContext} projects-context.md`);
   console.log(`   ${contentStatus.chatbotArchitecture} chatbot-architecture.md`);
   console.log('');
 
@@ -102,6 +104,7 @@ async function generatePrompt(): Promise<void> {
     '{{TECHNICAL_EXPERTISE}}': content.technicalExpertise || '*Technical expertise details not available in current build.*',
     '{{VERILY_FEEDBACK}}': content.verilyFeedback || '*Performance feedback not available in current build.*',
     '{{ANECDOTES}}': content.anecdotes || '*Additional context and anecdotes not available in current build.*',
+    '{{PROJECTS_CONTEXT}}': content.projectsContext || '*Projects context not available in current build.*',
   };
 
   // Chatbot-only replacement
@@ -202,6 +205,7 @@ export const PROMPT_STATS = {
     technicalExpertise: ${!!content.technicalExpertise},
     verilyFeedback: ${!!content.verilyFeedback},
     anecdotes: ${!!content.anecdotes},
+    projectsContext: ${!!content.projectsContext},
     chatbotArchitecture: ${!!content.chatbotArchitecture},
   },
 };
@@ -256,6 +260,7 @@ export const PROMPT_STATS = {
     technicalExpertise: false,
     verilyFeedback: false,
     anecdotes: false,
+    projectsContext: false,
     chatbotArchitecture: false,
   },
 };
