@@ -131,7 +131,8 @@ export async function POST(req: Request) {
     const pathname = `damilola.tech/chats/${environment}/${timestamp}-${shortId}.json`;
 
     await put(pathname, JSON.stringify(archivedSession), {
-      access: 'private',
+      access: 'public',
+      addRandomSuffix: true,
       contentType: 'application/json',
     });
 
