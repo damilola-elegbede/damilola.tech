@@ -1,4 +1,5 @@
 import { list, del } from '@vercel/blob';
+import { timingSafeEqual } from 'crypto';
 
 export const runtime = 'nodejs';
 
@@ -39,17 +40,33 @@ function parseTimestampFromPathname(pathname: string): Date | null {
   }
 }
 
+/**
+ * Timing-safe token comparison to prevent timing attacks
+ */
+function verifyToken(provided: string, expected: string): boolean {
+  if (provided.length !== expected.length) {
+    return false;
+  }
+  return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+}
+
 export async function GET(req: Request) {
   // Verify CRON_SECRET
   const authHeader = req.headers.get('Authorization');
   const expectedToken = process.env.CRON_SECRET;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ') || !expectedToken) {
+  // Fail fast if CRON_SECRET not configured
+  if (!expectedToken) {
+    console.error('[cron/cleanup-chats] CRON_SECRET not configured');
+    return Response.json({ error: 'Server configuration error' }, { status: 500 });
+  }
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const token = authHeader.slice(7); // Remove 'Bearer ' prefix
-  if (token !== expectedToken) {
+  if (!verifyToken(token, expectedToken)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -62,6 +79,9 @@ export async function GET(req: Request) {
     let skipped = 0;
     let errors = 0;
     let cursor: string | undefined;
+
+    // Collect blobs to delete for batch processing
+    const toDelete: string[] = [];
 
     // Paginate through all blobs in chats folder
     do {
@@ -80,14 +100,7 @@ export async function GET(req: Request) {
         }
 
         if (timestamp.getTime() < cutoffDate) {
-          // Blob is older than retention period, delete it
-          try {
-            await del(blob.url);
-            deleted++;
-          } catch (error) {
-            console.error(`Failed to delete blob: ${blob.pathname}`, error);
-            errors++;
-          }
+          toDelete.push(blob.url);
         } else {
           kept++;
         }
@@ -95,6 +108,22 @@ export async function GET(req: Request) {
 
       cursor = result.cursor ?? undefined;
     } while (cursor);
+
+    // Batch delete in parallel with controlled concurrency
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < toDelete.length; i += BATCH_SIZE) {
+      const batch = toDelete.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(batch.map((url) => del(url)));
+
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          deleted++;
+        } else {
+          console.error('Failed to delete blob:', result.reason);
+          errors++;
+        }
+      }
+    }
 
     return Response.json({
       success: true,

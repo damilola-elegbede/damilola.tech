@@ -55,9 +55,13 @@ function getValidationError(body: unknown): string | null {
     return 'sessionId is required';
   }
 
-  if (!UUID_REGEX.test(req.sessionId)) {
+  // Normalize to lowercase for consistent storage
+  const normalizedId = req.sessionId.toLowerCase();
+  if (!UUID_REGEX.test(normalizedId)) {
     return 'sessionId must be a valid UUID';
   }
+  // Update the sessionId in place for consistent downstream use
+  req.sessionId = normalizedId;
 
   if (typeof req.sessionStartedAt !== 'string' || !req.sessionStartedAt) {
     return 'sessionStartedAt is required';
@@ -127,7 +131,7 @@ export async function POST(req: Request) {
     const pathname = `damilola.tech/chats/${environment}/${timestamp}-${shortId}.json`;
 
     await put(pathname, JSON.stringify(archivedSession), {
-      access: 'public',
+      access: 'private',
       contentType: 'application/json',
     });
 

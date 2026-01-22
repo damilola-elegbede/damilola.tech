@@ -54,7 +54,7 @@ describe('chat archive API route', () => {
       // Verify the blob path format
       const [pathname, content, options] = mockPut.mock.calls[0];
       expect(pathname).toMatch(/^damilola\.tech\/chats\/production\/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z-a1b2c3d4\.json$/);
-      expect(options).toEqual({ access: 'public', contentType: 'application/json' });
+      expect(options).toEqual({ access: 'private', contentType: 'application/json' });
 
       // Verify the archived content structure
       const parsedContent = JSON.parse(content);

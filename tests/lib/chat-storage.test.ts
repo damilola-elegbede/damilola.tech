@@ -428,8 +428,8 @@ describe('chat-storage', () => {
         { id: '1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
       ];
 
-      // Should not throw
-      await expect(archiveSession(sessionId, startedAt, messages)).resolves.not.toThrow();
+      // Should resolve without throwing (archiveSession handles errors internally)
+      await expect(archiveSession(sessionId, startedAt, messages)).resolves.toBeUndefined();
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('archive'), expect.any(Error));
 
       consoleSpy.mockRestore();

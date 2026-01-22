@@ -29,9 +29,15 @@ interface StoredSession {
 }
 
 /**
- * Generate a UUID v4
+ * Generate a cryptographically secure UUID v4
+ * Falls back to Math.random() only in environments without crypto API
  */
 function generateUUID(): string {
+  // Use Web Crypto API if available (secure)
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers (less secure but functional)
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
