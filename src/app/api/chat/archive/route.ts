@@ -2,6 +2,9 @@ import { put } from '@vercel/blob';
 
 export const runtime = 'nodejs';
 
+// 100KB max - archived sessions contain message history
+const MAX_BODY_SIZE = 100 * 1024;
+
 // UUID v4 regex pattern
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -96,6 +99,12 @@ function getShortId(uuid: string): string {
 
 export async function POST(req: Request) {
   try {
+    // Check content-length to prevent DoS via large payloads
+    const contentLength = req.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+      return Response.json({ error: 'Request body too large' }, { status: 413 });
+    }
+
     let body: unknown;
     try {
       body = await req.json();

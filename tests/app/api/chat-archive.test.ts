@@ -7,7 +7,7 @@ vi.mock('@vercel/blob', () => ({
 }));
 
 describe('chat archive API route', () => {
-  const originalEnv = process.env;
+  const originalEnv = { ...process.env };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -16,7 +16,7 @@ describe('chat archive API route', () => {
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    process.env = { ...originalEnv };
   });
 
   const validSessionData = {
@@ -233,6 +233,28 @@ describe('chat archive API route', () => {
 
       expect(response.status).toBe(400);
       expect(data.error).toBeDefined();
+    });
+  });
+
+  describe('request size validation', () => {
+    it('rejects requests exceeding MAX_BODY_SIZE', async () => {
+      const { POST } = await import('@/app/api/chat/archive/route');
+
+      const request = new Request('http://localhost/api/chat/archive', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': '200000', // 200KB, exceeds 100KB limit
+        },
+        body: JSON.stringify(validSessionData),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(413);
+      expect(data.error).toContain('too large');
+      expect(mockPut).not.toHaveBeenCalled();
     });
   });
 
