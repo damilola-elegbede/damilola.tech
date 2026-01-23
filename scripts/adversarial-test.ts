@@ -425,7 +425,7 @@ Respond in this exact JSON format:
     'focus',
   ];
   for (const key of required) {
-    const value = (parsed.scores as Record<string, unknown>)[key];
+    const value = (parsed.scores as unknown as Record<string, unknown>)[key];
     if (typeof value !== 'number' || Number.isNaN(value)) {
       throw new Error(`Evaluator score "${key}" is missing or invalid`);
     }
