@@ -230,13 +230,31 @@ async function callChatbot(question: string): Promise<string> {
     throw new Error(`Chatbot API error: ${response.status}`);
   }
 
-  // Read streaming response
+  // Read streaming SSE response and extract message content
   const text = await response.text();
-  return text;
+
+  // Parse SSE format: extract content from "0:" prefixed data lines
+  // Vercel AI SDK streams data as: 0:"content chunk"\n
+  const contentParts: string[] = [];
+  const lines = text.split('\n');
+  for (const line of lines) {
+    // Match Vercel AI SDK streaming format: 0:"text content"
+    const match = line.match(/^0:"(.*)"/);
+    if (match) {
+      // Unescape the JSON string content
+      try {
+        contentParts.push(JSON.parse(`"${match[1]}"`));
+      } catch {
+        contentParts.push(match[1]);
+      }
+    }
+  }
+
+  return contentParts.length > 0 ? contentParts.join('') : text;
 }
 
 /**
- * Evaluate a chatbot response using Claude Haiku
+ * Evaluate a chatbot response using Claude Sonnet evaluator
  */
 async function evaluateResponse(
   scenario: Scenario,
@@ -348,13 +366,47 @@ Respond in this exact JSON format:
     throw new Error('Unexpected response type from evaluator');
   }
 
-  // Extract JSON from response
-  const jsonMatch = content.text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('Could not parse evaluator response as JSON');
+  // Extract JSON from response - use non-greedy match and handle markdown code blocks
+  let jsonText = content.text;
+
+  // Check for markdown code block first
+  const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    jsonText = codeBlockMatch[1].trim();
+  } else {
+    // Fall back to finding JSON object with non-greedy match
+    const jsonMatch = jsonText.match(/\{[\s\S]*?\}(?=\s*$|\s*[^,\]}])/);
+    if (!jsonMatch) {
+      throw new Error('Could not parse evaluator response as JSON');
+    }
+    jsonText = jsonMatch[0];
   }
 
-  const parsed = JSON.parse(jsonMatch[0]);
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch (parseError) {
+    // Try to find JSON more aggressively by counting braces
+    const startIdx = content.text.indexOf('{');
+    if (startIdx === -1) {
+      throw new Error(`Could not parse evaluator response as JSON: ${parseError}`);
+    }
+    let braceCount = 0;
+    let endIdx = startIdx;
+    for (let i = startIdx; i < content.text.length; i++) {
+      if (content.text[i] === '{') braceCount++;
+      if (content.text[i] === '}') braceCount--;
+      if (braceCount === 0) {
+        endIdx = i + 1;
+        break;
+      }
+    }
+    try {
+      parsed = JSON.parse(content.text.slice(startIdx, endIdx));
+    } catch {
+      throw new Error(`Could not parse evaluator response as JSON: ${parseError}`);
+    }
+  }
   return {
     scores: parsed.scores as EvaluationScores,
     reasoning: parsed.reasoning,
