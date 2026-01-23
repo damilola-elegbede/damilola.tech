@@ -20,9 +20,14 @@ test.describe('Admin Login', () => {
     await page.goto('/admin/login');
 
     await page.getByLabel('Password').fill('wrong-password');
-    await page.getByRole('button', { name: 'Sign In' }).click();
 
-    await expect(page.getByText('Invalid password')).toBeVisible();
+    // Wait for auth API response to complete before checking for error
+    await Promise.all([
+      page.waitForResponse((resp) => resp.url().includes('/api/admin/auth')),
+      page.getByRole('button', { name: 'Sign In' }).click(),
+    ]);
+
+    await expect(page.getByRole('alert')).toContainText('Invalid password');
     await expect(page).toHaveURL('/admin/login');
   });
 
@@ -42,16 +47,25 @@ test.describe('Admin Login', () => {
     await expect(page).toHaveURL('/admin/dashboard');
   });
 
-  test('login button is disabled while submitting', async ({ page }) => {
+  test('login button shows loading state while submitting', async ({ page }) => {
     await page.goto('/admin/login');
+
+    // Intercept auth request and delay response to ensure loading state is visible
+    await page.route('**/api/admin/auth', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+    });
 
     await page.getByLabel('Password').fill('any-password');
 
     const button = page.getByRole('button', { name: 'Sign In' });
     await button.click();
 
-    // Button should be disabled during request (brief window)
-    // Just verify the form submits without errors
-    await expect(page.getByText('Invalid password').or(page.getByText('Signing in...'))).toBeVisible({ timeout: 5000 });
+    // Button should show loading state during the delayed request
+    await expect(button).toContainText('Signing in...');
+    await expect(button).toBeDisabled();
+
+    // Wait for response to complete
+    await expect(page.getByRole('alert')).toBeVisible({ timeout: 5000 });
   });
 });
