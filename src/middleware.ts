@@ -25,21 +25,30 @@ async function verifyToken(token: string): Promise<boolean> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only protect /admin routes except login
-  if (!pathname.startsWith('/admin') || pathname === '/admin/login') {
+  // Skip login page
+  if (pathname === '/admin/login') {
     return NextResponse.next();
   }
 
   // Check for auth cookie
   const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
 
+  // Handle API routes - return 401 JSON instead of redirect
+  const isApiRoute = pathname.startsWith('/api/admin');
+
   if (!token) {
+    if (isApiRoute) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.redirect(new URL('/admin/login', request.url));
   }
 
   // Verify JWT
   const isValid = await verifyToken(token);
   if (!isValid) {
+    if (isApiRoute) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     // Clear invalid cookie and redirect
     const response = NextResponse.redirect(new URL('/admin/login', request.url));
     response.cookies.delete(ADMIN_COOKIE_NAME);
@@ -50,5 +59,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/admin/:path*',
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 };

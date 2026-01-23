@@ -1,10 +1,33 @@
 import { put } from '@vercel/blob';
 import type { AuditEvent, AuditEventType } from '@/lib/types';
+import { getClientIp } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
 const MAX_BODY_SIZE = 100 * 1024; // 100KB
 const MAX_EVENTS_PER_BATCH = 10;
+const AUDIT_RATE_LIMIT_REQUESTS = 60; // requests per window
+const AUDIT_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+
+// Simple in-memory rate limiter for audit endpoint
+const auditRateLimits = new Map<string, { count: number; windowStart: number }>();
+
+function checkAuditRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = auditRateLimits.get(ip);
+
+  if (!entry || now - entry.windowStart > AUDIT_RATE_LIMIT_WINDOW_MS) {
+    auditRateLimits.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+
+  if (entry.count >= AUDIT_RATE_LIMIT_REQUESTS) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
+}
 
 const VALID_EVENT_TYPES: AuditEventType[] = [
   'page_view',
@@ -68,6 +91,12 @@ function formatDatePath(date: Date): string {
 
 export async function POST(req: Request) {
   try {
+    // Rate limit check
+    const ip = getClientIp(req);
+    if (!checkAuditRateLimit(ip)) {
+      return Response.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 });
+    }
+
     const contentLength = req.headers.get('content-length');
     if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
       return Response.json({ error: 'Request body too large' }, { status: 413 });
