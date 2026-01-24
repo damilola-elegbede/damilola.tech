@@ -19,6 +19,10 @@ interface AuditSummary {
   url: string;
 }
 
+interface AuditSummaryWithSort extends AuditSummary {
+  _sortKey: number; // UTC timestamp for sorting
+}
+
 export async function GET(req: Request) {
   const ip = getClientIp(req);
 
@@ -47,12 +51,32 @@ export async function GET(req: Request) {
     const fetchLimit = eventType ? limit * 3 : limit;
     const result = await list({ prefix, cursor, limit: fetchLimit });
 
-    let events: AuditSummary[] = result.blobs.map((blob) => {
+    let eventsWithSort: AuditSummaryWithSort[] = result.blobs.map((blob) => {
       // Extract from pathname: damilola.tech/audit/{env}/{date}/{timestamp}-{event-type}.json
       const parts = blob.pathname.split('/');
       const filename = parts.pop() || '';
       const eventDate = parts.pop() || '';
-      const match = filename.match(/^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z)-([a-z_]+)/);
+      // Handle timestamps with or without milliseconds: 2024-01-24T12-00-00.000Z or 2024-01-24T12-00-00Z
+      const match = filename.match(/^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}(?:\.\d{3})?Z)-([a-z_]+)/);
+
+      // Convert UTC timestamp to Mountain Time for display
+      let displayTimestamp = '';
+      let sortKey = 0;
+      if (match?.[1]) {
+        const utcTimestamp = match[1].replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
+        const utcDate = new Date(utcTimestamp);
+        sortKey = utcDate.getTime();
+        displayTimestamp = utcDate.toLocaleString('en-US', {
+          timeZone: 'America/Denver',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        });
+      }
 
       return {
         id: blob.pathname,
@@ -60,20 +84,26 @@ export async function GET(req: Request) {
         eventType: match?.[2] || '',
         environment,
         date: eventDate,
-        timestamp: match?.[1]?.replace(/T(\d{2})-(\d{2})-(\d{2})Z/, 'T$1:$2:$3Z') || '',
+        timestamp: displayTimestamp,
         size: blob.size,
         url: blob.url,
+        _sortKey: sortKey,
       };
     });
 
     // Filter by event type if specified
     if (eventType) {
-      events = events.filter((e) => e.eventType === eventType);
+      eventsWithSort = eventsWithSort.filter((e) => e.eventType === eventType);
     }
 
+    // Sort by timestamp descending (latest first)
+    eventsWithSort.sort((a, b) => b._sortKey - a._sortKey);
+
     // Check if we have more results than requested (for accurate hasMore)
-    const hasMoreFiltered = events.length > limit;
-    events = events.slice(0, limit);
+    const hasMoreFiltered = eventsWithSort.length > limit;
+
+    // Remove sort key before returning and apply limit
+    const events: AuditSummary[] = eventsWithSort.slice(0, limit).map(({ _sortKey, ...rest }) => rest);
 
     // Log audit access (non-blocking)
     logAdminEvent('admin_audit_accessed', { environment, date, eventType }, ip);
