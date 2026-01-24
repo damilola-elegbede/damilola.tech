@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AuditLogTable } from '@/components/admin/AuditLogTable';
-import { Pagination } from '@/components/admin/Pagination';
+import { PageNavigation } from '@/components/admin/PageNavigation';
 
 interface AuditEvent {
   id: string;
@@ -15,6 +15,8 @@ interface AuditEvent {
   url: string;
 }
 
+const PAGE_SIZE = 20;
+
 const eventTypes = [
   'page_view',
   'section_view',
@@ -24,22 +26,29 @@ const eventTypes = [
   'fit_assessment_completed',
   'fit_assessment_download',
   'external_link_click',
+  'admin_login_success',
+  'admin_login_failure',
+  'admin_logout',
+  'admin_chat_viewed',
+  'admin_assessment_viewed',
+  'admin_audit_accessed',
 ];
 
 export default function AuditPage() {
   const [events, setEvents] = useState<AuditEvent[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
 
-  const fetchEvents = async (append = false) => {
+  const fetchPage = useCallback(async (pageNum: number) => {
     try {
       setIsLoading(true);
       const params = new URLSearchParams();
-      if (cursor && append) params.set('cursor', cursor);
+      params.set('page', pageNum.toString());
+      params.set('limit', PAGE_SIZE.toString());
       if (selectedType) params.set('eventType', selectedType);
       if (selectedDate) params.set('date', selectedDate);
 
@@ -47,22 +56,35 @@ export default function AuditPage() {
       if (!res.ok) throw new Error('Failed to fetch events');
 
       const data = await res.json();
-      setEvents(append ? [...events, ...data.events] : data.events);
-      setCursor(data.cursor);
-      setHasMore(data.hasMore);
+      setEvents(data.events);
+      setCurrentPage(data.page);
+      setTotalPages(data.totalPages);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedType, selectedDate]);
+
+  const handleNext = useCallback(() => {
+    if (currentPage < totalPages) {
+      fetchPage(currentPage + 1);
+    }
+  }, [currentPage, totalPages, fetchPage]);
+
+  const handlePrev = useCallback(() => {
+    if (currentPage > 1) {
+      fetchPage(currentPage - 1);
+    }
+  }, [currentPage, fetchPage]);
 
   useEffect(() => {
-    fetchEvents();
+    // Reset to page 1 when filters change
+    fetchPage(1);
   }, [selectedType, selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFilterChange = () => {
-    setCursor(null);
+    setCurrentPage(1);
     setEvents([]);
   };
 
@@ -123,7 +145,13 @@ export default function AuditPage() {
       </div>
 
       <AuditLogTable events={events} isLoading={isLoading && events.length === 0} />
-      <Pagination hasMore={hasMore} onLoadMore={() => fetchEvents(true)} isLoading={isLoading} />
+      <PageNavigation
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onNext={handleNext}
+        onPrev={handlePrev}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

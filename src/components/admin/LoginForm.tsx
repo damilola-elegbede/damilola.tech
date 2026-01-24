@@ -1,30 +1,53 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui';
+import { generateCsrfToken } from '@/lib/csrf-actions';
 
 export function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const router = useRouter();
+
+  // Fetch CSRF token on mount
+  useEffect(() => {
+    generateCsrfToken()
+      .then(setCsrfToken)
+      .catch(() => setError('Unable to initialize security token. Please refresh.'));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!csrfToken) {
+      setError('Security token not ready. Please try again.');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
       const res = await fetch('/api/admin/auth', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+        credentials: 'include',
         body: JSON.stringify({ password }),
       });
 
       if (!res.ok) {
         const data = await res.json();
         setError(data.error || 'Login failed');
+        // Refresh CSRF token on failure
+        generateCsrfToken()
+          .then(setCsrfToken)
+          .catch(() => setError('Unable to refresh security token. Please try again.'));
         return;
       }
 
@@ -56,7 +79,7 @@ export function LoginForm() {
           {error}
         </div>
       )}
-      <Button type="submit" disabled={isLoading} className="w-full">
+      <Button type="submit" disabled={isLoading || !csrfToken} className="w-full">
         {isLoading ? 'Signing in...' : 'Sign In'}
       </Button>
     </form>

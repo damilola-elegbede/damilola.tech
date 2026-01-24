@@ -1,4 +1,6 @@
+import { cookies } from 'next/headers';
 import { list } from '@vercel/blob';
+import { verifyToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
 
 export const runtime = 'nodejs';
 
@@ -10,9 +12,16 @@ interface Stats {
 }
 
 export async function GET(req: Request) {
+  // Verify authentication
+  const cookieStore = await cookies();
+  const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
+  if (!token || !(await verifyToken(token))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
-    const environment = searchParams.get('env') || 'production';
+    const environment = searchParams.get('env') || process.env.VERCEL_ENV || 'production';
 
     // Count blobs in each category (using pagination)
     async function countBlobs(prefix: string): Promise<number> {
@@ -40,7 +49,8 @@ export async function GET(req: Request) {
     const auditByType: Record<string, number> = {};
     for (const blob of auditResult.blobs) {
       const filename = blob.pathname.split('/').pop() || '';
-      const match = filename.match(/-([a-z_]+)\.json/);
+      // Match: {timestamp}-{event_type}.json or {timestamp}-{event_type}-{suffix}.json
+      const match = filename.match(/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}(?:\.\d{3})?Z-([a-z_]+)/);
       const type = match?.[1] || 'unknown';
       auditByType[type] = (auditByType[type] || 0) + 1;
     }
