@@ -9,29 +9,13 @@
  */
 
 import { cookies } from 'next/headers';
-import { randomBytes, timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'crypto';
 
 const CSRF_COOKIE = 'csrf_token';
 export const CSRF_HEADER = 'x-csrf-token';
 
-/**
- * Generate a new CSRF token and set it in a cookie.
- * Returns the token to be embedded in the page/form.
- */
-export async function generateCsrfToken(): Promise<string> {
-  const token = randomBytes(32).toString('hex');
-  const cookieStore = await cookies();
-
-  cookieStore.set(CSRF_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/admin',
-    maxAge: 60 * 60, // 1 hour
-  });
-
-  return token;
-}
+// Re-export for route handlers
+export { CSRF_COOKIE };
 
 /**
  * Validate that the header token matches the cookie token.
@@ -63,5 +47,5 @@ export async function validateCsrfToken(headerToken: string | null): Promise<boo
  */
 export async function clearCsrfToken(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(CSRF_COOKIE);
+  cookieStore.delete({ name: CSRF_COOKIE, path: '/admin' });
 }
