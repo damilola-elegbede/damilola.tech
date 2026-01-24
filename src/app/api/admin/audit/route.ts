@@ -42,16 +42,71 @@ export async function GET(req: Request) {
     const cursor = searchParams.get('cursor') || undefined;
 
     // Build prefix: damilola.tech/audit/{env}/ or damilola.tech/audit/{env}/{date}/
-    let prefix = `${AUDIT_PREFIX}${environment}/`;
+    const basePrefix = `${AUDIT_PREFIX}${environment}/`;
+    let prefix = basePrefix;
     if (date) {
       prefix += `${date}/`;
     }
 
     // When filtering by eventType, we need to fetch more to ensure we get enough results
     const fetchLimit = eventType ? limit * 3 : limit;
-    const result = await list({ prefix, cursor, limit: fetchLimit });
 
-    let eventsWithSort: AuditSummaryWithSort[] = result.blobs.map((blob) => {
+    let blobs: { pathname: string; size: number; url: string }[] = [];
+    let nextCursor: string | undefined;
+    let hasMoreResults = false;
+
+    if (date) {
+      // With date filter, fetch directly (already sorted within day)
+      const result = await list({ prefix, cursor, limit: fetchLimit });
+      blobs = result.blobs;
+      nextCursor = result.cursor ?? undefined;
+      hasMoreResults = result.hasMore;
+    } else {
+      // Without date filter, we need to fetch from newest dates first
+      // First, get all date folders
+      const foldersResult = await list({ prefix: basePrefix, mode: 'folded' });
+
+      // Extract unique date folders and sort descending
+      const dateFolders: string[] = [];
+      for (const folder of foldersResult.folders || []) {
+        // folder format: damilola.tech/audit/{env}/{date}/
+        const dateMatch = folder.match(/\/(\d{4}-\d{2}-\d{2})\/$/);
+        if (dateMatch) {
+          dateFolders.push(dateMatch[1]);
+        }
+      }
+      dateFolders.sort((a, b) => b.localeCompare(a)); // Newest first
+
+      // Fetch events from each date folder until we have enough
+      for (const dateFolder of dateFolders) {
+        if (blobs.length >= fetchLimit) break;
+
+        const datePrefix = `${basePrefix}${dateFolder}/`;
+        let dateCursor: string | undefined;
+
+        do {
+          const result = await list({
+            prefix: datePrefix,
+            cursor: dateCursor,
+            limit: fetchLimit - blobs.length
+          });
+          blobs.push(...result.blobs);
+          dateCursor = result.cursor ?? undefined;
+
+          // Track if there are more results
+          if (result.hasMore || dateFolders.indexOf(dateFolder) < dateFolders.length - 1) {
+            hasMoreResults = true;
+          }
+        } while (dateCursor && blobs.length < fetchLimit);
+      }
+
+      // If we filled our limit and there are more date folders, there's more data
+      if (blobs.length >= fetchLimit && dateFolders.length > 0) {
+        hasMoreResults = true;
+      }
+    }
+
+    let eventsWithSort: AuditSummaryWithSort[] = blobs.map((blob) => {
       // Extract from pathname: damilola.tech/audit/{env}/{date}/{timestamp}-{event-type}.json
       const parts = blob.pathname.split('/');
       const filename = parts.pop() || '';
@@ -116,9 +171,9 @@ export async function GET(req: Request) {
 
     return Response.json({
       events,
-      cursor: result.cursor,
+      cursor: nextCursor,
       // hasMore is true if the underlying list has more OR if we filtered out items
-      hasMore: result.hasMore || hasMoreFiltered,
+      hasMore: hasMoreResults || hasMoreFiltered,
     });
   } catch (error) {
     console.error('[admin/audit] Error listing events:', error);

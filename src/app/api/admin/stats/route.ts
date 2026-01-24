@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     for (const blob of auditResult.blobs) {
       const filename = blob.pathname.split('/').pop() || '';
       // Match: {timestamp}-{event_type}.json or {timestamp}-{event_type}-{suffix}.json
-      const match = filename.match(/^\d{4}-\d{2}-\d{2}T[\d-]+Z-([a-z_]+)/);
+      const match = filename.match(/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}(?:\.\d{3})?Z-([a-z_]+)/);
       const type = match?.[1] || 'unknown';
       auditByType[type] = (auditByType[type] || 0) + 1;
     }

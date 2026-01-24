@@ -1,3 +1,7 @@
+'use client';
+
+import { useState, Fragment } from 'react';
+
 interface AuditEvent {
   id: string;
   pathname: string;
@@ -7,6 +11,15 @@ interface AuditEvent {
   timestamp: string;
   size: number;
   url: string;
+}
+
+interface EventDetails {
+  eventType: string;
+  timestamp: string;
+  sessionId?: string;
+  path?: string;
+  section?: string;
+  metadata?: Record<string, unknown>;
 }
 
 interface AuditLogTableProps {
@@ -32,6 +45,36 @@ const eventTypeColors: Record<string, string> = {
 };
 
 export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedDetails, setExpandedDetails] = useState<EventDetails | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
+  const handleRowClick = async (event: AuditEvent) => {
+    if (expandedId === event.id) {
+      // Collapse
+      setExpandedId(null);
+      setExpandedDetails(null);
+      return;
+    }
+
+    // Expand and fetch details
+    setExpandedId(event.id);
+    setExpandedDetails(null);
+    setDetailsLoading(true);
+
+    try {
+      const res = await fetch(event.url);
+      if (res.ok) {
+        const details = await res.json();
+        setExpandedDetails(details);
+      }
+    } catch (err) {
+      console.error('Failed to fetch event details:', err);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-32 items-center justify-center">
@@ -49,9 +92,9 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+    <div className="max-h-[600px] overflow-y-auto rounded-lg border border-[var(--color-border)]">
       <table className="w-full">
-        <thead className="bg-[var(--color-card)]">
+        <thead className="sticky top-0 bg-[var(--color-card)]">
           <tr>
             <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">
               Event Type
@@ -62,27 +105,97 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
             <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">
               Timestamp
             </th>
+            <th className="w-8 px-4 py-3"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--color-border)]">
           {events.map((event) => (
-            <tr key={event.id} className="bg-[var(--color-bg)]">
-              <td className="px-4 py-3">
-                <span
-                  className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${
-                    eventTypeColors[event.eventType] || 'bg-gray-500/10 text-gray-400'
-                  }`}
-                >
-                  {event.eventType.replace(/_/g, ' ')}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-sm text-[var(--color-text)]">
-                {event.date}
-              </td>
-              <td className="px-4 py-3 text-sm text-[var(--color-text-muted)]">
-                {event.timestamp || '-'}
-              </td>
-            </tr>
+            <Fragment key={event.id}>
+              <tr
+                onClick={() => handleRowClick(event)}
+                className="cursor-pointer bg-[var(--color-bg)] transition-colors hover:bg-[var(--color-card)]"
+              >
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${
+                      eventTypeColors[event.eventType] || 'bg-gray-500/10 text-gray-400'
+                    }`}
+                  >
+                    {event.eventType.replace(/_/g, ' ')}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-sm text-[var(--color-text)]">
+                  {event.date}
+                </td>
+                <td className="px-4 py-3 text-sm text-[var(--color-text-muted)]">
+                  {event.timestamp || '-'}
+                </td>
+                <td className="px-4 py-3 text-[var(--color-text-muted)]">
+                  <svg
+                    className={`h-4 w-4 transition-transform ${expandedId === event.id ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </td>
+              </tr>
+              {expandedId === event.id && (
+                <tr key={`${event.id}-details`} className="bg-[var(--color-card)]">
+                  <td colSpan={4} className="px-4 py-4">
+                    {detailsLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+                        Loading details...
+                      </div>
+                    ) : expandedDetails ? (
+                      <div className="space-y-3 text-sm">
+                        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                          {expandedDetails.path && (
+                            <div>
+                              <span className="text-[var(--color-text-muted)]">Path:</span>{' '}
+                              <span className="text-[var(--color-text)]">{expandedDetails.path}</span>
+                            </div>
+                          )}
+                          {expandedDetails.section && (
+                            <div>
+                              <span className="text-[var(--color-text-muted)]">Section:</span>{' '}
+                              <span className="text-[var(--color-text)]">{expandedDetails.section}</span>
+                            </div>
+                          )}
+                          {expandedDetails.sessionId && (
+                            <div>
+                              <span className="text-[var(--color-text-muted)]">Session:</span>{' '}
+                              <code className="rounded bg-[var(--color-bg)] px-1 text-xs text-[var(--color-text)]">
+                                {expandedDetails.sessionId.substring(0, 8)}...
+                              </code>
+                            </div>
+                          )}
+                        </div>
+                        {expandedDetails.metadata && Object.keys(expandedDetails.metadata).length > 0 && (
+                          <div>
+                            <span className="text-[var(--color-text-muted)]">Metadata:</span>
+                            <pre className="mt-1 overflow-x-auto rounded bg-[var(--color-bg)] p-2 text-xs text-[var(--color-text)]">
+                              {JSON.stringify(expandedDetails.metadata, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-[var(--color-text-muted)]">
+                        Failed to load details
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))}
         </tbody>
       </table>
