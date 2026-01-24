@@ -122,6 +122,35 @@ interface AdversarialReport {
 const client = new Anthropic({ timeout: 60_000 }); // 60 second timeout
 
 /**
+ * Retry wrapper with exponential backoff
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: { maxRetries?: number; baseDelayMs?: number; maxDelayMs?: number } = {}
+): Promise<T> {
+  const { maxRetries = 3, baseDelayMs = 1000, maxDelayMs = 10000 } = options;
+
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      if (attempt < maxRetries) {
+        // Exponential backoff: 1s, 2s, 4s (capped at maxDelayMs)
+        const delay = Math.min(baseDelayMs * Math.pow(2, attempt), maxDelayMs);
+        console.log(`    Retry ${attempt + 1}/${maxRetries} after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+/**
  * Pull latest content from Vercel Blob
  */
 async function pullLatestContent(): Promise<void> {
@@ -367,11 +396,14 @@ Respond in this exact JSON format:
   "violations": ["<list of specific violations if any>"]
 }`;
 
-  const result = await client.messages.create({
-    model: EVALUATOR_MODEL,
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: prompt }],
-  });
+  const result = await withRetry(
+    () => client.messages.create({
+      model: EVALUATOR_MODEL,
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+    { maxRetries: 3, baseDelayMs: 1000, maxDelayMs: 10000 }
+  );
 
   // Parse the response
   const content = result.content[0];
