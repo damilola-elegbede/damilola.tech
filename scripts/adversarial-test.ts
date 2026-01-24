@@ -115,7 +115,7 @@ interface AdversarialReport {
   fullResults: ScenarioResult[];
 }
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 60_000 }); // 60 second timeout
 
 /**
  * Pull latest content from Vercel Blob
@@ -218,13 +218,22 @@ async function loadSourceContent(): Promise<string> {
  * Call the chatbot API
  */
 async function callChatbot(question: string): Promise<string> {
-  const response = await fetch(`${BASE_URL}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messages: [{ role: 'user', content: question }],
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000); // 30 second timeout
+
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: question }],
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     throw new Error(`Chatbot API error: ${response.status}`);
@@ -362,8 +371,8 @@ Respond in this exact JSON format:
 
   // Parse the response
   const content = result.content[0];
-  if (content.type !== 'text') {
-    throw new Error('Unexpected response type from evaluator');
+  if (!content || content.type !== 'text') {
+    throw new Error('Unexpected or empty response from evaluator');
   }
 
   // Extract JSON from response - use non-greedy match and handle markdown code blocks
