@@ -23,7 +23,7 @@ export async function generateCsrfToken(): Promise<string> {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    path: '/admin',
+    path: '/',
     maxAge: 60 * 60, // 1 hour
   });
 

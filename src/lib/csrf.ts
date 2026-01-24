@@ -47,5 +47,5 @@ export async function validateCsrfToken(headerToken: string | null): Promise<boo
  */
 export async function clearCsrfToken(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete({ name: CSRF_COOKIE, path: '/admin' });
+  cookieStore.delete({ name: CSRF_COOKIE, path: '/' });
 }
