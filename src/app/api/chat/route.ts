@@ -46,6 +46,13 @@ export async function POST(req: Request) {
 
     const { messages, sessionId, sessionStartedAt } = await req.json();
 
+    // Validate session identifiers to prevent path injection
+    const isValidSessionId =
+      typeof sessionId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId);
+    const isValidSessionStartedAt =
+      typeof sessionStartedAt === 'string' && !Number.isNaN(Date.parse(sessionStartedAt));
+
     if (!validateMessages(messages)) {
       return Response.json(
         { error: 'Invalid messages format or content too long.' },
@@ -94,7 +101,7 @@ export async function POST(req: Request) {
           console.log('[chat] Stream completed');
 
           // Save to Blob after stream completes (fire-and-forget)
-          if (sessionId && sessionStartedAt) {
+          if (isValidSessionId && isValidSessionStartedAt) {
             const fullConversation = [
               ...messages,
               { role: 'assistant' as const, content: fullResponse },

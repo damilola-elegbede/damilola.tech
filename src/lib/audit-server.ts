@@ -26,6 +26,22 @@ export async function logAdminEvent(
     const timestamp = now.toISOString().replace(/:/g, '-');
     const eventId = `${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
 
+    // Anonymize IP by zeroing the last octet (IPv4) or last 80 bits (IPv6)
+    const anonymizeIp = (rawIp: string): string => {
+      if (!rawIp || rawIp === 'unknown') return 'unknown';
+      if (rawIp.includes(':')) {
+        // IPv6: redact last 5 groups (80 bits)
+        const parts = rawIp.split(':');
+        return parts.slice(0, 3).join(':') + ':0:0:0:0:0';
+      }
+      // IPv4: zero last octet
+      const parts = rawIp.split('.');
+      if (parts.length === 4) {
+        return `${parts[0]}.${parts[1]}.${parts[2]}.0`;
+      }
+      return 'unknown';
+    };
+
     const event = {
       version: 1,
       eventId,
@@ -35,7 +51,7 @@ export async function logAdminEvent(
       path: '/admin',
       metadata: {
         ...metadata,
-        ip,
+        ip: anonymizeIp(ip),
       },
     };
 

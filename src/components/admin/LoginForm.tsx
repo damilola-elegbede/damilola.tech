@@ -14,7 +14,9 @@ export function LoginForm() {
 
   // Fetch CSRF token on mount
   useEffect(() => {
-    generateCsrfToken().then(setCsrfToken);
+    generateCsrfToken()
+      .then(setCsrfToken)
+      .catch(() => setError('Unable to initialize security token. Please refresh.'));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,7 +45,9 @@ export function LoginForm() {
         const data = await res.json();
         setError(data.error || 'Login failed');
         // Refresh CSRF token on failure
-        generateCsrfToken().then(setCsrfToken);
+        generateCsrfToken()
+          .then(setCsrfToken)
+          .catch(() => setError('Unable to refresh security token. Please try again.'));
         return;
       }
 

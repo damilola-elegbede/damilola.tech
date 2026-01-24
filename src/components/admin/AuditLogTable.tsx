@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Fragment } from 'react';
+import { useState, Fragment, useRef, useEffect } from 'react';
 
 interface AuditEvent {
   id: string;
@@ -48,8 +48,19 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedDetails, setExpandedDetails] = useState<EventDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const handleRowClick = async (event: AuditEvent) => {
+    // Cancel any pending request
+    abortControllerRef.current?.abort();
+
     if (expandedId === event.id) {
       // Collapse
       setExpandedId(null);
@@ -62,16 +73,29 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
     setExpandedDetails(null);
     setDetailsLoading(true);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const res = await fetch(event.url);
+      const res = await fetch(event.url, { signal: controller.signal });
       if (res.ok) {
         const details = await res.json();
         setExpandedDetails(details);
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return; // Ignore abort errors
+      }
       console.error('Failed to fetch event details:', err);
     } finally {
       setDetailsLoading(false);
+    }
+  };
+
+  const handleRowKeyDown = (e: React.KeyboardEvent, event: AuditEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleRowClick(event);
     }
   };
 
@@ -113,7 +137,11 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
             <Fragment key={event.id}>
               <tr
                 onClick={() => handleRowClick(event)}
-                className="cursor-pointer bg-[var(--color-bg)] transition-colors hover:bg-[var(--color-card)]"
+                onKeyDown={(e) => handleRowKeyDown(e, event)}
+                tabIndex={0}
+                role="button"
+                aria-expanded={expandedId === event.id}
+                className="cursor-pointer bg-[var(--color-bg)] transition-colors hover:bg-[var(--color-card)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-inset"
               >
                 <td className="px-4 py-3">
                   <span
@@ -136,6 +164,7 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
                     <path
                       strokeLinecap="round"
