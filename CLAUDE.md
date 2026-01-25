@@ -10,7 +10,7 @@ Recruiters can ask the AI about experience, skills, and role fit.
 - Tailwind CSS
 - Vitest + React Testing Library + Playwright
 - Vercel AI SDK + Anthropic Claude
-- Vercel Blob (private content storage)
+- Vercel Blob (public access with unlisted URLs)
 
 ## Development Approach
 **TDD Required**: Write tests before implementation.
