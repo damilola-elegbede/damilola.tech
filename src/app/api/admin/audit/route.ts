@@ -13,8 +13,7 @@ interface AuditSummary {
   pathname: string;
   eventType: string;
   environment: string;
-  date: string;
-  timestamp: string;
+  timestamp: string; // ISO 8601 UTC timestamp
   size: number;
   url: string;
 }
@@ -30,33 +29,18 @@ function parseBlob(
   // Extract from pathname: damilola.tech/audit/{env}/{date}/{timestamp}-{event-type}.json
   const parts = blob.pathname.split('/');
   const filename = parts.pop() || '';
-  const eventDate = parts.pop() || '';
   // Handle timestamps with or without milliseconds, and optional random suffix from Vercel Blob
   // Format: 2024-01-24T12-00-00.000Z-event_type.json or 2024-01-24T12-00-00.000Z-event_type-randomsuffix.json
   const match = filename.match(/^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}(?:\.\d{3})?Z)-([a-z_]+)(?:-[a-zA-Z0-9]+)?\.json$/);
 
-  // Convert UTC timestamp to Mountain Time for display
-  let displayTimestamp = '';
-  let displayDate = eventDate; // Fallback to UTC date from path
+  // Parse UTC timestamp - return as ISO string for client-side formatting
+  let isoTimestamp = '';
   let sortKey = 0;
   if (match?.[1]) {
     const utcTimestamp = match[1].replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
     const utcDate = new Date(utcTimestamp);
     sortKey = utcDate.getTime();
-
-    // Get Mountain Time date (YYYY-MM-DD format)
-    displayDate = utcDate.toLocaleDateString('en-CA', {
-      timeZone: 'America/Denver',
-    }); // en-CA gives YYYY-MM-DD format
-
-    // Get Mountain Time timestamp (HH:MM:SS AM/PM format)
-    displayTimestamp = utcDate.toLocaleTimeString('en-US', {
-      timeZone: 'America/Denver',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    });
+    isoTimestamp = utcDate.toISOString();
   }
 
   return {
@@ -64,8 +48,7 @@ function parseBlob(
     pathname: blob.pathname,
     eventType: match?.[2] || '',
     environment,
-    date: displayDate,
-    timestamp: displayTimestamp,
+    timestamp: isoTimestamp,
     size: blob.size,
     url: blob.url,
     _sortKey: sortKey,

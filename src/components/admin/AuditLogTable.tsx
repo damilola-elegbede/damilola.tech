@@ -7,8 +7,7 @@ interface AuditEvent {
   pathname: string;
   eventType: string;
   environment: string;
-  date: string;
-  timestamp: string;
+  timestamp: string; // ISO 8601 UTC timestamp
   size: number;
   url: string;
 }
@@ -124,10 +123,7 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
               Event Type
             </th>
             <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">
-              Date
-            </th>
-            <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">
-              Timestamp
+              Date/Time
             </th>
             <th className="w-8 px-4 py-3"></th>
           </tr>
@@ -153,10 +149,11 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-[var(--color-text)]">
-                  {event.date}
-                </td>
-                <td className="px-4 py-3 text-sm text-[var(--color-text-muted)]">
-                  {event.timestamp || '-'}
+                  {event.timestamp
+                    ? new Date(event.timestamp).toLocaleString(undefined, {
+                        timeZoneName: 'short',
+                      })
+                    : '-'}
                 </td>
                 <td className="px-4 py-3 text-[var(--color-text-muted)]">
                   <svg

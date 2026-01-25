@@ -28,7 +28,7 @@ export function ChatViewer({ chat }: ChatViewerProps) {
         <div className="rounded-lg bg-[var(--color-card)] p-4">
           <p className="text-sm text-[var(--color-text-muted)]">Started</p>
           <p className="text-sm text-[var(--color-text)]">
-            {new Date(chat.sessionStartedAt).toLocaleString()}
+            {new Date(chat.sessionStartedAt).toLocaleString(undefined, { timeZoneName: 'short' })}
           </p>
         </div>
         <div className="rounded-lg bg-[var(--color-card)] p-4">

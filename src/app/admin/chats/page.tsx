@@ -51,7 +51,7 @@ export default function ChatsPage() {
       <span className="font-mono text-xs">{c.sessionId}</span>
     )},
     { key: 'timestamp', header: 'Date', render: (c: ChatSummary) => (
-      c.timestamp ? new Date(c.timestamp).toLocaleString() : '-'
+      c.timestamp ? new Date(c.timestamp).toLocaleString(undefined, { timeZoneName: 'short' }) : '-'
     )},
     { key: 'size', header: 'Size', render: (c: ChatSummary) => (
       `${(c.size / 1024).toFixed(1)} KB`
