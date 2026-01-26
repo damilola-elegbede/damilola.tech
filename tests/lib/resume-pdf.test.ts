@@ -17,9 +17,29 @@ describe('getResumeFilename', () => {
     expect(filename).toBe('My-Company-Senior-Manager.pdf');
   });
 
-  it('should handle empty strings', () => {
+  it('should handle empty strings with fallbacks', () => {
     const filename = getResumeFilename('', '');
-    expect(filename).toBe('-.pdf');
+    expect(filename).toBe('resume-optimized.pdf');
+  });
+
+  it('should handle whitespace-only strings with fallbacks', () => {
+    const filename = getResumeFilename('   ', '   ');
+    expect(filename).toBe('resume-optimized.pdf');
+  });
+
+  it('should handle symbols-only strings with fallbacks', () => {
+    const filename = getResumeFilename('!!!', '@#$');
+    expect(filename).toBe('resume-optimized.pdf');
+  });
+
+  it('should use fallback only for empty company', () => {
+    const filename = getResumeFilename('', 'Manager');
+    expect(filename).toBe('resume-Manager.pdf');
+  });
+
+  it('should use fallback only for empty role', () => {
+    const filename = getResumeFilename('Acme', '');
+    expect(filename).toBe('Acme-optimized.pdf');
   });
 });
 
