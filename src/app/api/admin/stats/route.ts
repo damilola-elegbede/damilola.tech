@@ -35,19 +35,45 @@ export async function GET(req: Request) {
       return count;
     }
 
-    const [chatCount, assessmentCount] = await Promise.all([
-      countBlobs(`damilola.tech/chats/${environment}/`),
+    // Count valid chats (filtering zero-byte and unparseable filenames like chats list API)
+    async function countValidChats(prefix: string): Promise<number> {
+      let count = 0;
+      let cursor: string | undefined;
+      // Regex patterns matching those in /api/admin/chats/route.ts
+      const newFormatRegex =
+        /^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z)-([a-f0-9-]{36})(?:-.+)?\.json$/i;
+      const legacyFormatRegex =
+        /^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.json$/;
+
+      do {
+        const result = await list({ prefix, cursor, limit: 1000 });
+        for (const blob of result.blobs) {
+          if (blob.size === 0) continue;
+          const filename = blob.pathname.split('/').pop() || '';
+          if (newFormatRegex.test(filename) || legacyFormatRegex.test(filename)) {
+            count++;
+          }
+        }
+        cursor = result.cursor ?? undefined;
+      } while (cursor);
+      return count;
+    }
+
+    const [chatCount, assessmentCount, auditCount] = await Promise.all([
+      countValidChats(`damilola.tech/chats/${environment}/`),
       countBlobs(`damilola.tech/fit-assessments/${environment}/`),
+      countBlobs(`damilola.tech/audit/${environment}/`),
     ]);
 
-    // For audit, also count by type (limited to recent events for performance)
-    const auditResult = await list({
+    // For audit byType breakdown, fetch recent events only (performance)
+    // The total count above is paginated; byType is a sample of recent events
+    const auditSampleResult = await list({
       prefix: `damilola.tech/audit/${environment}/`,
       limit: 1000,
     });
 
     const auditByType: Record<string, number> = {};
-    for (const blob of auditResult.blobs) {
+    for (const blob of auditSampleResult.blobs) {
       const filename = blob.pathname.split('/').pop() || '';
       // Match: {timestamp}-{event_type}.json or {timestamp}-{event_type}-{suffix}.json
       const match = filename.match(/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}(?:\.\d{3})?Z-([a-z_]+)/);
@@ -59,7 +85,7 @@ export async function GET(req: Request) {
       chats: { total: chatCount },
       fitAssessments: { total: assessmentCount },
       audit: {
-        total: auditResult.blobs.length,
+        total: auditCount,
         byType: auditByType,
       },
       environment,
