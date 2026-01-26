@@ -1,7 +1,8 @@
 interface Message {
   id: string;
   role: 'user' | 'assistant';
-  parts: { type: string; text: string }[];
+  parts?: { type: string; text: string }[];
+  content?: string; // Legacy/backward-compatible field
 }
 
 interface ChatSession {
@@ -28,6 +29,22 @@ function formatDate(dateString: string | undefined): string {
   }
 }
 
+/**
+ * Extract text from message, supporting both current (parts) and legacy (content) formats
+ */
+function getMessageText(msg: Message): string {
+  // Current format: parts array with text type
+  if (msg.parts && Array.isArray(msg.parts)) {
+    const textPart = msg.parts.find((p) => p.type === 'text');
+    if (textPart?.text) return textPart.text;
+  }
+
+  // Legacy format: direct content string
+  if (msg.content) return msg.content;
+
+  return '';
+}
+
 export function ChatViewer({ chat }: ChatViewerProps) {
   const messages = chat.messages || [];
 
@@ -52,10 +69,11 @@ export function ChatViewer({ chat }: ChatViewerProps) {
 
       <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-4">
         <h3 className="mb-4 font-semibold text-[var(--color-text)]">Conversation</h3>
-        <div className="space-y-4">
+        <ul role="log" aria-label="Chat conversation" className="space-y-4">
           {messages.map((msg) => (
-            <div
+            <li
               key={msg.id}
+              aria-label={`${msg.role === 'user' ? 'User' : 'Assistant'} message`}
               className={`rounded-lg p-3 ${
                 msg.role === 'user'
                   ? 'ml-8 bg-[var(--color-accent)]/10'
@@ -66,11 +84,11 @@ export function ChatViewer({ chat }: ChatViewerProps) {
                 {msg.role === 'user' ? 'User' : 'Assistant'}
               </p>
               <p className="whitespace-pre-wrap text-sm text-[var(--color-text)]">
-                {msg.parts.find((p) => p.type === 'text')?.text || ''}
+                {getMessageText(msg)}
               </p>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </div>
   );

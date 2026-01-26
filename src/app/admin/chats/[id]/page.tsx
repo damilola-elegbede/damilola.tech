@@ -31,6 +31,10 @@ export default function ChatDetailPage() {
       try {
         const id = params.id as string;
         const res = await fetch(`/api/admin/chats/${id}`);
+        if (res.status === 401) {
+          window.location.href = '/admin/login';
+          return;
+        }
         if (!res.ok) throw new Error('Chat not found');
         const data = await res.json();
         setChat(data);
@@ -45,8 +49,14 @@ export default function ChatDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
+      <div
+        className="flex h-64 items-center justify-center"
+        role="status"
+        aria-live="polite"
+        aria-label="Loading chat data"
+      >
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+        <span className="sr-only">Loading...</span>
       </div>
     );
   }
