@@ -8,6 +8,9 @@ import { cn } from '@/lib/utils';
 import { useScrollReveal } from '@/hooks/use-scroll-reveal';
 import { trackEvent } from '@/lib/audit-client';
 
+// XSS protection: disallow dangerous HTML elements in markdown
+const DISALLOWED_ELEMENTS = ['script', 'iframe', 'object', 'embed', 'form', 'input', 'style'];
+
 interface ExampleJDs {
   strong: string;
   weak: string;
@@ -432,7 +435,11 @@ export function FitAssessment() {
               </>
             )}
             <div ref={resultRef} className="prose prose-invert max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                disallowedElements={DISALLOWED_ELEMENTS}
+                unwrapDisallowed
+              >
                 {completion || 'Analyzing job fit...'}
               </ReactMarkdown>
             </div>

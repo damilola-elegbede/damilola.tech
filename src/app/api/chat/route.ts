@@ -3,6 +3,12 @@ import { CHATBOT_SYSTEM_PROMPT } from '@/lib/generated/system-prompt';
 import { getFullSystemPrompt } from '@/lib/system-prompt';
 import { saveConversationToBlob } from '@/lib/chat-storage-server';
 import { compactConversation } from '@/lib/chat-compaction';
+import {
+  checkGenericRateLimit,
+  createRateLimitResponse,
+  getClientIp,
+  RATE_LIMIT_CONFIGS,
+} from '@/lib/rate-limit';
 
 // Use Node.js runtime for reliable Anthropic SDK streaming
 export const runtime = 'nodejs';
@@ -37,6 +43,18 @@ function validateMessages(messages: unknown): messages is ChatMessage[] {
   );
 }
 
+/**
+ * Escape XML entities to prevent injection when wrapping user content in XML tags.
+ */
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 export async function POST(req: Request) {
   console.log('[chat] Request received');
   try {
@@ -46,7 +64,15 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Request body too large.' }, { status: 413 });
     }
 
-    const { messages, sessionId, sessionStartedAt } = await req.json();
+    let messages, sessionId, sessionStartedAt;
+    try {
+      const body = await req.json();
+      messages = body.messages;
+      sessionId = body.sessionId;
+      sessionStartedAt = body.sessionStartedAt;
+    } catch {
+      return Response.json({ error: 'Invalid JSON in request body.' }, { status: 400 });
+    }
 
     // Validate session identifiers to prevent path injection
     const isValidSessionId =
@@ -54,6 +80,17 @@ export async function POST(req: Request) {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId);
     const isValidSessionStartedAt =
       typeof sessionStartedAt === 'string' && !Number.isNaN(Date.parse(sessionStartedAt));
+
+    // Rate limit check: always use IP to prevent bypass via client-controlled sessionId
+    const ip = getClientIp(req);
+    const rateLimitResult = await checkGenericRateLimit(
+      RATE_LIMIT_CONFIGS.chat,
+      ip
+    );
+    if (rateLimitResult.limited) {
+      console.log(`[chat] Rate limited: ${ip}`);
+      return createRateLimitResponse(rateLimitResult);
+    }
 
     if (!validateMessages(messages)) {
       return Response.json(
@@ -85,13 +122,17 @@ export async function POST(req: Request) {
     console.log('[chat] Starting stream, messages:', processedMessages.length);
 
     // Use Anthropic SDK streaming
+    // Wrap user messages in XML tags for prompt injection mitigation
     const stream = client.messages.stream({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 512, // Reduced to encourage brevity
       system: systemPrompt,
       messages: processedMessages.map((m) => ({
         role: m.role,
-        content: m.content,
+        content:
+          m.role === 'user'
+            ? `<user_message>${escapeXml(m.content)}</user_message>`
+            : m.content,
       })),
     });
 
