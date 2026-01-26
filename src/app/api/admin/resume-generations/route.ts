@@ -1,7 +1,13 @@
 import { list } from '@vercel/blob';
 import { cookies } from 'next/headers';
 import { verifyToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
-import type { ResumeGenerationSummary, ResumeGenerationLog } from '@/lib/types/resume-generation';
+import { generateJobId } from '@/lib/job-id';
+import type {
+  ResumeGenerationSummary,
+  ResumeGenerationLog,
+  ResumeGenerationFilters,
+  ApplicationStatus,
+} from '@/lib/types/resume-generation';
 
 // Use Node.js runtime for blob operations
 export const runtime = 'nodejs';
@@ -12,6 +18,114 @@ function getEnvironment(): string {
     return process.env.VERCEL_ENV === 'production' ? 'production' : 'preview';
   }
   return process.env.NODE_ENV === 'production' ? 'production' : 'preview';
+}
+
+/**
+ * Parse filter query params from request URL.
+ */
+function parseFilters(url: URL): ResumeGenerationFilters {
+  const filters: ResumeGenerationFilters = {};
+
+  const status = url.searchParams.get('status');
+  if (status && ['draft', 'applied', 'interview', 'offer', 'rejected'].includes(status)) {
+    filters.applicationStatus = status as ApplicationStatus;
+  }
+
+  const company = url.searchParams.get('company');
+  if (company) {
+    filters.companyName = company;
+  }
+
+  const dateFrom = url.searchParams.get('dateFrom');
+  if (dateFrom) {
+    filters.dateFrom = dateFrom;
+  }
+
+  const dateTo = url.searchParams.get('dateTo');
+  if (dateTo) {
+    filters.dateTo = dateTo;
+  }
+
+  const minScore = url.searchParams.get('minScore');
+  if (minScore && !isNaN(Number(minScore))) {
+    filters.minScore = Number(minScore);
+  }
+
+  const maxScore = url.searchParams.get('maxScore');
+  if (maxScore && !isNaN(Number(maxScore))) {
+    filters.maxScore = Number(maxScore);
+  }
+
+  return filters;
+}
+
+/**
+ * Check if a generation matches the given filters.
+ */
+function matchesFilters(generation: ResumeGenerationSummary, filters: ResumeGenerationFilters): boolean {
+  // Status filter
+  if (filters.applicationStatus && generation.applicationStatus !== filters.applicationStatus) {
+    return false;
+  }
+
+  // Company filter (case-insensitive partial match)
+  if (filters.companyName) {
+    const searchTerm = filters.companyName.toLowerCase();
+    if (!generation.companyName.toLowerCase().includes(searchTerm)) {
+      return false;
+    }
+  }
+
+  // Date range filter
+  if (filters.dateFrom) {
+    const generationDate = new Date(generation.timestamp);
+    const fromDate = new Date(filters.dateFrom);
+    // Set to start of day
+    fromDate.setHours(0, 0, 0, 0);
+    if (generationDate < fromDate) {
+      return false;
+    }
+  }
+
+  if (filters.dateTo) {
+    const generationDate = new Date(generation.timestamp);
+    const toDate = new Date(filters.dateTo);
+    // Set to end of day
+    toDate.setHours(23, 59, 59, 999);
+    if (generationDate > toDate) {
+      return false;
+    }
+  }
+
+  // Score filter (uses final/after score)
+  if (filters.minScore !== undefined && generation.scoreAfter < filters.minScore) {
+    return false;
+  }
+
+  if (filters.maxScore !== undefined && generation.scoreAfter > filters.maxScore) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Compute jobId for a v1 record based on extractedUrl or title+company.
+ */
+function computeJobIdForV1(data: ResumeGenerationLog): string {
+  if (data.version === 2) {
+    return data.jobId;
+  }
+
+  // V1: compute from URL if available, otherwise from title+company
+  if (data.extractedUrl) {
+    return generateJobId({ url: data.extractedUrl }).jobId;
+  }
+
+  return generateJobId({
+    title: data.roleTitle,
+    company: data.companyName,
+  }).jobId;
 }
 
 export async function GET(req: Request) {
@@ -28,6 +142,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const cursor = url.searchParams.get('cursor') || undefined;
     const environment = getEnvironment();
+    const filters = parseFilters(url);
 
     // List blobs in the resume-generations folder for current environment
     const blobPath = `damilola.tech/resume-generations/${environment}/`;
@@ -37,13 +152,13 @@ export async function GET(req: Request) {
     const { blobs, cursor: nextCursor } = await list({
       prefix: blobPath,
       cursor,
-      limit: 20,
+      limit: 50, // Fetch more to account for filtering
     });
 
     console.log('[admin/resume-generations] Found', blobs.length, 'blobs');
 
     // Fetch and parse each blob to get summary data
-    const generations: ResumeGenerationSummary[] = await Promise.all(
+    const allGenerations: ResumeGenerationSummary[] = await Promise.all(
       blobs.map(async (blob) => {
         try {
           const response = await fetch(blob.url);
@@ -52,11 +167,26 @@ export async function GET(req: Request) {
           }
           const data: ResumeGenerationLog = await response.json();
 
+          // Compute jobId for all versions
+          const jobId = computeJobIdForV1(data);
+
+          // Calculate generation count
+          const generationCount = data.version === 2
+            ? data.generationHistory.length + 1
+            : 1;
+
+          // Get updatedAt (v2 only, fallback to createdAt for v1)
+          const updatedAt = data.version === 2
+            ? data.updatedAt
+            : data.createdAt;
+
           return {
             id: blob.pathname,
+            jobId,
             generationId: data.generationId,
             environment: data.environment,
             timestamp: data.createdAt,
+            updatedAt,
             companyName: data.companyName,
             roleTitle: data.roleTitle,
             scoreBefore: data.estimatedCompatibility.before,
@@ -64,15 +194,18 @@ export async function GET(req: Request) {
             applicationStatus: data.applicationStatus,
             url: blob.url,
             size: blob.size,
+            generationCount,
           };
         } catch (error) {
           console.error('[admin/resume-generations] Error parsing blob:', blob.pathname, error);
           // Return a placeholder for failed parses
           return {
             id: blob.pathname,
+            jobId: 'unknown',
             generationId: 'unknown',
             environment: environment,
             timestamp: blob.uploadedAt.toISOString(),
+            updatedAt: blob.uploadedAt.toISOString(),
             companyName: 'Unknown',
             roleTitle: 'Unknown',
             scoreBefore: 0,
@@ -80,10 +213,17 @@ export async function GET(req: Request) {
             applicationStatus: 'draft' as const,
             url: blob.url,
             size: blob.size,
+            generationCount: 1,
           };
         }
       })
     );
+
+    // Apply filters
+    const hasFilters = Object.keys(filters).length > 0;
+    const generations = hasFilters
+      ? allGenerations.filter((g) => matchesFilters(g, filters))
+      : allGenerations;
 
     // Sort by timestamp descending (newest first)
     generations.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -92,6 +232,8 @@ export async function GET(req: Request) {
       generations,
       cursor: nextCursor,
       hasMore: !!nextCursor,
+      totalFetched: allGenerations.length,
+      filtered: hasFilters,
     });
   } catch (error) {
     console.error('[admin/resume-generations] Error:', error);
