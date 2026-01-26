@@ -39,6 +39,7 @@ function ChangeCard({
     >
       <button
         onClick={() => setIsExpanded(!isExpanded)}
+        aria-expanded={isExpanded}
         className="flex w-full items-center justify-between p-4 text-left"
       >
         <div className="flex items-center gap-3">

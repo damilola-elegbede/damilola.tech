@@ -1,9 +1,12 @@
 import { put } from '@vercel/blob';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/admin-auth';
+import { verifyToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
 
 // Use Node.js runtime for blob operations
 export const runtime = 'nodejs';
+
+// Max PDF file size: 10MB
+const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
 
 function getEnvironment(): string {
   if (process.env.VERCEL) {
@@ -17,7 +20,7 @@ export async function POST(req: Request) {
 
   // Verify admin authentication
   const cookieStore = await cookies();
-  const adminToken = cookieStore.get('admin-token')?.value;
+  const adminToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
   if (!adminToken || !(await verifyToken(adminToken))) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -30,6 +33,14 @@ export async function POST(req: Request) {
 
     if (!file) {
       return Response.json({ error: 'No PDF file provided' }, { status: 400 });
+    }
+
+    // Validate file size
+    if (file.size > MAX_PDF_SIZE_BYTES) {
+      return Response.json(
+        { error: `File too large. Maximum size is ${MAX_PDF_SIZE_BYTES / (1024 * 1024)}MB` },
+        { status: 413 }
+      );
     }
 
     if (!companyName || !roleTitle) {
@@ -45,7 +56,8 @@ export async function POST(req: Request) {
         .slice(0, 30);
 
     const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const filename = `${sanitize(companyName)}-${sanitize(roleTitle)}-${date}.pdf`;
+    const timestamp = Date.now(); // Add timestamp to prevent collisions
+    const filename = `${sanitize(companyName)}-${sanitize(roleTitle)}-${date}-${timestamp}.pdf`;
     const environment = getEnvironment();
 
     // Store in resume/generated/ folder
@@ -55,6 +67,13 @@ export async function POST(req: Request) {
 
     // Read file as array buffer
     const buffer = await file.arrayBuffer();
+
+    // Validate PDF magic bytes (PDF files start with %PDF)
+    const uint8 = new Uint8Array(buffer);
+    const pdfMagic = String.fromCharCode(...uint8.slice(0, 4));
+    if (pdfMagic !== '%PDF') {
+      return Response.json({ error: 'Invalid PDF file' }, { status: 400 });
+    }
 
     const blob = await put(blobPath, buffer, {
       access: 'public',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { ResumeGenerationsTable } from '@/components/admin/ResumeGenerationsTable';
 import { Pagination } from '@/components/admin/Pagination';
@@ -10,6 +10,22 @@ import type {
   ApplicationStatus,
 } from '@/lib/types/resume-generation';
 
+// Allowed blob storage domain pattern for URL validation
+const ALLOWED_BLOB_HOSTS = [
+  '.public.blob.vercel-storage.com',
+  '.blob.vercel-storage.com',
+];
+
+function isValidBlobUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    return ALLOWED_BLOB_HOSTS.some(host => parsed.hostname.endsWith(host));
+  } catch {
+    return false;
+  }
+}
+
 export default function ResumeGeneratorHistoryPage() {
   const [generations, setGenerations] = useState<ResumeGenerationSummary[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -18,6 +34,8 @@ export default function ResumeGeneratorHistoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedGeneration, setSelectedGeneration] = useState<ResumeGenerationLog | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const fetchGenerations = async (append = false) => {
     try {
@@ -44,6 +62,12 @@ export default function ResumeGeneratorHistoryPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRowClick = async (generation: ResumeGenerationSummary) => {
+    // Validate URL before fetching (security)
+    if (!isValidBlobUrl(generation.url)) {
+      setError('Invalid generation URL');
+      return;
+    }
+
     setIsDetailLoading(true);
     try {
       const res = await fetch(`/api/admin/resume-generations/${encodeURIComponent(generation.url)}`);
@@ -81,9 +105,42 @@ export default function ResumeGeneratorHistoryPage() {
     }
   };
 
-  const closeDetail = () => {
+  const closeDetail = useCallback(() => {
     setSelectedGeneration(null);
-  };
+  }, []);
+
+  // Handle escape key and focus trap for modal
+  useEffect(() => {
+    if (!selectedGeneration && !isDetailLoading) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeDetail();
+      }
+      // Focus trap
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusableElements = modalRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+        if (e.shiftKey && document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement?.focus();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement?.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    // Focus close button when modal opens
+    closeButtonRef.current?.focus();
+
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedGeneration, isDetailLoading, closeDetail]);
 
   if (error) {
     return (
@@ -124,10 +181,19 @@ export default function ResumeGeneratorHistoryPage() {
 
       {/* Detail Modal */}
       {(selectedGeneration || isDetailLoading) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+          onClick={(e) => { if (e.target === e.currentTarget) closeDetail(); }}
+        >
+          <div
+            ref={modalRef}
+            className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]"
+          >
             {isDetailLoading ? (
-              <div className="flex h-64 items-center justify-center">
+              <div className="flex h-64 items-center justify-center" role="status" aria-label="Loading generation details">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
               </div>
             ) : selectedGeneration ? (
@@ -135,13 +201,15 @@ export default function ResumeGeneratorHistoryPage() {
                 {/* Modal Header */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="text-xl font-semibold text-[var(--color-text)]">
+                    <h2 id="modal-title" className="text-xl font-semibold text-[var(--color-text)]">
                       {selectedGeneration.companyName}
                     </h2>
                     <p className="text-[var(--color-text-muted)]">{selectedGeneration.roleTitle}</p>
                   </div>
                   <button
+                    ref={closeButtonRef}
                     onClick={closeDetail}
+                    aria-label="Close details modal"
                     className="rounded-lg p-2 text-[var(--color-text-muted)] hover:bg-[var(--color-card)]"
                   >
                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

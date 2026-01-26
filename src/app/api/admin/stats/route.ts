@@ -67,21 +67,27 @@ export async function GET(req: Request) {
       countBlobs(`damilola.tech/audit/${environment}/`),
     ]);
 
-    // For resume generations, also count by status
+    // For resume generations, also count by status (fetch in parallel for performance)
+    // Note: This is a sampled count from the most recent 100 entries
     const resumeGenResult = await list({
       prefix: `damilola.tech/resume-generations/${environment}/`,
       limit: 100,
     });
 
     const resumeByStatus: Record<string, number> = {};
-    for (const blob of resumeGenResult.blobs) {
-      try {
+    const statusResults = await Promise.allSettled(
+      resumeGenResult.blobs.map(async (blob) => {
         const response = await fetch(blob.url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        const status = data.applicationStatus || 'draft';
+        return data.applicationStatus || 'draft';
+      })
+    );
+
+    for (const result of statusResults) {
+      if (result.status === 'fulfilled') {
+        const status = result.value;
         resumeByStatus[status] = (resumeByStatus[status] || 0) + 1;
-      } catch {
-        // Skip failed fetches
       }
     }
 

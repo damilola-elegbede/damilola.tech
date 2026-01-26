@@ -1,10 +1,26 @@
 import { put } from '@vercel/blob';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/admin-auth';
+import { verifyToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
 import type { ResumeGenerationLog, ApplicationStatus } from '@/lib/types/resume-generation';
 
 // Use Node.js runtime for blob operations
 export const runtime = 'nodejs';
+
+// Allowed blob storage domain pattern
+const ALLOWED_BLOB_HOSTS = [
+  '.public.blob.vercel-storage.com',
+  '.blob.vercel-storage.com',
+];
+
+function isValidBlobUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    return ALLOWED_BLOB_HOSTS.some(host => parsed.hostname.endsWith(host));
+  } catch {
+    return false;
+  }
+}
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -18,9 +34,15 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   // Verify admin authentication
   const cookieStore = await cookies();
-  const adminToken = cookieStore.get('admin-token')?.value;
+  const adminToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
   if (!adminToken || !(await verifyToken(adminToken))) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Validate URL is from allowed blob storage domain (SSRF protection)
+  if (!isValidBlobUrl(decodedUrl)) {
+    console.log('[admin/resume-generations/[id]] Invalid blob URL rejected:', decodedUrl);
+    return Response.json({ error: 'Invalid blob URL' }, { status: 400 });
   }
 
   try {
@@ -50,9 +72,15 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
   // Verify admin authentication
   const cookieStore = await cookies();
-  const adminToken = cookieStore.get('admin-token')?.value;
+  const adminToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
   if (!adminToken || !(await verifyToken(adminToken))) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Validate URL is from allowed blob storage domain (SSRF protection)
+  if (!isValidBlobUrl(decodedUrl)) {
+    console.log('[admin/resume-generations/[id]] Invalid blob URL rejected:', decodedUrl);
+    return Response.json({ error: 'Invalid blob URL' }, { status: 400 });
   }
 
   try {
@@ -88,6 +116,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     // URL format: https://xxxxx.public.blob.vercel-storage.com/damilola.tech/resume-generations/...
     const urlObj = new URL(decodedUrl);
     const blobPath = urlObj.pathname.replace(/^\//, '');
+
+    // Validate blob path starts with expected prefix (prevent path traversal)
+    if (!blobPath.startsWith('damilola.tech/resume-generations/')) {
+      console.log('[admin/resume-generations/[id]] Invalid blob path rejected:', blobPath);
+      return Response.json({ error: 'Invalid blob path' }, { status: 400 });
+    }
 
     console.log('[admin/resume-generations/[id]] Saving updated data to:', blobPath);
 

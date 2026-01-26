@@ -230,10 +230,10 @@ async function validateUrlForSsrf(urlString: string): Promise<string | null> {
         return 'This URL is not allowed.';
       }
     }
-  } catch {
-    // DNS resolution failed - proceed anyway as the fetch will fail naturally
-    // This allows tests to work without DNS mocking
-    console.warn(`[resume-generator] DNS resolution failed for ${hostname}, proceeding`);
+  } catch (error) {
+    // DNS resolution failed - fail closed for security (SSRF protection)
+    console.warn(`[resume-generator] DNS resolution failed for ${hostname}:`, error);
+    return 'This URL is not allowed.';
   }
 
   return null;
@@ -307,8 +307,14 @@ async function fetchWithSizeLimit(
     reader.releaseLock();
   }
 
-  const decoder = new TextDecoder();
-  return chunks.map((chunk) => decoder.decode(chunk, { stream: true })).join('') + decoder.decode();
+  // Use streaming mode for TextDecoder to properly handle multi-byte characters across chunk boundaries
+  const decoder = new TextDecoder('utf-8', { fatal: false });
+  const textParts = chunks.map((chunk, index) =>
+    decoder.decode(chunk, { stream: index < chunks.length - 1 })
+  );
+  // Final decode to flush any remaining bytes
+  textParts.push(decoder.decode());
+  return textParts.join('');
 }
 
 /**

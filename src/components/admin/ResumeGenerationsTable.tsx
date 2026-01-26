@@ -37,6 +37,7 @@ function StatusDropdown({
       value={value}
       onChange={handleChange}
       onClick={(e) => e.stopPropagation()}
+      aria-label="Application status"
       className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[value]} cursor-pointer border-none bg-opacity-100 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]`}
     >
       {STATUS_OPTIONS.map((status) => (
@@ -76,8 +77,11 @@ export function ResumeGenerationsTable({
 
   const handleStatusChange = async (generation: ResumeGenerationSummary, status: ApplicationStatus) => {
     setUpdatingId(generation.id);
-    await onStatusChange(generation, status);
-    setUpdatingId(null);
+    try {
+      await onStatusChange(generation, status);
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   if (isLoading) {
@@ -146,7 +150,6 @@ export function ResumeGenerationsTable({
                 }
               }}
               tabIndex={0}
-              role="button"
               className="cursor-pointer bg-[var(--color-bg)] hover:bg-[var(--color-card)] focus:bg-[var(--color-card)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-inset"
             >
               <td className="px-4 py-3 text-sm text-[var(--color-text-muted)]">

@@ -47,6 +47,9 @@ export async function GET(req: Request) {
       blobs.map(async (blob) => {
         try {
           const response = await fetch(blob.url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
           const data: ResumeGenerationLog = await response.json();
 
           return {

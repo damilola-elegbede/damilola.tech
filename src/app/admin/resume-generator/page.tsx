@@ -112,7 +112,9 @@ export default function ResumeGeneratorPage() {
       setGeneratedPdfUrl(pdfUrl);
 
       // Log the generation
-      const generationId = crypto.randomUUID();
+      const generationId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const acceptedChanges = analysisResult.proposedChanges.filter((_, i) =>
         acceptedIndices.has(i)
       );
@@ -127,7 +129,8 @@ export default function ResumeGeneratorPage() {
         analysisResult.currentScore.total + acceptedPoints
       );
 
-      await fetch('/api/resume-generator/log', {
+      // Fire-and-forget logging - don't fail generation if logging fails
+      fetch('/api/resume-generator/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -148,6 +151,8 @@ export default function ResumeGeneratorPage() {
           pdfUrl,
           optimizedResumeJson: {},
         }),
+      }).catch((err) => {
+        console.error('[resume-generator] Failed to log generation:', err);
       });
 
       setPhase('complete');
