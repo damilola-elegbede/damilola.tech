@@ -10,7 +10,7 @@ Recruiters can ask the AI about experience, skills, and role fit.
 - Tailwind CSS
 - Vitest + React Testing Library + Playwright
 - Vercel AI SDK + Anthropic Claude
-- Vercel Blob (private content storage)
+- Vercel Blob (public access with unlisted URLs)
 
 ## Development Approach
 **TDD Required**: Write tests before implementation.
@@ -43,6 +43,18 @@ Required in `.env.local` (never commit):
 - API keys in Vercel env vars only
 - STAR stories and detailed context in Vercel Blob (not in git)
 - Public repo contains code only, no sensitive career data
+
+## Vercel Blob Constraints
+**IMPORTANT**: Vercel Blob only supports `access: 'public'` - there is no `'private'` option.
+```typescript
+// CORRECT
+await put(path, data, { access: 'public' });
+
+// WRONG - will fail TypeScript and build
+await put(path, data, { access: 'private' }); // ❌ Not a valid option
+```
+Security model: Blob URLs are long random strings. Keep URLs private rather than
+relying on access control. Admin endpoints verify authentication before returning blob URLs.
 
 ## Design System
 - Colors: Deep blue (#0A2540), accent blue (#0066FF), white/grey

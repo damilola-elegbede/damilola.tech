@@ -9,8 +9,7 @@ interface AuditEvent {
   pathname: string;
   eventType: string;
   environment: string;
-  date: string;
-  timestamp: string;
+  timestamp: string; // ISO 8601 UTC timestamp
   size: number;
   url: string;
 }

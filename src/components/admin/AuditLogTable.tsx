@@ -7,8 +7,7 @@ interface AuditEvent {
   pathname: string;
   eventType: string;
   environment: string;
-  date: string;
-  timestamp: string;
+  timestamp: string; // ISO 8601 UTC timestamp
   size: number;
   url: string;
 }
@@ -124,10 +123,7 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
               Event Type
             </th>
             <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">
-              Date
-            </th>
-            <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">
-              Timestamp
+              Date/Time
             </th>
             <th className="w-8 px-4 py-3"></th>
           </tr>
@@ -153,10 +149,11 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-[var(--color-text)]">
-                  {event.date}
-                </td>
-                <td className="px-4 py-3 text-sm text-[var(--color-text-muted)]">
-                  {event.timestamp || '-'}
+                  {event.timestamp
+                    ? new Date(event.timestamp).toLocaleString(undefined, {
+                        timeZoneName: 'short',
+                      })
+                    : '-'}
                 </td>
                 <td className="px-4 py-3 text-[var(--color-text-muted)]">
                   <svg
@@ -177,7 +174,7 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
               </tr>
               {expandedId === event.id && (
                 <tr key={`${event.id}-details`} className="bg-[var(--color-card)]">
-                  <td colSpan={4} className="px-4 py-4">
+                  <td colSpan={3} className="px-4 py-4">
                     {detailsLoading ? (
                       <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
