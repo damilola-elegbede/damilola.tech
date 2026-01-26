@@ -40,6 +40,7 @@ export default function ResumeGeneratorHistoryPage() {
 
   const fetchGenerations = async (append = false) => {
     try {
+      setError(null);
       setIsLoading(true);
       const params = new URLSearchParams();
       if (cursor && append) params.set('cursor', cursor);

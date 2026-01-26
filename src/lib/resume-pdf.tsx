@@ -433,6 +433,12 @@ export async function generateResumePdf(
  * Get the filename for the generated resume
  */
 export function getResumeFilename(companyName: string, roleTitle: string): string {
-  const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-');
-  return `${sanitize(companyName)}-${sanitize(roleTitle)}.pdf`;
+  const sanitize = (str: string) =>
+    str
+      .replace(/[^a-zA-Z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  const safeCompany = sanitize(companyName) || 'resume';
+  const safeRole = sanitize(roleTitle) || 'optimized';
+  return `${safeCompany}-${safeRole}.pdf`;
 }
