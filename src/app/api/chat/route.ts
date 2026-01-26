@@ -52,7 +52,15 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Request body too large.' }, { status: 413 });
     }
 
-    const { messages, sessionId, sessionStartedAt } = await req.json();
+    let messages, sessionId, sessionStartedAt;
+    try {
+      const body = await req.json();
+      messages = body.messages;
+      sessionId = body.sessionId;
+      sessionStartedAt = body.sessionStartedAt;
+    } catch {
+      return Response.json({ error: 'Invalid JSON in request body.' }, { status: 400 });
+    }
 
     // Validate session identifiers to prevent path injection
     const isValidSessionId =

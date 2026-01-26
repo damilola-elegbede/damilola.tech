@@ -65,6 +65,12 @@ interface GenericRateLimitEntry {
 }
 const genericMemoryStore = new Map<string, GenericRateLimitEntry>();
 
+// Circuit breaker for Redis errors - fail open after consecutive failures
+const CIRCUIT_BREAKER_THRESHOLD = 3;
+const CIRCUIT_BREAKER_RESET_MS = 30000; // 30 seconds
+let redisErrorCount = 0;
+let circuitBreakerOpenUntil = 0;
+
 function startCleanup() {
   if (cleanupInterval || useRedis) return;
 
@@ -310,17 +316,27 @@ async function checkGenericRateLimitRedis(
   identifier: string
 ): Promise<GenericRateLimitResult> {
   const key = `ratelimit:${config.key}:${identifier}`;
+  const now = Date.now();
+
+  // Circuit breaker: if open, fall back to memory-based rate limiting
+  if (now < circuitBreakerOpenUntil) {
+    console.warn('[rate-limit] Circuit breaker open, using memory fallback');
+    return checkGenericRateLimitMemory(config, identifier);
+  }
 
   try {
     const client = getRedis();
 
-    // Increment counter atomically
-    const count = await client.incr(key);
+    // Use pipeline for atomic INCR + EXPIRE to prevent race condition
+    const pipeline = client.pipeline();
+    pipeline.incr(key);
+    pipeline.expire(key, config.windowSeconds);
+    const results = await pipeline.exec();
 
-    // Set expiry on first request of window
-    if (count === 1) {
-      await client.expire(key, config.windowSeconds);
-    }
+    // Reset circuit breaker on success
+    redisErrorCount = 0;
+
+    const count = results[0] as number;
 
     if (count > config.limit) {
       // Get TTL for retry-after
@@ -338,8 +354,16 @@ async function checkGenericRateLimitRedis(
     };
   } catch (error) {
     console.error('[rate-limit] Redis error in generic rate limit:', error);
-    // On Redis error, fail closed to prevent bypass attacks
-    return { limited: true, remaining: 0, retryAfter: 60 };
+
+    // Circuit breaker: track consecutive errors
+    redisErrorCount++;
+    if (redisErrorCount >= CIRCUIT_BREAKER_THRESHOLD) {
+      circuitBreakerOpenUntil = now + CIRCUIT_BREAKER_RESET_MS;
+      console.warn(`[rate-limit] Circuit breaker opened after ${redisErrorCount} Redis errors`);
+    }
+
+    // Fail open to memory-based limiting instead of blocking all requests
+    return checkGenericRateLimitMemory(config, identifier);
   }
 }
 
