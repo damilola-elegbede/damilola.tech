@@ -241,6 +241,25 @@ export default function ResumeGeneratorPage() {
         .reduce((sum, c) => sum + c.impactPoints, 0)
     : 0;
 
+  // Reusable action buttons component
+  const ActionButtons = () => (
+    <div className="flex justify-center gap-4">
+      <button
+        onClick={handleGeneratePdf}
+        disabled={acceptedIndices.size === 0 || !resumeData}
+        className="rounded-lg bg-[var(--color-accent)] px-8 py-3 text-sm font-medium text-white hover:bg-[var(--color-accent)]/90 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {resumeData ? `Generate PDF (${acceptedIndices.size} changes)` : 'Loading...'}
+      </button>
+      <button
+        onClick={handleReset}
+        className="rounded-lg border border-[var(--color-border)] px-8 py-3 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-card)]"
+      >
+        Start Over
+      </button>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -332,6 +351,9 @@ export default function ResumeGeneratorPage() {
             </div>
           </div>
 
+          {/* Top Action Buttons */}
+          <ActionButtons />
+
           {/* Score Cards */}
           <div className="grid gap-6 md:grid-cols-2">
             <CompatibilityScoreCard
@@ -375,22 +397,8 @@ export default function ResumeGeneratorPage() {
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-4">
-            <button
-              onClick={handleGeneratePdf}
-              disabled={acceptedIndices.size === 0 || !resumeData}
-              className="flex-1 rounded-lg bg-[var(--color-accent)] px-6 py-3 text-sm font-medium text-white hover:bg-[var(--color-accent)]/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {resumeData ? `Generate PDF (${acceptedIndices.size} changes)` : 'Loading resume data...'}
-            </button>
-            <button
-              onClick={handleReset}
-              className="rounded-lg border border-[var(--color-border)] px-6 py-3 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-card)]"
-            >
-              Start Over
-            </button>
-          </div>
+          {/* Bottom Action Buttons */}
+          <ActionButtons />
         </div>
       )}
 

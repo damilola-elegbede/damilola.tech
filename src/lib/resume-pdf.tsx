@@ -32,7 +32,9 @@ export interface ResumeData {
   phone: string;
   email: string;
   linkedin: string;
+  website: string;
   location: string;
+  tagline: string;
   summary: string;
   experience: {
     company: string;
@@ -58,126 +60,142 @@ export interface ResumeData {
   };
 }
 
-// Styles matching the original resume design
+// Styles matching the original resume design exactly
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
+    padding: 50,
+    paddingTop: 40,
     fontFamily: 'Helvetica',
     fontSize: 10,
-    lineHeight: 1.4,
+    lineHeight: 1.3,
     color: '#000000',
     backgroundColor: '#ffffff',
   },
   // Header section
   header: {
-    marginBottom: 16,
+    marginBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#000000',
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   name: {
     fontSize: 18,
     fontFamily: 'Helvetica-Bold',
-    marginBottom: 2,
     textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
-  title: {
-    fontSize: 11,
-    color: '#333333',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  contact: {
+  contactRow: {
     fontSize: 9,
-    color: '#333333',
     textAlign: 'center',
+    marginTop: 3,
+    color: '#000000',
   },
   contactLink: {
     color: '#0066cc',
     textDecoration: 'none',
   },
-  // Section headers
+  roleTitle: {
+    fontSize: 14,
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    marginTop: 10,
+  },
+  tagline: {
+    fontSize: 10,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  // Section headers - centered, no border
   sectionHeader: {
     fontSize: 11,
     fontFamily: 'Helvetica-Bold',
-    marginTop: 12,
-    marginBottom: 6,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#000000',
-    paddingBottom: 2,
+    textAlign: 'center',
     textTransform: 'uppercase',
+    marginTop: 14,
+    marginBottom: 8,
   },
   // Summary
   summary: {
     fontSize: 10,
-    lineHeight: 1.5,
-    marginBottom: 8,
+    lineHeight: 1.4,
+    marginBottom: 4,
     textAlign: 'justify',
   },
-  // Experience section
+  // Experience section - Company | Location first, then Title (Dates)
   job: {
     marginBottom: 10,
   },
-  jobHeader: {
+  jobCompanyLine: {
+    flexDirection: 'row',
+    marginBottom: 1,
+  },
+  companyBold: {
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 10,
+  },
+  companyLocation: {
+    fontSize: 10,
+  },
+  jobTitleLine: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 2,
   },
-  jobTitle: {
+  jobTitleBold: {
     fontFamily: 'Helvetica-Bold',
     fontSize: 10,
-    flex: 1,
   },
   jobDates: {
-    fontSize: 9,
-    color: '#333333',
-  },
-  jobCompany: {
     fontSize: 10,
-    fontStyle: 'italic',
-    color: '#333333',
-    marginBottom: 4,
   },
+  jobDescription: {
+    fontSize: 10,
+    marginBottom: 3,
+    lineHeight: 1.3,
+  },
+  // Bullets with ● character
   bulletContainer: {
     flexDirection: 'row',
-    marginBottom: 3,
-    paddingLeft: 8,
+    marginLeft: 12,
+    marginBottom: 2,
   },
   bullet: {
-    width: 8,
+    width: 12,
     fontSize: 10,
   },
   bulletText: {
     flex: 1,
     fontSize: 10,
-    lineHeight: 1.4,
+    lineHeight: 1.3,
   },
-  // Education section
-  educationItem: {
+  // Education section - multi-line format
+  educationEntry: {
+    marginBottom: 6,
+  },
+  degreeLine: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
   },
-  degree: {
+  degreeBold: {
     fontFamily: 'Helvetica-Bold',
     fontSize: 10,
   },
   institution: {
     fontSize: 10,
-    color: '#333333',
+  },
+  focusLine: {
+    fontSize: 10,
+    fontStyle: 'italic',
   },
   year: {
-    fontSize: 9,
-    color: '#333333',
-  },
-  focus: {
-    fontSize: 9,
-    color: '#666666',
-    fontStyle: 'italic',
+    fontSize: 10,
   },
   // Skills section
   skillCategory: {
-    marginBottom: 4,
+    marginBottom: 3,
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
@@ -247,7 +265,29 @@ function applyChanges(
 }
 
 /**
+ * Expand degree abbreviations to full names
+ */
+function expandDegree(degree: string): string {
+  const expansions: Record<string, string> = {
+    'MBA': 'Master of Business Administration (MBA)',
+    'MS, Computer Science': 'Master of Science (MS), Computer Science',
+    'BS, Electrical & Computer Engineering': 'Bachelor of Science (BS), Electrical & Computer Engineering',
+  };
+  return expansions[degree] || degree;
+}
+
+/**
  * React PDF Document component for the resume
+ * Format matches original resume exactly:
+ * - Name: ALL CAPS, centered, bold
+ * - Title: Separate line, centered, bold
+ * - Tagline: Italicized
+ * - Contact: Two lines - phone|email|location and full URLs
+ * - Section headers: Centered, no border
+ * - Experience: Company|Location first, then Title (Dates)
+ * - Bullets: ● character
+ * - Education: Multi-line format
+ * - Skills: "KEY SKILLS" title
  */
 function ResumePDF({ data, analysis, acceptedIndices, showFooter = false }: ResumePDFProps) {
   const resume = applyChanges(data, analysis.proposedChanges, acceptedIndices);
@@ -258,14 +298,25 @@ function ResumePDF({ data, analysis, acceptedIndices, showFooter = false }: Resu
       <Page size="LETTER" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.name}>{resume.name}</Text>
-          <Text style={styles.title}>{resume.title}</Text>
-          <Text style={styles.contact}>
-            {resume.location} | {resume.phone} | {resume.email} |{' '}
-            <Link src={resume.linkedin} style={styles.contactLink}>
-              LinkedIn
-            </Link>
+          <Text style={styles.name}>{resume.name.toUpperCase()}</Text>
+          <Text style={styles.contactRow}>
+            {resume.phone} | {resume.email} | {resume.location}
           </Text>
+          <Text style={styles.contactRow}>
+            <Link src={resume.linkedin} style={styles.contactLink}>
+              {resume.linkedin}
+            </Link>
+            {resume.website && (
+              <>
+                {' | '}
+                <Link src={resume.website} style={styles.contactLink}>
+                  {resume.website}
+                </Link>
+              </>
+            )}
+          </Text>
+          <Text style={styles.roleTitle}>{resume.title.toUpperCase()}</Text>
+          {resume.tagline && <Text style={styles.tagline}>{resume.tagline}</Text>}
         </View>
 
         {/* Professional Summary */}
@@ -276,39 +327,45 @@ function ResumePDF({ data, analysis, acceptedIndices, showFooter = false }: Resu
         <Text style={styles.sectionHeader}>Professional Experience</Text>
         {resume.experience.map((job, jobIndex) => (
           <View key={jobIndex} style={styles.job} wrap={false}>
-            <View style={styles.jobHeader}>
-              <Text style={styles.jobTitle}>{job.title}</Text>
-              <Text style={styles.jobDates}>{job.dates}</Text>
+            {/* Company | Location */}
+            <View style={styles.jobCompanyLine}>
+              <Text style={styles.companyBold}>{job.company}</Text>
+              <Text style={styles.companyLocation}> | {job.location}</Text>
             </View>
-            <Text style={styles.jobCompany}>
-              {job.company}, {job.location}
-            </Text>
+            {/* Title (Dates) */}
+            <View style={styles.jobTitleLine}>
+              <Text style={styles.jobTitleBold}>{job.title}</Text>
+              <Text style={styles.jobDates}>({job.dates})</Text>
+            </View>
+            {/* Description paragraph */}
+            {job.description && (
+              <Text style={styles.jobDescription}>{job.description}</Text>
+            )}
+            {/* Bullets */}
             {job.responsibilities.map((responsibility, bulletIndex) => (
               <View key={bulletIndex} style={styles.bulletContainer}>
-                <Text style={styles.bullet}>&#8226;</Text>
+                <Text style={styles.bullet}>●</Text>
                 <Text style={styles.bulletText}>{responsibility}</Text>
               </View>
             ))}
           </View>
         ))}
 
-        {/* Education */}
+        {/* Education - Multi-line format */}
         <Text style={styles.sectionHeader}>Education</Text>
         {resume.education.map((edu, eduIndex) => (
-          <View key={eduIndex} style={styles.educationItem}>
-            <View style={{ flex: 1 }}>
-              <Text>
-                <Text style={styles.degree}>{edu.degree}</Text>
-                <Text style={styles.institution}> - {edu.institution}</Text>
-                {edu.focus && <Text style={styles.focus}> ({edu.focus})</Text>}
-              </Text>
+          <View key={eduIndex} style={styles.educationEntry}>
+            <View style={styles.degreeLine}>
+              <Text style={styles.degreeBold}>{expandDegree(edu.degree)}</Text>
+              <Text style={styles.year}>{edu.year}</Text>
             </View>
-            <Text style={styles.year}>{edu.year}</Text>
+            <Text style={styles.institution}>{edu.institution}</Text>
+            {edu.focus && <Text style={styles.focusLine}>Focus: {edu.focus}</Text>}
           </View>
         ))}
 
-        {/* Core Competencies */}
-        <Text style={styles.sectionHeader}>Core Competencies</Text>
+        {/* Key Skills - changed from Core Competencies */}
+        <Text style={styles.sectionHeader}>Key Skills</Text>
         <View style={styles.skillCategory}>
           <Text style={styles.skillLabel}>Leadership: </Text>
           <Text style={styles.skillList}>{resume.skills.leadership.join(' | ')}</Text>
