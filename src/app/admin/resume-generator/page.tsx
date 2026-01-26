@@ -6,7 +6,23 @@ import { ResumeGeneratorForm } from '@/components/admin/ResumeGeneratorForm';
 import { CompatibilityScoreCard } from '@/components/admin/CompatibilityScoreCard';
 import { ChangePreviewPanel } from '@/components/admin/ChangePreviewPanel';
 import type { ResumeAnalysisResult } from '@/lib/types/resume-generation';
-import { generateResumePdf, getResumeFilename, type ResumeData } from '@/lib/resume-pdf';
+import type { ResumeData } from '@/lib/resume-pdf';
+
+// Dynamically import PDF generator to avoid SSR issues with @react-pdf/renderer
+// See: https://github.com/diegomura/react-pdf/issues/3156
+const generateResumePdfDynamic = async (
+  data: ResumeData,
+  analysis: import('@/lib/types/resume-generation').ResumeAnalysisResult,
+  acceptedIndices: Set<number>
+): Promise<Blob> => {
+  const { generateResumePdf } = await import('@/lib/resume-pdf');
+  return generateResumePdf(data, analysis, acceptedIndices);
+};
+
+const getResumeFilenameDynamic = (companyName: string, roleTitle: string): string => {
+  const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-');
+  return `${sanitize(companyName)}-${sanitize(roleTitle)}.pdf`;
+};
 
 type Phase = 'input' | 'analyzing' | 'preview' | 'generating' | 'complete';
 
@@ -131,10 +147,11 @@ export default function ResumeGeneratorPage() {
 
     try {
       // Generate PDF using @react-pdf/renderer (native text-based PDF)
-      const pdfBlob = await generateResumePdf(resumeData, analysisResult, acceptedIndices);
+      // Uses dynamic import to avoid SSR issues
+      const pdfBlob = await generateResumePdfDynamic(resumeData, analysisResult, acceptedIndices);
 
       // Upload PDF to blob storage
-      const filename = getResumeFilename(analysisResult.analysis.companyName, analysisResult.analysis.roleTitle);
+      const filename = getResumeFilenameDynamic(analysisResult.analysis.companyName, analysisResult.analysis.roleTitle);
       const formData = new FormData();
       formData.append('pdf', pdfBlob, filename);
       formData.append('companyName', analysisResult.analysis.companyName);

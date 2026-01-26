@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * ATS-friendly resume PDF generator using @react-pdf/renderer.
  *
@@ -7,6 +9,9 @@
  * - Black text on white background
  * - Clean, single-column layout
  * - Professional, minimal styling
+ *
+ * IMPORTANT: This module must be dynamically imported in Next.js to avoid
+ * SSR issues with @react-pdf/renderer. See GitHub issues #3156 and #1737.
  */
 
 import {
