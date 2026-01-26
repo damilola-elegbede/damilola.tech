@@ -339,16 +339,15 @@ async function checkGenericRateLimitRedis(
   try {
     const client = getRedis();
 
-    // Use pipeline for atomic INCR + EXPIRE to prevent race condition
-    const pipeline = client.pipeline();
-    pipeline.incr(key);
-    pipeline.expire(key, config.windowSeconds);
-    const results = await pipeline.exec();
+    // Increment counter - only set TTL on first increment to ensure fixed window
+    const count = await client.incr(key);
+    if (count === 1) {
+      // Set TTL only when counter is first created to prevent window extension
+      await client.expire(key, config.windowSeconds);
+    }
 
     // Reset circuit breaker on success
     redisErrorCount = 0;
-
-    const count = results[0] as number;
 
     if (count > config.limit) {
       // Get TTL for retry-after

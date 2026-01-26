@@ -43,6 +43,18 @@ function validateMessages(messages: unknown): messages is ChatMessage[] {
   );
 }
 
+/**
+ * Escape XML entities to prevent injection when wrapping user content in XML tags.
+ */
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 export async function POST(req: Request) {
   console.log('[chat] Request received');
   try {
@@ -117,7 +129,10 @@ export async function POST(req: Request) {
       system: systemPrompt,
       messages: processedMessages.map((m) => ({
         role: m.role,
-        content: m.role === 'user' ? `<user_message>${m.content}</user_message>` : m.content,
+        content:
+          m.role === 'user'
+            ? `<user_message>${escapeXml(m.content)}</user_message>`
+            : m.content,
       })),
     });
 
