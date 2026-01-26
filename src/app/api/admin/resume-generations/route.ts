@@ -76,22 +76,20 @@ function matchesFilters(generation: ResumeGenerationSummary, filters: ResumeGene
     }
   }
 
-  // Date range filter
+  // Date range filter - use UTC boundaries to avoid timezone issues
   if (filters.dateFrom) {
-    const generationDate = new Date(generation.timestamp);
-    const fromDate = new Date(filters.dateFrom);
-    // Set to start of day
-    fromDate.setHours(0, 0, 0, 0);
+    const generationDate = new Date(generation.timestamp).getTime();
+    // Parse as UTC start of day: YYYY-MM-DDT00:00:00.000Z
+    const fromDate = new Date(filters.dateFrom + 'T00:00:00.000Z').getTime();
     if (generationDate < fromDate) {
       return false;
     }
   }
 
   if (filters.dateTo) {
-    const generationDate = new Date(generation.timestamp);
-    const toDate = new Date(filters.dateTo);
-    // Set to end of day
-    toDate.setHours(23, 59, 59, 999);
+    const generationDate = new Date(generation.timestamp).getTime();
+    // Parse as UTC end of day: YYYY-MM-DDT23:59:59.999Z
+    const toDate = new Date(filters.dateTo + 'T23:59:59.999Z').getTime();
     if (generationDate > toDate) {
       return false;
     }
@@ -158,14 +156,39 @@ export async function GET(req: Request) {
     console.log('[admin/resume-generations] Found', blobs.length, 'blobs');
 
     // Fetch and parse each blob to get summary data
-    const allGenerations: ResumeGenerationSummary[] = await Promise.all(
-      blobs.map(async (blob) => {
-        try {
-          const response = await fetch(blob.url);
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          const data: ResumeGenerationLog = await response.json();
+    // Limit concurrency to avoid overwhelming resources
+    const FETCH_CONCURRENCY = 10;
+    const FETCH_TIMEOUT_MS = 10000;
+    const MAX_BLOB_SIZE = 1024 * 1024; // 1MB limit
+
+    const fetchBlobWithTimeout = async (url: string): Promise<Response> => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        // Check Content-Length if available
+        const contentLength = response.headers.get('content-length');
+        if (contentLength && parseInt(contentLength, 10) > MAX_BLOB_SIZE) {
+          throw new Error('Blob too large');
+        }
+        return response;
+      } finally {
+        clearTimeout(timeout);
+      }
+    };
+
+    // Process blobs in batches for concurrency control
+    const allGenerations: ResumeGenerationSummary[] = [];
+    for (let i = 0; i < blobs.length; i += FETCH_CONCURRENCY) {
+      const batch = blobs.slice(i, i + FETCH_CONCURRENCY);
+      const batchResults = await Promise.all(
+        batch.map(async (blob) => {
+          try {
+            const response = await fetchBlobWithTimeout(blob.url);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            const data: ResumeGenerationLog = await response.json();
 
           // Compute jobId for all versions
           const jobId = computeJobIdForV1(data);
@@ -215,9 +238,11 @@ export async function GET(req: Request) {
             size: blob.size,
             generationCount: 1,
           };
-        }
-      })
-    );
+          }
+        })
+      );
+      allGenerations.push(...batchResults);
+    }
 
     // Apply filters
     const hasFilters = Object.keys(filters).length > 0;

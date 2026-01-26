@@ -377,7 +377,9 @@ export default function ResumeGeneratorHistoryPage() {
   }, [selectedGeneration, isDetailLoading, closeDetail]);
 
   // Check if selected generation is v2 with history
-  const hasHistory = selectedGeneration?.version === 2 && selectedGeneration.generationHistory?.length > 0;
+  const hasHistory = selectedGeneration?.version === 2 &&
+    Array.isArray(selectedGeneration.generationHistory) &&
+    selectedGeneration.generationHistory.length > 0;
 
   return (
     <div className="space-y-6">

@@ -94,7 +94,13 @@ export function DataTable<T extends { id: string }>({
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         comparison = aVal - bVal;
       } else if (typeof aVal === 'string' && typeof bVal === 'string') {
-        comparison = aVal.localeCompare(bVal);
+        // Check for ISO date strings (e.g., "2025-01-26T12:00:00.000Z")
+        const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+        if (isoDateRegex.test(aVal) && isoDateRegex.test(bVal)) {
+          comparison = new Date(aVal).getTime() - new Date(bVal).getTime();
+        } else {
+          comparison = aVal.localeCompare(bVal);
+        }
       } else if (aVal instanceof Date && bVal instanceof Date) {
         comparison = aVal.getTime() - bVal.getTime();
       } else {
