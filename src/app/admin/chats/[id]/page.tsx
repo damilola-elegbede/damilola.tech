@@ -31,6 +31,10 @@ export default function ChatDetailPage() {
       try {
         const id = params.id as string;
         const res = await fetch(`/api/admin/chats/${id}`);
+        if (res.status === 401) {
+          window.location.href = '/admin/login';
+          return;
+        }
         if (!res.ok) throw new Error('Chat not found');
         const data = await res.json();
         setChat(data);

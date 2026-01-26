@@ -66,7 +66,7 @@ export function ChatViewer({ chat }: ChatViewerProps) {
                 {msg.role === 'user' ? 'User' : 'Assistant'}
               </p>
               <p className="whitespace-pre-wrap text-sm text-[var(--color-text)]">
-                {msg.parts.find((p) => p.type === 'text')?.text || ''}
+                {msg.parts?.find((p) => p.type === 'text')?.text || ''}
               </p>
             </div>
           ))}
