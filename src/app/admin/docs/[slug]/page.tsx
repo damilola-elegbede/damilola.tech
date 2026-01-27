@@ -15,6 +15,11 @@ interface DocData {
 const DOC_TITLES: Record<string, string> = {
   'readme': 'README',
   'claude-md': 'CLAUDE.md',
+  'docs-index': 'Documentation Index',
+  'admin-portal': 'Admin Portal Guide',
+  'api-documentation': 'API Documentation',
+  'rate-limiting': 'Rate Limiting',
+  'deployment': 'Deployment Guide',
   'utm-tracking': 'UTM Tracking Guide',
 };
 

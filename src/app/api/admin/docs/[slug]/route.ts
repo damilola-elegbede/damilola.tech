@@ -5,8 +5,15 @@ import { join } from 'path';
 
 // Map slug to file path
 const DOC_FILES: Record<string, string> = {
+  // Root docs
   'readme': 'README.md',
   'claude-md': 'CLAUDE.md',
+  // docs/ folder
+  'docs-index': 'docs/README.md',
+  'admin-portal': 'docs/admin-portal.md',
+  'api-documentation': 'docs/api-documentation.md',
+  'rate-limiting': 'docs/rate-limiting.md',
+  'deployment': 'docs/deployment.md',
 };
 
 export async function GET(
