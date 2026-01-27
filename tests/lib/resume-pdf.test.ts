@@ -87,19 +87,19 @@ describe('applyChangesToResume - targeted replacement', () => {
 
     it('preserves surrounding text when replacing phrase', () => {
       const resume = createTestResume({
-        summary: 'I am an experienced developer with strong skills.',
+        summary: 'I am a skilled developer with strong experience.',
       });
       const changes = [
         createChange({
           section: 'summary',
-          original: 'experienced developer',
+          original: 'skilled developer',
           modified: 'senior software architect',
         }),
       ];
 
       const result = applyChangesToResume(resume, changes, new Set([0]));
 
-      expect(result.summary).toBe('I am an senior software architect with strong skills.');
+      expect(result.summary).toBe('I am a senior software architect with strong experience.');
     });
 
     it('falls back to full replacement if original not found', () => {
