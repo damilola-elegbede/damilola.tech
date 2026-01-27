@@ -211,6 +211,8 @@ export default function UtmTrackingPage() {
         <div className="space-y-4">
           {examples.map((example) => {
             const url = buildUrl(example, baseUrl);
+            // Decode URL-encoded placeholders for readability
+            const displayUrl = url.replace(/%7B/gi, '{').replace(/%7D/gi, '}');
             return (
               <div
                 key={example.name}
@@ -224,9 +226,9 @@ export default function UtmTrackingPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 overflow-x-auto rounded bg-[var(--color-card)] px-3 py-2 font-mono text-xs text-[var(--color-text)]">
-                    {url}
+                    {displayUrl}
                   </code>
-                  <CopyButton text={url} />
+                  <CopyButton text={displayUrl} />
                 </div>
               </div>
             );

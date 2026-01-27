@@ -75,8 +75,12 @@ export async function GET(req: Request) {
       // Set end date to end of day for inclusive range
       endDate.setHours(23, 59, 59, 999);
     } else {
-      // Fall back to days parameter
-      const days = Math.min(365, Math.max(1, parseInt(searchParams.get('days') || '30', 10)));
+      // Fall back to days parameter with validation
+      const rawDays = Number.parseInt(searchParams.get('days') ?? '30', 10);
+      if (!Number.isFinite(rawDays)) {
+        return Response.json({ error: 'Invalid days parameter' }, { status: 400 });
+      }
+      const days = Math.min(365, Math.max(1, rawDays));
       endDate = new Date();
       startDate = new Date();
       startDate.setDate(startDate.getDate() - days);

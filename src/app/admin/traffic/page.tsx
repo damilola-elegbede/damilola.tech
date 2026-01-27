@@ -233,7 +233,7 @@ export default function TrafficPage() {
           {pieData.length > 0 ? (
             <div className="h-80" role="img" aria-label={`Pie chart showing traffic by source: ${pieData.map(d => `${d.name}: ${d.value} sessions`).join(', ')}`}>
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+                <PieChart id="traffic-source-chart">
                   <Pie
                     data={pieData}
                     cx="50%"
