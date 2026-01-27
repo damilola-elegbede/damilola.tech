@@ -33,13 +33,13 @@ test.describe('Resume Generator Review Workflow', () => {
     await expect(page.getByRole('heading', { name: 'ATS Resume Generator' })).toBeVisible();
 
     // Check that form elements are visible
-    await expect(page.getByPlaceholderText(/paste job description/i)).toBeVisible();
+    await expect(page.getByPlaceholder(/paste job description/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /analyze/i })).toBeVisible();
   });
 
   test('UI shows edit and reject options for pending changes', async ({ page }) => {
     // Mock a job description to analyze
-    const jdTextarea = page.getByPlaceholderText(/paste job description/i);
+    const jdTextarea = page.getByPlaceholder(/paste job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager
       Company: Test Company Inc.
@@ -69,7 +69,7 @@ test.describe('Resume Generator Review Workflow', () => {
 
   test('can enter edit mode and modify change text', async ({ page }) => {
     // Fill in job description
-    const jdTextarea = page.getByPlaceholderText(/paste job description/i);
+    const jdTextarea = page.getByPlaceholder(/paste job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager
       Company: Test Company Inc.
@@ -104,7 +104,7 @@ test.describe('Resume Generator Review Workflow', () => {
 
   test('can reject change with optional feedback', async ({ page }) => {
     // Fill in job description
-    const jdTextarea = page.getByPlaceholderText(/paste job description/i);
+    const jdTextarea = page.getByPlaceholder(/paste job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager
       Company: Test Company Inc.
@@ -119,10 +119,10 @@ test.describe('Resume Generator Review Workflow', () => {
     await page.getByRole('button', { name: /^reject$/i }).first().click();
 
     // Verify feedback input appears
-    await expect(page.getByPlaceholderText(/optional feedback/i)).toBeVisible();
+    await expect(page.getByPlaceholder(/optional feedback/i)).toBeVisible();
 
     // Enter feedback
-    await page.getByPlaceholderText(/optional feedback/i).fill('Too aggressive for this role');
+    await page.getByPlaceholder(/optional feedback/i).fill('Too aggressive for this role');
 
     // Confirm rejection
     await page.getByRole('button', { name: /confirm reject/i }).click();
@@ -134,7 +134,7 @@ test.describe('Resume Generator Review Workflow', () => {
 
   test('can revert decision back to pending', async ({ page }) => {
     // Fill in job description
-    const jdTextarea = page.getByPlaceholderText(/paste job description/i);
+    const jdTextarea = page.getByPlaceholder(/paste job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager
       Company: Test Company Inc.
@@ -158,7 +158,7 @@ test.describe('Resume Generator Review Workflow', () => {
 
   test('bulk accept all pending changes', async ({ page }) => {
     // Fill in job description
-    const jdTextarea = page.getByPlaceholderText(/paste job description/i);
+    const jdTextarea = page.getByPlaceholder(/paste job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager at Test Company
       Requirements:
@@ -182,7 +182,7 @@ test.describe('Resume Generator Review Workflow', () => {
 
   test('generate PDF button disabled when no changes accepted', async ({ page }) => {
     // Fill in job description
-    const jdTextarea = page.getByPlaceholderText(/paste job description/i);
+    const jdTextarea = page.getByPlaceholder(/paste job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager
       Company: Test Company
