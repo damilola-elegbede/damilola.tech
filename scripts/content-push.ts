@@ -1,7 +1,8 @@
 /**
  * Content Push Script
  *
- * Uploads all content files from local .tmp/content/ to Vercel Blob storage.
+ * Uploads all content files from career-data/ subdirectories to Vercel Blob storage.
+ * Files from multiple directories are flattened to damilola.tech/content/ in blob.
  * Uses checksum comparison to only upload new or changed files.
  * Requires BLOB_READ_WRITE_TOKEN environment variable.
  */
@@ -16,8 +17,18 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 const BLOB_PATH_PREFIX = 'damilola.tech/content';
-const BLOB_BASE_URL = process.env.BLOB_BASE_URL || 'https://mikya8vluytqhmff.public.blob.vercel-storage.com';
-const LOCAL_CONTENT_DIR = join(process.cwd(), '.tmp/content');
+const BLOB_BASE_URL =
+  process.env.BLOB_BASE_URL || 'https://mikya8vluytqhmff.public.blob.vercel-storage.com';
+
+// Content directories to walk (relative to project root)
+const CONTENT_DIRS = [
+  'career-data/instructions',
+  'career-data/templates',
+  'career-data/context',
+  'career-data/data',
+  'career-data/examples',
+];
+
 const MAX_RESPONSE_SIZE = 10 * 1024 * 1024; // 10MB limit
 
 function md5(content: string): string {
@@ -83,6 +94,52 @@ async function uploadFile(filename: string, localContent: string): Promise<Uploa
   }
 }
 
+interface FileInfo {
+  filename: string;
+  localPath: string;
+  sourceDir: string;
+}
+
+async function collectFilesFromDirectory(dir: string): Promise<FileInfo[]> {
+  const files: FileInfo[] = [];
+  const dirPath = join(process.cwd(), dir);
+
+  try {
+    const entries = await readdir(dirPath);
+
+    for (const filename of entries) {
+      // Validate filename contains only safe characters (no path traversal)
+      if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+        console.error(`  [SKIP] ${dir}/${filename}: Invalid filename characters`);
+        continue;
+      }
+
+      const localPath = join(dirPath, filename);
+
+      // Verify it's a regular file (not a symlink or directory)
+      const stat = await lstat(localPath);
+      if (!stat.isFile()) {
+        continue;
+      }
+
+      files.push({
+        filename,
+        localPath,
+        sourceDir: dir,
+      });
+    }
+  } catch (error) {
+    const err = error as { code?: string };
+    if (err.code === 'ENOENT') {
+      console.warn(`  [WARN] Directory not found: ${dir}`);
+    } else {
+      throw error;
+    }
+  }
+
+  return files;
+}
+
 async function main() {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
 
@@ -93,48 +150,49 @@ async function main() {
   }
 
   console.log('Content Push - Uploading to Vercel Blob\n');
-  console.log(`Source: ${LOCAL_CONTENT_DIR}`);
+  console.log('Source directories:');
+  for (const dir of CONTENT_DIRS) {
+    console.log(`  - ${dir}`);
+  }
   console.log(`Target: ${BLOB_PATH_PREFIX}/\n`);
 
-  let files: string[];
+  // Collect all files from all directories
+  const allFiles: FileInfo[] = [];
+  for (const dir of CONTENT_DIRS) {
+    const files = await collectFilesFromDirectory(dir);
+    allFiles.push(...files);
+  }
 
-  try {
-    files = await readdir(LOCAL_CONTENT_DIR);
-  } catch {
-    console.error(`Error: Directory not found: ${LOCAL_CONTENT_DIR}`);
-    console.error('Run "npm run content:pull" first to download content files.');
+  if (allFiles.length === 0) {
+    console.log('No content files found in career-data directories.');
+    console.log('Make sure career-data submodule is initialized:');
+    console.log('  git submodule update --init --recursive');
     process.exit(1);
   }
 
-  if (files.length === 0) {
-    console.log('No files found in .tmp/content/');
-    return;
+  // Check for duplicate filenames across directories
+  const filenameMap = new Map<string, string>();
+  for (const file of allFiles) {
+    const existing = filenameMap.get(file.filename);
+    if (existing) {
+      console.error(`\nError: Duplicate filename "${file.filename}" found in:`);
+      console.error(`  - ${existing}`);
+      console.error(`  - ${file.sourceDir}`);
+      console.error('All content files must have unique names.');
+      process.exit(1);
+    }
+    filenameMap.set(file.filename, file.sourceDir);
   }
+
+  console.log(`Found ${allFiles.length} files to process\n`);
 
   let uploadedCount = 0;
   let unchangedCount = 0;
   let errorCount = 0;
 
-  for (const filename of files) {
-    // Validate filename contains only safe characters (no path traversal)
-    if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
-      console.error(`  [SKIP] ${filename}: Invalid filename characters`);
-      errorCount++;
-      continue;
-    }
-
-    const localPath = join(LOCAL_CONTENT_DIR, filename);
-
-    // Verify it's a regular file (not a symlink)
-    const stat = await lstat(localPath);
-    if (!stat.isFile()) {
-      console.error(`  [SKIP] ${filename}: Not a regular file`);
-      errorCount++;
-      continue;
-    }
-
-    const content = await readFile(localPath, 'utf-8');
-    const result = await uploadFile(filename, content);
+  for (const file of allFiles) {
+    const content = await readFile(file.localPath, 'utf-8');
+    const result = await uploadFile(file.filename, content);
 
     switch (result) {
       case 'uploaded':

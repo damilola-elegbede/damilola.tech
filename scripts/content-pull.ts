@@ -1,9 +1,9 @@
 /**
  * Content Pull Script
  *
- * Downloads all content files from Vercel Blob to local .tmp/content/ directory.
- * Dynamically lists files from blob storage - no hardcoded file list.
- * Used for local development and content editing.
+ * Downloads all content files from Vercel Blob to career-data/ subdirectories.
+ * Files are routed to appropriate directories based on filename.
+ * Used for syncing blob content back to the git-tracked submodule.
  */
 
 import { mkdir, writeFile } from 'fs/promises';
@@ -15,12 +15,40 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 const BLOB_PATH_PREFIX = 'damilola.tech/content';
-const LOCAL_CONTENT_DIR = join(process.cwd(), '.tmp/content');
 const MAX_RESPONSE_SIZE = 10 * 1024 * 1024; // 10MB limit
 
-type FetchResult =
-  | { status: 'ok'; content: string }
-  | { status: 'error'; error: unknown };
+// File routing map: filename -> subdirectory in career-data/
+const FILE_ROUTING: Record<string, string> = {
+  // Instructions
+  'chatbot-instructions.md': 'instructions',
+  'fit-assessment-instructions.md': 'instructions',
+  'resume-generator-instructions.md': 'instructions',
+
+  // Templates
+  'shared-context.md': 'templates',
+
+  // Context
+  'ai-context.md': 'context',
+  'anecdotes.md': 'context',
+  'chatbot-architecture.md': 'context',
+  'leadership-philosophy.md': 'context',
+  'projects-context.md': 'context',
+  'technical-expertise.md': 'context',
+  'verily-feedback.md': 'context',
+
+  // Data
+  'resume-full.json': 'data',
+  'star-stories.json': 'data',
+
+  // Examples
+  'fit-example-strong.md': 'examples',
+  'fit-example-weak.md': 'examples',
+};
+
+// All possible target directories
+const TARGET_DIRS = ['instructions', 'templates', 'context', 'data', 'examples'];
+
+type FetchResult = { status: 'ok'; content: string } | { status: 'error'; error: unknown };
 
 async function fetchFile(url: string, filename: string): Promise<FetchResult> {
   try {
@@ -47,6 +75,27 @@ async function fetchFile(url: string, filename: string): Promise<FetchResult> {
   }
 }
 
+function getTargetDirectory(filename: string): string {
+  const dir = FILE_ROUTING[filename];
+  if (dir) {
+    return dir;
+  }
+
+  // Heuristic fallback for unknown files
+  if (filename.endsWith('-instructions.md')) {
+    return 'instructions';
+  }
+  if (filename.endsWith('.json')) {
+    return 'data';
+  }
+  if (filename.startsWith('fit-example-')) {
+    return 'examples';
+  }
+
+  // Default to context for unknown markdown files
+  return 'context';
+}
+
 async function main() {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
 
@@ -58,7 +107,11 @@ async function main() {
 
   console.log('Content Pull - Downloading from Vercel Blob\n');
   console.log(`Source: ${BLOB_PATH_PREFIX}/`);
-  console.log(`Target: ${LOCAL_CONTENT_DIR}\n`);
+  console.log('Target directories:');
+  for (const dir of TARGET_DIRS) {
+    console.log(`  - career-data/${dir}/`);
+  }
+  console.log('');
 
   // List all files in the blob storage prefix
   console.log('Listing files in blob storage...');
@@ -74,11 +127,15 @@ async function main() {
 
   console.log(`Found ${blobs.length} files\n`);
 
-  // Create local content directory
-  await mkdir(LOCAL_CONTENT_DIR, { recursive: true });
+  // Create all target directories
+  for (const dir of TARGET_DIRS) {
+    const dirPath = join(process.cwd(), 'career-data', dir);
+    await mkdir(dirPath, { recursive: true });
+  }
 
   let successCount = 0;
   let errorCount = 0;
+  let unknownCount = 0;
 
   for (const blob of blobs) {
     // Extract filename from pathname (remove prefix) and sanitize
@@ -96,9 +153,17 @@ async function main() {
 
     switch (result.status) {
       case 'ok': {
-        const localPath = join(LOCAL_CONTENT_DIR, filename);
+        const targetDir = getTargetDirectory(filename);
+        const isKnown = FILE_ROUTING[filename] !== undefined;
+
+        if (!isKnown) {
+          console.warn(`  [WARN] Unknown file "${filename}" - routing to ${targetDir}/`);
+          unknownCount++;
+        }
+
+        const localPath = join(process.cwd(), 'career-data', targetDir, filename);
         await writeFile(localPath, result.content, 'utf-8');
-        console.log(`  [OK] ${filename}`);
+        console.log(`  [OK] ${filename} -> career-data/${targetDir}/`);
         successCount++;
         break;
       }
@@ -109,6 +174,12 @@ async function main() {
   }
 
   console.log(`\nComplete: ${successCount} downloaded, ${errorCount} errors`);
+  if (unknownCount > 0) {
+    console.log(
+      `\nNote: ${unknownCount} file(s) were not in the routing map and were placed using heuristics.`
+    );
+    console.log('Consider updating FILE_ROUTING in scripts/content-pull.ts if needed.');
+  }
 }
 
 main().catch((error) => {

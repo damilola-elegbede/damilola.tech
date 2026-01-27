@@ -189,6 +189,40 @@ export async function fetchAllContent(): Promise<ContentFiles> {
   };
 }
 
+// Content directories to search for local fallback (in priority order)
+const CONTENT_DIRS = [
+  'career-data/instructions',
+  'career-data/templates',
+  'career-data/context',
+  'career-data/data',
+  'career-data/examples',
+];
+
+/**
+ * Try to find a file in one of the content directories.
+ * Returns the content if found, null otherwise.
+ */
+async function tryLocalContentDirs(filename: string): Promise<string | null> {
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+
+    for (const dir of CONTENT_DIRS) {
+      const localPath = path.join(process.cwd(), dir, filename);
+      try {
+        const content = await fs.readFile(localPath, 'utf-8');
+        console.log(`Using local ${filename} from ${dir}`);
+        return content;
+      } catch {
+        // File not found in this directory, try next
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Helper to fetch from blob with local file fallback for development.
  * Use this for content files that need to work without blob token configured.
@@ -200,19 +234,12 @@ async function fetchWithLocalFallback(filename: string): Promise<string> {
   const blobContent = await fetchBlob(filename);
   if (blobContent) return blobContent;
 
-  // Fallback to local file in development
-  // Dynamic imports to avoid breaking edge runtime
-  try {
-    const fs = await import('fs/promises');
-    const path = await import('path');
-    const localPath = path.join(process.cwd(), '.tmp/content', filename);
-    const content = await fs.readFile(localPath, 'utf-8');
-    console.log(`Using local ${filename} for development`);
-    return content;
-  } catch {
-    console.warn(`${filename} not found in blob or locally`);
-    return '';
-  }
+  // Fallback to local files in career-data/ directories
+  const localContent = await tryLocalContentDirs(filename);
+  if (localContent) return localContent;
+
+  console.warn(`${filename} not found in blob or locally`);
+  return '';
 }
 
 /**
@@ -235,22 +262,15 @@ async function fetchWithLocalFallbackRequired(filename: string): Promise<string>
     }
   }
 
-  // Fallback to local file in development
-  // Dynamic imports to avoid breaking edge runtime
-  try {
-    const fs = await import('fs/promises');
-    const path = await import('path');
-    const localPath = path.join(process.cwd(), '.tmp/content', filename);
-    const content = await fs.readFile(localPath, 'utf-8');
-    console.log(`Using local ${filename} for development`);
-    return content;
-  } catch {
-    // If no blob token and no local file, throw the appropriate error
-    if (!token) {
-      throw new Error(`BLOB_READ_WRITE_TOKEN not configured for ${filename}. Build cannot proceed.`);
-    }
-    throw new Error(`Required file ${filename} not found in blob or locally. Build cannot proceed.`);
+  // Fallback to local files in career-data/ directories
+  const localContent = await tryLocalContentDirs(filename);
+  if (localContent) return localContent;
+
+  // If no blob token and no local file, throw the appropriate error
+  if (!token) {
+    throw new Error(`BLOB_READ_WRITE_TOKEN not configured for ${filename}. Build cannot proceed.`);
   }
+  throw new Error(`Required file ${filename} not found in blob or locally. Build cannot proceed.`);
 }
 
 /**

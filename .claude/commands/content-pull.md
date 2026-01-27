@@ -1,19 +1,18 @@
 ---
 name: content-pull
-description: Pull content files from Vercel Blob to .tmp/content
+description: Pull content files from Vercel Blob to career-data directories
 ---
 
 # Content Pull
 
-Pull all content files from Vercel Blob to local `.tmp/content/` directory.
+Pull all content files from Vercel Blob to `career-data/` subdirectories.
 
-## Steps
-1. Create `.tmp/content/` directory if it doesn't exist
-2. Fetch all content files from blob base URL
-3. Save to local directory for editing/analysis
-
-## Prerequisites
-- BLOB_READ_WRITE_TOKEN must be set in `.env.local`
+Files are automatically routed to appropriate directories:
+- `career-data/instructions/` ← instruction files
+- `career-data/templates/` ← prompt templates
+- `career-data/context/` ← career narrative and background
+- `career-data/data/` ← structured JSON data
+- `career-data/examples/` ← fit assessment samples
 
 ## Implementation
 
@@ -30,4 +29,7 @@ npx tsx scripts/content-pull.ts
 ```
 
 The script uses `@vercel/blob`'s `list()` function to discover all files in the
-`damilola.tech/content/` prefix - no hardcoded file list required.
+`damilola.tech/content/` prefix and routes them to the correct local directories.
+
+## Prerequisites
+- BLOB_READ_WRITE_TOKEN must be set in `.env.local`
