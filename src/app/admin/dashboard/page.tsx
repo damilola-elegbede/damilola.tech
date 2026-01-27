@@ -4,11 +4,18 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StatsCard } from '@/components/admin/StatsCard';
 
+interface TrafficSourceSummary {
+  source: string;
+  count: number;
+  percentage: number;
+}
+
 interface Stats {
   chats: { total: number };
   fitAssessments: { total: number };
   resumeGenerations: { total: number; byStatus: Record<string, number> };
   audit: { total: number; byType: Record<string, number> };
+  traffic: { topSources: TrafficSourceSummary[] };
   environment: string;
 }
 
@@ -104,6 +111,34 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Top traffic sources */}
+      {stats?.traffic?.topSources && stats.traffic.topSources.length > 0 && (
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-[var(--color-text)]">
+              Top Traffic Sources
+            </h2>
+            <Link
+              href="/admin/traffic"
+              className="text-sm text-[var(--color-accent)] hover:underline"
+            >
+              View all
+            </Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {stats.traffic.topSources.map((item) => (
+              <div key={item.source} className="rounded-lg bg-[var(--color-bg)] p-3">
+                <p className="text-sm capitalize text-[var(--color-text-muted)]">
+                  {item.source}
+                </p>
+                <p className="text-xl font-semibold text-[var(--color-text)]">{item.count}</p>
+                <p className="text-xs text-[var(--color-text-muted)]">{item.percentage}%</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Event breakdown */}
       {stats?.audit.byType && Object.keys(stats.audit.byType).length > 0 && (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6">
@@ -148,6 +183,12 @@ export default function DashboardPage() {
           className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-2 text-sm text-[var(--color-text)] transition-colors hover:border-[var(--color-accent)]"
         >
           View Audit Log →
+        </Link>
+        <Link
+          href="/admin/traffic"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-2 text-sm text-[var(--color-text)] transition-colors hover:border-[var(--color-accent)]"
+        >
+          View Traffic →
         </Link>
       </div>
     </div>

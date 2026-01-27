@@ -1,4 +1,5 @@
-import type { AuditEventType } from '@/lib/types';
+import type { AuditEventType, TrafficSource } from '@/lib/types';
+import { captureTrafficSource, getTrafficSource } from '@/lib/traffic-source';
 
 interface QueuedEvent {
   eventType: AuditEventType;
@@ -18,6 +19,7 @@ class AuditClient {
   private sessionId: string = '';
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private isInitialized = false;
+  private trafficSource: TrafficSource | null = null;
 
   /**
    * Initialize the client (must be called in browser)
@@ -27,6 +29,9 @@ class AuditClient {
 
     // Get or create session ID
     this.sessionId = this.getOrCreateSessionId();
+
+    // Capture traffic source on first visit
+    this.trafficSource = captureTrafficSource();
 
     // Start flush interval
     this.startFlushInterval();
@@ -75,6 +80,7 @@ class AuditClient {
     options: {
       section?: string;
       metadata?: Record<string, unknown>;
+      includeTrafficSource?: boolean;
     } = {}
   ): void {
     if (typeof window === 'undefined') return;
@@ -84,11 +90,17 @@ class AuditClient {
       this.init();
     }
 
+    // Build metadata with optional traffic source
+    const metadata: Record<string, unknown> = { ...options.metadata };
+    if (options.includeTrafficSource && this.trafficSource) {
+      metadata.trafficSource = this.trafficSource;
+    }
+
     const event: QueuedEvent = {
       eventType,
       path: window.location.pathname,
       section: options.section,
-      metadata: options.metadata || {},
+      metadata,
       sessionId: this.sessionId,
       userAgent: navigator.userAgent,
     };
@@ -99,6 +111,16 @@ class AuditClient {
     if (this.queue.length >= BATCH_SIZE) {
       this.flush();
     }
+  }
+
+  /**
+   * Get current traffic source
+   */
+  getTrafficSource(): TrafficSource | null {
+    if (!this.isInitialized && typeof window !== 'undefined') {
+      this.init();
+    }
+    return this.trafficSource || getTrafficSource();
   }
 
   /**
@@ -155,6 +177,7 @@ export function trackEvent(
   options?: {
     section?: string;
     metadata?: Record<string, unknown>;
+    includeTrafficSource?: boolean;
   }
 ): void {
   auditClient.track(eventType, options);

@@ -18,6 +18,21 @@ export type AuditEventType =
   | 'resume_generation_download'
   | 'admin_resume_generation_viewed';
 
+export interface TrafficSource {
+  source: string;
+  medium: string;
+  campaign?: string;
+  term?: string;
+  content?: string;
+  referrer?: string;
+  landingPage: string;
+  capturedAt: string;
+}
+
+export interface AuditEventMetadata extends Record<string, unknown> {
+  trafficSource?: TrafficSource;
+}
+
 export interface AuditEvent {
   version: 1;
   eventId: string;
@@ -27,6 +42,6 @@ export interface AuditEvent {
   sessionId?: string;
   path: string;
   section?: string;
-  metadata: Record<string, unknown>;
+  metadata: AuditEventMetadata;
   userAgent?: string;
 }
