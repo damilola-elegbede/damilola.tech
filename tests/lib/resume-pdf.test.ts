@@ -247,6 +247,43 @@ describe('applyChangesToResume - targeted replacement', () => {
 
       expect(result.skills[0].items).toEqual(['Skill A', 'Skill B', 'Skill C']);
     });
+
+    it('replaces full list when modified contains multiple items even if original is found', () => {
+      // This tests the case where AI generates a full list replacement
+      const resume = createTestResume();
+      const changes = [
+        createChange({
+          section: 'skills.leadership',
+          original: 'Cross-Functional Leadership', // Exists in the list
+          modified: 'Team Leadership | Strategic Planning | Executive Communication', // Full new list
+        }),
+      ];
+
+      const result = applyChangesToResume(resume, changes, new Set([0]));
+
+      // Should replace entire list, not just the matched item
+      expect(result.skills[0].items).toEqual([
+        'Team Leadership',
+        'Strategic Planning',
+        'Executive Communication',
+      ]);
+    });
+
+    it('handles single item replacement when original not found', () => {
+      const resume = createTestResume();
+      const changes = [
+        createChange({
+          section: 'skills.leadership',
+          original: 'Some Other Skill',
+          modified: 'New Single Skill',
+        }),
+      ];
+
+      const result = applyChangesToResume(resume, changes, new Set([0]));
+
+      // Should replace entire items array with the single new skill
+      expect(result.skills[0].items).toEqual(['New Single Skill']);
+    });
   });
 
   describe('education changes', () => {

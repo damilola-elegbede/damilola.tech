@@ -341,26 +341,27 @@ function applyChanges(
         if (skillIndex >= 0) {
           const currentItems = result.skills[skillIndex].items;
 
-          // Find the specific item that contains the original text
+          // Check if original is a partial phrase within an item (targeted replacement)
+          // vs a full item or list (full replacement)
           const itemIndex = currentItems.findIndex(
             (item) => item.includes(change.original) ||
                       item.toLowerCase().includes(change.original.toLowerCase())
           );
 
-          if (itemIndex >= 0) {
-            // Targeted replacement within the matched item
+          // Parse modified to see if it's a list
+          const newItems = change.modified.split(/[|,]/).map((s) => s.trim()).filter(Boolean);
+
+          if (itemIndex >= 0 && newItems.length === 1) {
+            // Found original in an item AND modified is single item - do targeted replacement
             currentItems[itemIndex] = targetedReplace(
               currentItems[itemIndex],
               change.original,
               change.modified
             );
-          } else {
-            // Fallback: if original not found in any item, check if modified is a full list
-            // (backward compatibility for changes that provide complete skill lists)
-            const newItems = change.modified.split(/[|,]/).map((s) => s.trim()).filter(Boolean);
-            if (newItems.length > 1) {
-              result.skills[skillIndex].items = newItems;
-            }
+          } else if (newItems.length > 0) {
+            // Either original not found OR modified is a full list - replace entire items array
+            // This handles: full list changes, new skills, reordering
+            result.skills[skillIndex].items = newItems;
           }
         }
       }
