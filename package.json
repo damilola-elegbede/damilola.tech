@@ -17,6 +17,9 @@
     "generate-prompt": "tsx scripts/generate-prompt.ts",
     "content:pull": "tsx scripts/content-pull.ts",
     "content:push": "tsx scripts/content-push.ts",
+    "content:commit": "tsx scripts/content-commit.ts",
+    "resume:pull": "tsx scripts/resume-pull.ts",
+    "resume:push": "tsx scripts/resume-push.ts",
     "cleanup:chats": "tsx scripts/cleanup-chats.ts"
   },
   "dependencies": {

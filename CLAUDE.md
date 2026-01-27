@@ -30,7 +30,7 @@ Recruiters can ask the AI about experience, skills, and role fit.
 - `src/app/` - Next.js App Router pages and API routes
 - `src/components/` - React components (ui/, sections/, chat/)
 - `src/lib/` - Utilities (blob fetching, system prompt)
-- `content/` - Local dev content (mirrored to Vercel Blob)
+- `career-data/` - Git submodule (private repo) with content files
 - `tests/` - Unit test files
 - `e2e/` - Playwright E2E tests
 
@@ -68,21 +68,43 @@ relying on access control. Admin endpoints verify authentication before returnin
 
 ## Content Management
 
-Content files (system prompts, STAR stories, feedback) live in [Vercel Blob](https://vercel.com/docs/storage/vercel-blob).
+Content files (system prompts, STAR stories, feedback) are version-controlled in the
+`career-data/` private git submodule and synced to [Vercel Blob](https://vercel.com/docs/storage/vercel-blob).
+
+### Directory Structure
+```
+career-data/
+├── instructions/     # AI behavior rules (chatbot, fit assessment, resume generator)
+├── templates/        # Prompt templates with placeholders
+├── context/          # Career narrative and background
+├── data/             # Structured JSON (resume, STAR stories)
+├── examples/         # Fit assessment samples
+└── resume/           # Base resume PDF
+```
 
 ### Claude Commands
-- `/content-pull` - Download all content from Blob to `.tmp/content/`
-- `/content-push` - Upload local content changes to Blob
+- `/content-pull` - Download content from Blob to `career-data/` directories
+- `/content-push` - Upload `career-data/` content to Blob
+- `/content-commit` - Commit submodule changes and stage pointer in main repo
+- `/resume-pull` - Download base resume PDF from Blob
+- `/resume-push` - Upload base resume PDF to Blob
+
+### Initial Setup (Fresh Clone)
+```bash
+git clone --recurse-submodules git@github.com:damilola-elegbede/damilola.tech.git
+# Or if already cloned:
+git submodule update --init --recursive
+```
 
 ### Local Development
 Content is cached at build time in `src/lib/generated/`. For local dev without
-blob token, files are read from `.tmp/content/` fallback.
+blob token, files are read from `career-data/` subdirectories.
 
 ### Editing Content
-1. Run `/content-pull` to get latest
-2. Edit files in `.tmp/content/`
-3. Run `/content-push` to upload changes
-4. Rebuild to regenerate cached prompts
+1. Edit files in `career-data/` subdirectories
+2. Run `/content-commit` to commit submodule + stage pointer in main repo
+3. Run `/commit` to commit main repo
+4. Run `/content-push` to sync to Vercel Blob
 
 ## Section Background Pattern
 Sections alternate backgrounds for visual rhythm:

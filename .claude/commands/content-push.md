@@ -1,31 +1,34 @@
 ---
 name: content-push
-description: Push .tmp/content files to Vercel Blob storage
+description: Push career-data content files to Vercel Blob storage
 ---
 
 # Content Push
 
-Push local `.tmp/content/` files to Vercel Blob storage.
+Push content files from `career-data/` subdirectories to Vercel Blob storage.
 
-## Steps
-1. Read files from `.tmp/content/`
-2. Upload to Vercel Blob using @vercel/blob SDK
-3. Requires BLOB_READ_WRITE_TOKEN in .env.local
+Files from multiple directories are flattened to `damilola.tech/content/` in blob:
+- `career-data/instructions/` → instructions files
+- `career-data/templates/` → prompt templates
+- `career-data/context/` → career narrative and background
+- `career-data/data/` → structured JSON data
+- `career-data/examples/` → fit assessment samples
 
 ## Implementation
 
 Run the TypeScript script which handles checksum comparison and upload:
 
 ```bash
-npx tsx scripts/content-push.ts
+npm run content:push
 ```
 
-Or use the npm script:
+Or directly:
 
 ```bash
-npm run content:push
+npx tsx scripts/content-push.ts
 ```
 
 ## Prerequisites
 - BLOB_READ_WRITE_TOKEN must be set in `.env.local`
-- Content files must exist in `.tmp/content/`
+- career-data submodule must be initialized
+- Content files must exist in career-data subdirectories

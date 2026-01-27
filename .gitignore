@@ -46,8 +46,8 @@ yarn-error.log*
 # temporary files
 .tmp/
 
-# private career content (stored in Vercel Blob)
-/content/
+# Note: /career-data/ is a git submodule (private repo)
+# Content is version-controlled there and synced to Vercel Blob
 
 # generated files (built at deploy time)
 src/lib/generated/
