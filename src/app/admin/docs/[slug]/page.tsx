@@ -103,7 +103,7 @@ export default function DocPage() {
       </div>
 
       <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6">
-        <article className="prose prose-invert max-w-none prose-headings:text-[var(--color-text)] prose-p:text-[var(--color-text-muted)] prose-a:text-[var(--color-accent)] prose-strong:text-[var(--color-text)] prose-code:rounded prose-code:bg-[var(--color-bg)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--color-accent)] prose-pre:bg-[var(--color-bg)] prose-li:text-[var(--color-text-muted)]">
+        <article className="admin-docs-content">
           <ReactMarkdown>{doc?.content || ''}</ReactMarkdown>
         </article>
       </div>

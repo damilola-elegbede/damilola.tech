@@ -254,6 +254,7 @@ export default function TrafficPage() {
                       borderRadius: '8px',
                     }}
                     labelStyle={{ color: 'var(--color-text)' }}
+                    itemStyle={{ color: 'var(--color-text)' }}
                   />
                   <Legend
                     wrapperStyle={{ color: 'var(--color-text-muted)' }}
