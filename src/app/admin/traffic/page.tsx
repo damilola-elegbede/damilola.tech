@@ -48,18 +48,41 @@ const COLORS = [
   '#95A5A6', // gray
 ];
 
+type PresetType = '7d' | '30d' | '90d' | 'custom';
+
+function formatDateForInput(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
+function getPresetDates(preset: '7d' | '30d' | '90d'): { start: string; end: string } {
+  const end = new Date();
+  const start = new Date();
+  const daysMap = { '7d': 7, '30d': 30, '90d': 90 };
+  start.setDate(start.getDate() - daysMap[preset]);
+  return {
+    start: formatDateForInput(start),
+    end: formatDateForInput(end),
+  };
+}
+
 export default function TrafficPage() {
   const [stats, setStats] = useState<TrafficStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [days, setDays] = useState(30);
+  const [preset, setPreset] = useState<PresetType>('30d');
+  const [startDate, setStartDate] = useState(() => getPresetDates('30d').start);
+  const [endDate, setEndDate] = useState(() => getPresetDates('30d').end);
 
   useEffect(() => {
     async function fetchStats() {
-      setError(null); // Clear previous errors before new fetch
+      setError(null);
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/admin/traffic?days=${days}`);
+        const params = new URLSearchParams({
+          startDate,
+          endDate,
+        });
+        const res = await fetch(`/api/admin/traffic?${params}`);
         if (!res.ok) throw new Error('Failed to fetch traffic stats');
         const data = await res.json();
         setStats(data);
@@ -70,7 +93,26 @@ export default function TrafficPage() {
       }
     }
     fetchStats();
-  }, [days]);
+  }, [startDate, endDate]);
+
+  const handlePresetClick = (newPreset: '7d' | '30d' | '90d') => {
+    const dates = getPresetDates(newPreset);
+    setPreset(newPreset);
+    setStartDate(dates.start);
+    setEndDate(dates.end);
+  };
+
+  const handleStartDateChange = (value: string) => {
+    setPreset('custom');
+    setStartDate(value);
+  };
+
+  const handleEndDateChange = (value: string) => {
+    setPreset('custom');
+    setEndDate(value);
+  };
+
+  const isValidDateRange = startDate <= endDate;
 
   if (isLoading) {
     return (
@@ -102,22 +144,53 @@ export default function TrafficPage() {
             Environment: {stats?.environment || 'unknown'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="days" className="text-sm text-[var(--color-text-muted)]">
-            Time range:
-          </label>
-          <select
-            id="days"
-            value={days}
-            onChange={(e) => setDays(parseInt(e.target.value, 10))}
-            aria-describedby="days-description"
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-1.5 text-sm text-[var(--color-text)]"
-          >
-            <option value={7}>Last 7 days</option>
-            <option value={30}>Last 30 days</option>
-            <option value={90}>Last 90 days</option>
-          </select>
-          <span id="days-description" className="sr-only">Select time range to filter traffic data</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm text-[var(--color-text-muted)]">Time range:</span>
+          <div className="flex gap-1" role="group" aria-label="Preset time ranges">
+            {(['7d', '30d', '90d'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => handlePresetClick(p)}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  preset === p
+                    ? 'bg-[var(--color-accent)] text-white'
+                    : 'border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text)] hover:bg-[var(--color-border)]'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <span className="text-[var(--color-text-muted)]">|</span>
+          <div className="flex items-center gap-2">
+            <label htmlFor="startDate" className="text-sm text-[var(--color-text-muted)]">
+              From:
+            </label>
+            <input
+              type="date"
+              id="startDate"
+              value={startDate}
+              onChange={(e) => handleStartDateChange(e.target.value)}
+              max={endDate}
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1 text-sm text-[var(--color-text)]"
+            />
+            <label htmlFor="endDate" className="text-sm text-[var(--color-text-muted)]">
+              To:
+            </label>
+            <input
+              type="date"
+              id="endDate"
+              value={endDate}
+              onChange={(e) => handleEndDateChange(e.target.value)}
+              min={startDate}
+              max={formatDateForInput(new Date())}
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1 text-sm text-[var(--color-text)]"
+            />
+          </div>
+          {!isValidDateRange && (
+            <span className="text-sm text-red-400">End date must be after start date</span>
+          )}
         </div>
       </div>
 
@@ -158,7 +231,7 @@ export default function TrafficPage() {
             Traffic by Source
           </h2>
           {pieData.length > 0 ? (
-            <div className="h-80">
+            <div className="h-80" role="img" aria-label={`Pie chart showing traffic by source: ${pieData.map(d => `${d.name}: ${d.value} sessions`).join(', ')}`}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -169,10 +242,6 @@ export default function TrafficPage() {
                     outerRadius={100}
                     paddingAngle={2}
                     dataKey="value"
-                    label={({ name, percent }) =>
-                      `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`
-                    }
-                    labelLine={{ stroke: 'var(--color-text-muted)' }}
                   >
                     {pieData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

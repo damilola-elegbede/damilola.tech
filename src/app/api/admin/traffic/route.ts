@@ -48,13 +48,39 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const environment = searchParams.get('env') || process.env.VERCEL_ENV || 'production';
-    // Validate days parameter (1-365 range)
-    const days = Math.min(365, Math.max(1, parseInt(searchParams.get('days') || '30', 10)));
 
-    // Calculate date range
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    // Parse date range parameters
+    // Priority: explicit dates > days param > default 30 days
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
+
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateParam && endDateParam) {
+      // Use explicit date range
+      startDate = new Date(startDateParam);
+      endDate = new Date(endDateParam);
+
+      // Validate dates
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return Response.json({ error: 'Invalid date format. Use ISO 8601 format.' }, { status: 400 });
+      }
+
+      // Ensure end date is not before start date
+      if (endDate < startDate) {
+        return Response.json({ error: 'End date must be after start date.' }, { status: 400 });
+      }
+
+      // Set end date to end of day for inclusive range
+      endDate.setHours(23, 59, 59, 999);
+    } else {
+      // Fall back to days parameter
+      const days = Math.min(365, Math.max(1, parseInt(searchParams.get('days') || '30', 10)));
+      endDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+    }
 
     // Fetch page_view events from audit log
     // Use date-based prefixes to reduce search space
