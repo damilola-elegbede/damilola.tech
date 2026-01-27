@@ -26,6 +26,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Wrap user input in XML tags for prompt injection mitigation
     const prompt = `You are revising a single resume change for ATS optimization.
 
 Original change:
@@ -34,11 +35,10 @@ Original change:
 - Proposed modification: ${originalChange.modified}
 - Reason: ${originalChange.reason}
 
-User's modification request:
-${modifyPrompt}
+<modify_request>${modifyPrompt}</modify_request>
 
-Job Description (for context):
-${jobDescription.slice(0, 2000)}
+Job Description (for context, truncated to 4000 chars to fit context window):
+<job_description>${jobDescription.slice(0, 4000)}</job_description>
 
 Return ONLY a JSON object with the revised change (no markdown code blocks):
 {
@@ -77,8 +77,15 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
 
     const revisedChange: ProposedChange = JSON.parse(jsonText);
 
-    // Validate the response has required fields
-    if (!revisedChange.section || !revisedChange.original || !revisedChange.modified || !revisedChange.reason) {
+    // Validate the response has all required fields
+    if (
+      !revisedChange.section ||
+      !revisedChange.original ||
+      !revisedChange.modified ||
+      !revisedChange.reason ||
+      !Array.isArray(revisedChange.keywordsAdded) ||
+      typeof revisedChange.impactPoints !== 'number'
+    ) {
       return Response.json({ error: 'Invalid response structure from AI' }, { status: 500 });
     }
 

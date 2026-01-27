@@ -11,7 +11,6 @@ interface ChangePreviewPanelProps {
   onRejectChange: (index: number, feedback?: string) => void;
   onRevertChange: (index: number) => void;
   onModifyChange?: (index: number, prompt: string) => Promise<void>;
-  jobDescription?: string;
 }
 
 type CardMode = 'view' | 'edit' | 'reject' | 'modify';
@@ -120,6 +119,7 @@ function ChangeCard({
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         aria-expanded={isExpanded}
+        aria-label={`Toggle change details for ${change.section}`}
         className="flex w-full items-center justify-between p-4 text-left"
       >
         <div className="flex items-center gap-3">
@@ -174,10 +174,14 @@ function ChangeCard({
             {/* Modified / Edit Mode */}
             {mode === 'edit' ? (
               <div>
-                <p className="mb-1 text-xs font-medium text-blue-400">Your Edit</p>
+                <label htmlFor={`edit-textarea-${index}`} className="mb-1 block text-xs font-medium text-blue-400">
+                  Your Edit
+                </label>
                 <textarea
+                  id={`edit-textarea-${index}`}
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
+                  aria-label="Edit proposed change text"
                   className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-sm text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
                   rows={4}
                 />
@@ -204,12 +208,16 @@ function ChangeCard({
             {/* Reject feedback input */}
             {mode === 'reject' && (
               <div>
-                <p className="mb-1 text-xs font-medium text-red-400">Rejection Feedback</p>
+                <label htmlFor={`reject-feedback-${index}`} className="mb-1 block text-xs font-medium text-red-400">
+                  Rejection Feedback
+                </label>
                 <input
+                  id={`reject-feedback-${index}`}
                   type="text"
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
                   placeholder="Optional feedback for why you're rejecting this change..."
+                  aria-label="Rejection feedback (optional)"
                   className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-sm text-[var(--color-text)] focus:border-red-500 focus:outline-none"
                 />
               </div>
@@ -312,18 +320,26 @@ function ChangeCard({
             {mode === 'modify' && (
               <div className="space-y-3 pt-2">
                 <div>
-                  <p className="mb-1 text-xs font-medium text-purple-400">Modification Request</p>
+                  <label htmlFor={`modify-textarea-${index}`} className="mb-1 block text-xs font-medium text-purple-400">
+                    Modification Request
+                  </label>
                   <textarea
+                    id={`modify-textarea-${index}`}
                     value={modifyPrompt}
                     onChange={(e) => setModifyPrompt(e.target.value)}
                     placeholder="Describe how to modify this change (e.g., 'Make it more concise', 'Add more metrics', 'Use different keywords')..."
+                    aria-label="Describe how to modify this change"
+                    aria-describedby={modifyError ? `modify-error-${index}` : undefined}
+                    aria-disabled={isModifying}
                     className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-sm text-[var(--color-text)] focus:border-purple-500 focus:outline-none"
                     rows={3}
                     disabled={isModifying}
                   />
                 </div>
                 {modifyError && (
-                  <p className="text-sm text-red-400">{modifyError}</p>
+                  <p id={`modify-error-${index}`} role="alert" aria-live="assertive" className="text-sm text-red-400">
+                    {modifyError}
+                  </p>
                 )}
                 <div className="flex gap-2">
                   <button

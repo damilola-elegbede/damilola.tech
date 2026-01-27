@@ -87,13 +87,20 @@ export default function ResumeGeneratorPage() {
   const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState<string>('');
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
+  const [resumeDataError, setResumeDataError] = useState<string | null>(null);
 
   // Fetch resume data on mount
   useEffect(() => {
     fetch('/api/resume-data')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then((data) => setResumeData(data))
-      .catch((err) => console.error('Failed to load resume data:', err));
+      .catch((err) => {
+        console.error('Failed to load resume data:', err);
+        setResumeDataError('Failed to load resume data. Please refresh the page.');
+      });
   }, []);
 
   // Derive acceptedIndices from reviewedChanges for backward compatibility
@@ -444,17 +451,19 @@ export default function ResumeGeneratorPage() {
     <div className="flex justify-center gap-4">
       <button
         onClick={handleGeneratePdf}
-        disabled={acceptedIndices.size === 0 || !resumeData}
+        disabled={acceptedIndices.size === 0 || !resumeData || !!resumeDataError}
         aria-label={
-          !resumeData
-            ? 'Loading resume data...'
-            : acceptedIndices.size === 0
-              ? 'Accept at least one change to generate PDF'
-              : `Generate PDF with ${acceptedIndices.size} changes`
+          resumeDataError
+            ? 'Resume data failed to load'
+            : !resumeData
+              ? 'Loading resume data...'
+              : acceptedIndices.size === 0
+                ? 'Accept at least one change to generate PDF'
+                : `Generate PDF with ${acceptedIndices.size} changes`
         }
         className="rounded-lg bg-[var(--color-accent)] px-8 py-3 text-sm font-medium text-white hover:bg-[var(--color-accent)]/90 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {resumeData ? `Generate PDF (${acceptedIndices.size} changes)` : 'Loading...'}
+        {resumeDataError ? 'Error' : resumeData ? `Generate PDF (${acceptedIndices.size} changes)` : 'Loading...'}
       </button>
       <button
         onClick={handleReset}
@@ -484,9 +493,9 @@ export default function ResumeGeneratorPage() {
       </div>
 
       {/* Error Display */}
-      {error && (
+      {(error || resumeDataError) && (
         <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-400">
-          {error}
+          {error || resumeDataError}
         </div>
       )}
 
@@ -585,7 +594,6 @@ export default function ResumeGeneratorPage() {
               onRejectChange={handleRejectChange}
               onRevertChange={handleRevertChange}
               onModifyChange={handleModifyChange}
-              jobDescription={jobDescription}
             />
           </div>
 

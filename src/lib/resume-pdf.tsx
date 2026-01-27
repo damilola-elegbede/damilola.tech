@@ -508,6 +508,8 @@ export async function generateResumePdf(
     const pdfDocument = <ResumePDF data={data} analysis={analysis} acceptedIndices={acceptedIndices} effectiveChanges={effectiveChanges} />;
     // Use toString() to disable PDF compression (calls render(false) internally)
     // Note: toString() is deprecated but functional - gives uncompressed output
+    // TODO: Monitor @react-pdf/renderer releases for non-deprecated alternative
+    // See: https://github.com/diegomura/react-pdf/issues - no official replacement yet
     const pdfString = await pdf(pdfDocument).toString();
     const blob = new Blob([pdfString], { type: 'application/pdf' });
 
