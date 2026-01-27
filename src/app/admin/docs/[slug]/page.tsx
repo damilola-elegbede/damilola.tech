@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface DocData {
   slug: string;
@@ -104,7 +105,7 @@ export default function DocPage() {
 
       <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6">
         <article className="admin-docs-content">
-          <ReactMarkdown>{doc?.content || ''}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc?.content || ''}</ReactMarkdown>
         </article>
       </div>
     </div>

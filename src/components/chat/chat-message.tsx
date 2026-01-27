@@ -1,6 +1,7 @@
 'use client';
 
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 
 const DISALLOWED_ELEMENTS = ['script', 'iframe', 'object', 'embed', 'form', 'input', 'style'];
@@ -29,6 +30,7 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
         {role === 'assistant' ? (
           <div className="prose prose-sm max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0 prose-headings:mt-4 prose-strong:text-[var(--color-primary)]">
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               disallowedElements={DISALLOWED_ELEMENTS}
               unwrapDisallowed
               components={{
