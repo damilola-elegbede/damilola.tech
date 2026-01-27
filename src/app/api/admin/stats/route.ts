@@ -1,14 +1,22 @@
 import { cookies } from 'next/headers';
 import { list } from '@vercel/blob';
 import { verifyToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
+import type { AuditEvent, TrafficSource } from '@/lib/types';
 
 export const runtime = 'nodejs';
+
+interface TrafficSourceSummary {
+  source: string;
+  count: number;
+  percentage: number;
+}
 
 interface Stats {
   chats: { total: number };
   fitAssessments: { total: number };
   resumeGenerations: { total: number; byStatus: Record<string, number> };
   audit: { total: number; byType: Record<string, number> };
+  traffic: { topSources: TrafficSourceSummary[] };
   environment: string;
 }
 
@@ -107,6 +115,43 @@ export async function GET(req: Request) {
       auditByType[type] = (auditByType[type] || 0) + 1;
     }
 
+    // Get top traffic sources from page_view events
+    const pageViewBlobs = auditSampleResult.blobs.filter((blob) => {
+      const filename = blob.pathname.split('/').pop() || '';
+      return filename.includes('-page_view');
+    });
+
+    const sourceCount = new Map<string, number>();
+    let totalPageViews = 0;
+
+    // Fetch page_view events in parallel (limited batch)
+    const pageViewFetchResults = await Promise.allSettled(
+      pageViewBlobs.slice(0, 100).map(async (blob) => {
+        const response = await fetch(blob.url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return (await response.json()) as AuditEvent;
+      })
+    );
+
+    for (const result of pageViewFetchResults) {
+      if (result.status === 'fulfilled') {
+        totalPageViews++;
+        const event = result.value;
+        const trafficSource = event.metadata?.trafficSource as TrafficSource | undefined;
+        const source = trafficSource?.source || 'direct';
+        sourceCount.set(source, (sourceCount.get(source) || 0) + 1);
+      }
+    }
+
+    const topSources: TrafficSourceSummary[] = Array.from(sourceCount.entries())
+      .map(([source, count]) => ({
+        source,
+        count,
+        percentage: totalPageViews > 0 ? Math.round((count / totalPageViews) * 1000) / 10 : 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3); // Top 3 sources
+
     const stats: Stats = {
       chats: { total: chatCount },
       fitAssessments: { total: assessmentCount },
@@ -117,6 +162,9 @@ export async function GET(req: Request) {
       audit: {
         total: auditCount,
         byType: auditByType,
+      },
+      traffic: {
+        topSources,
       },
       environment,
     };

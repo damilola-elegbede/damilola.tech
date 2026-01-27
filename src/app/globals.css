@@ -165,3 +165,27 @@ html {
   margin-top: 1.5rem;
   margin-bottom: 1.5rem;
 }
+
+/* Admin docs markdown styles */
+.admin-docs-content h1 { font-size: 1.75rem; margin-top: 2rem; margin-bottom: 1rem; font-weight: 700; color: var(--color-text); }
+.admin-docs-content h2 { font-size: 1.5rem; margin-top: 1.75rem; margin-bottom: 0.75rem; font-weight: 600; color: var(--color-text); }
+.admin-docs-content h3 { font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.5rem; font-weight: 600; color: var(--color-text); }
+.admin-docs-content h4 { font-size: 1.125rem; margin-top: 1.25rem; margin-bottom: 0.5rem; font-weight: 600; color: var(--color-text); }
+.admin-docs-content p { margin-bottom: 1rem; color: var(--color-text-muted); line-height: 1.7; }
+.admin-docs-content ul, .admin-docs-content ol { margin: 1rem 0; padding-left: 1.5rem; color: var(--color-text-muted); }
+.admin-docs-content li { margin-bottom: 0.5rem; line-height: 1.6; }
+.admin-docs-content ul { list-style-type: disc; }
+.admin-docs-content ol { list-style-type: decimal; }
+.admin-docs-content a { color: var(--color-accent); text-decoration: underline; }
+.admin-docs-content a:hover { opacity: 0.8; }
+.admin-docs-content code { background: var(--color-bg); padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875rem; color: var(--color-accent); }
+.admin-docs-content pre { background: var(--color-bg); padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 1rem 0; }
+.admin-docs-content pre code { background: none; padding: 0; color: var(--color-text); }
+.admin-docs-content blockquote { border-left: 4px solid var(--color-border); padding-left: 1rem; margin: 1rem 0; color: var(--color-text-muted); font-style: italic; }
+.admin-docs-content hr { border: none; border-top: 1px solid var(--color-border); margin: 2rem 0; }
+.admin-docs-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.admin-docs-content th, .admin-docs-content td { border: 1px solid var(--color-border); padding: 0.5rem 0.75rem; text-align: left; }
+.admin-docs-content th { background: var(--color-bg-alt); font-weight: 600; color: var(--color-text); }
+.admin-docs-content td { color: var(--color-text-muted); }
+.admin-docs-content strong { color: var(--color-text); font-weight: 600; }
+.admin-docs-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }

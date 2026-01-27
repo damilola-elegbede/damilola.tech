@@ -125,6 +125,9 @@ export const projectsData: Project[] = [
       'Comprehensive audit system: 18 event types with IP anonymization',
       'ATS resume generator: Claude-powered optimization with PDF export',
       'Security hardening: CSRF, SSRF prevention, timing-safe comparisons',
+      'UTM traffic tracking: Full attribution with source/medium/campaign analytics',
+      'Private content submodule: Git submodule with Vercel Blob sync workflows',
+      'Deterministic ATS scoring: Reproducible algorithm with weighted criteria',
     ],
   },
   {
