@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { formatNumber } from '@/lib/format-number';
+import { truncateSessionId } from '@/lib/session';
+import { formatInMT } from '@/lib/timezone';
 
 interface TrafficBreakdown {
   source: string;
@@ -61,7 +64,10 @@ const COLORS = [
 type PresetType = '7d' | '30d' | '90d' | 'custom';
 
 function formatDateForInput(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function getPresetDates(preset: '7d' | '30d' | '90d'): { start: string; end: string } {
@@ -73,22 +79,6 @@ function getPresetDates(preset: '7d' | '30d' | '90d'): { start: string; end: str
     start: formatDateForInput(start),
     end: formatDateForInput(end),
   };
-}
-
-function formatTimestamp(timestamp: string): string {
-  const date = new Date(timestamp);
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function truncateSessionId(sessionId: string): string {
-  if (sessionId.length <= 12) return sessionId;
-  return `${sessionId.slice(0, 8)}...`;
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -230,7 +220,7 @@ export default function TrafficPage() {
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6">
           <p className="text-sm text-[var(--color-text-muted)]">Total Sessions</p>
           <p className="mt-1 text-3xl font-bold text-[var(--color-text)]">
-            {stats?.totalSessions.toLocaleString() || 0}
+            {formatNumber(stats?.totalSessions || 0)}
           </p>
         </div>
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6">
@@ -333,7 +323,7 @@ export default function TrafficPage() {
                       </div>
                     </td>
                     <td className="py-2 text-right text-sm text-[var(--color-text)]">
-                      {item.count.toLocaleString()}
+                      {formatNumber(item.count)}
                     </td>
                     <td className="py-2 text-right text-sm text-[var(--color-text-muted)]">
                       {item.percentage}%
@@ -363,7 +353,7 @@ export default function TrafficPage() {
             <div key={item.medium} className="rounded-lg bg-[var(--color-bg)] p-3">
               <p className="text-sm text-[var(--color-text-muted)]">{item.medium || 'none'}</p>
               <p className="text-xl font-semibold text-[var(--color-text)]">
-                {item.count.toLocaleString()}
+                {formatNumber(item.count)}
               </p>
               <p className="text-xs text-[var(--color-text-muted)]">{item.percentage}%</p>
             </div>
@@ -400,7 +390,7 @@ export default function TrafficPage() {
                   <tr key={item.campaign} className="border-b border-[var(--color-border)]/50">
                     <td className="py-2 text-sm text-[var(--color-text)]">{item.campaign}</td>
                     <td className="py-2 text-right text-sm text-[var(--color-text)]">
-                      {item.count.toLocaleString()}
+                      {formatNumber(item.count)}
                     </td>
                     <td className="py-2 text-right text-sm text-[var(--color-text-muted)]">
                       {item.percentage}%
@@ -438,7 +428,7 @@ export default function TrafficPage() {
                 <tr key={item.path} className="border-b border-[var(--color-border)]/50">
                   <td className="py-2 text-sm font-mono text-[var(--color-text)]">{item.path}</td>
                   <td className="py-2 text-right text-sm text-[var(--color-text)]">
-                    {item.count.toLocaleString()}
+                    {formatNumber(item.count)}
                   </td>
                   <td className="py-2 text-right text-sm text-[var(--color-text-muted)]">
                     {item.percentage}%
@@ -498,7 +488,7 @@ export default function TrafficPage() {
                   {paginatedEvents.map((event, index) => (
                     <tr key={`${event.sessionId}-${event.timestamp}-${index}`} className="border-b border-[var(--color-border)]/50">
                       <td className="py-2 text-sm text-[var(--color-text-muted)]">
-                        {formatTimestamp(event.timestamp)}
+                        {formatInMT(new Date(event.timestamp))}
                       </td>
                       <td className="py-2 text-sm font-mono text-[var(--color-text)]" title={event.sessionId}>
                         {truncateSessionId(event.sessionId)}

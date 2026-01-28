@@ -473,6 +473,9 @@ export async function POST(req: Request) {
       ],
     });
 
+    // Generate session ID before streaming to ensure correlation between success and error logs
+    const fitSessionId = `fit-assessment-${crypto.randomUUID()}`;
+
     // Return streaming response
     return new Response(
       new ReadableStream({
@@ -496,7 +499,7 @@ export async function POST(req: Request) {
               console.log(JSON.stringify({
                 type: 'api_usage',
                 timestamp: new Date().toISOString(),
-                sessionId: 'anon',
+                sessionId: fitSessionId,
                 endpoint: 'fit-assessment',
                 model: 'claude-sonnet-4-20250514',
                 inputTokens: usage.input_tokens,
@@ -506,7 +509,7 @@ export async function POST(req: Request) {
               }));
 
               // Log to Vercel Blob for usage dashboard (fire-and-forget)
-              logUsage('fit-assessment-anonymous', {
+              logUsage(fitSessionId, {
                 endpoint: 'fit-assessment',
                 model: 'claude-sonnet-4-20250514',
                 inputTokens: usage.input_tokens,
@@ -520,11 +523,11 @@ export async function POST(req: Request) {
             }
           } catch (streamError) {
             console.error('[fit-assessment] Stream error:', streamError);
-            // Log error for anomaly detection
+            // Log error for anomaly detection (uses same sessionId for correlation)
             console.log(JSON.stringify({
               type: 'api_usage_error',
               timestamp: new Date().toISOString(),
-              sessionId: 'anon',
+              sessionId: fitSessionId,
               endpoint: 'fit-assessment',
               error: streamError instanceof Error ? streamError.message : 'Unknown',
             }));
