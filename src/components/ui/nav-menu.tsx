@@ -81,6 +81,9 @@ export function NavMenu({ className }: NavMenuProps) {
               type="button"
               className="fixed inset-0 z-40 cursor-default"
               onClick={() => setIsOpen(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setIsOpen(false);
+              }}
               aria-label="Close menu"
             />
             {/* Menu */}
