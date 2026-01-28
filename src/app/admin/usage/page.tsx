@@ -60,7 +60,7 @@ function formatTimestamp(timestamp: string): string {
 
 function truncateSessionId(sessionId: string): string {
   if (sessionId === 'anonymous') return sessionId;
-  if (sessionId.endsWith('-anonymous')) return sessionId;
+  if (sessionId.endsWith('-anonymous') && sessionId.length <= 30) return sessionId;
   if (sessionId.length <= 20) return sessionId;
   return `${sessionId.slice(0, 16)}...`;
 }
@@ -236,7 +236,7 @@ export default function UsagePage() {
             <tbody>
               {paginatedSessions.map((session) => (
                 <tr key={session.sessionId} className="border-b border-[var(--color-border)]/50">
-                  <td className="py-2 text-sm font-mono text-[var(--color-text)]" title={session.sessionId}>
+                  <td className="py-2 text-sm font-mono text-[var(--color-text)]" title={truncateSessionId(session.sessionId)}>
                     {truncateSessionId(session.sessionId)}
                   </td>
                   <td className="py-2 text-right text-sm text-[var(--color-text)]">
