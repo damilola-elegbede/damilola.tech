@@ -9,6 +9,7 @@ import {
   getClientIp,
   RATE_LIMIT_CONFIGS,
 } from '@/lib/rate-limit';
+import { logUsage } from '@/lib/usage-logger';
 
 // Use Node.js runtime for reliable Anthropic SDK streaming
 export const runtime = 'nodejs';
@@ -57,6 +58,7 @@ function escapeXml(value: string): string {
 
 export async function POST(req: Request) {
   console.log('[chat] Request received');
+  const startTime = Date.now();
   try {
     // Check content-length to prevent DoS via large payloads
     const contentLength = req.headers.get('content-length');
@@ -186,6 +188,17 @@ export async function POST(req: Request) {
               cacheCreation: usage.cache_creation_input_tokens ?? 0,
               cacheRead: usage.cache_read_input_tokens ?? 0,
             }));
+
+            // Log to Vercel Blob for usage dashboard (fire-and-forget)
+            logUsage(isValidSessionId ? sessionId : 'anonymous', {
+              endpoint: 'chat',
+              model: 'claude-sonnet-4-20250514',
+              inputTokens: usage.input_tokens,
+              outputTokens: usage.output_tokens,
+              cacheCreation: usage.cache_creation_input_tokens ?? 0,
+              cacheRead: usage.cache_read_input_tokens ?? 0,
+              durationMs: Date.now() - startTime,
+            }).catch((err) => console.warn('[chat] Failed to log usage to blob:', err));
           } catch (usageError) {
             console.warn('[chat] Failed to log usage:', usageError);
           }

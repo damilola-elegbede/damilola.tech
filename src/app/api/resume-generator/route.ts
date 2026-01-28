@@ -8,6 +8,7 @@ import {
   getClientIp,
   RATE_LIMIT_CONFIGS,
 } from '@/lib/rate-limit';
+import { logUsage } from '@/lib/usage-logger';
 import {
   calculateATSScore,
   resumeDataToText,
@@ -418,6 +419,7 @@ async function getResumeGeneratorPrompt(): Promise<string> {
 
 export async function POST(req: Request) {
   console.log('[resume-generator] Request received');
+  const startTime = Date.now();
   const ip = getClientIp(req);
 
   try {
@@ -659,6 +661,17 @@ export async function POST(req: Request) {
                 cacheCreation: usage.cache_creation_input_tokens ?? 0,
                 cacheRead: usage.cache_read_input_tokens ?? 0,
               }));
+
+              // Log to Vercel Blob for usage dashboard (fire-and-forget)
+              logUsage('resume-generator-anonymous', {
+                endpoint: 'resume-generator',
+                model: 'claude-sonnet-4-20250514',
+                inputTokens: usage.input_tokens,
+                outputTokens: usage.output_tokens,
+                cacheCreation: usage.cache_creation_input_tokens ?? 0,
+                cacheRead: usage.cache_read_input_tokens ?? 0,
+                durationMs: Date.now() - startTime,
+              }).catch((err) => console.warn('[resume-generator] Failed to log usage to blob:', err));
             } catch (usageError) {
               console.warn('[resume-generator] Failed to log usage:', usageError);
             }

@@ -8,6 +8,7 @@ import {
   getClientIp,
   RATE_LIMIT_CONFIGS,
 } from '@/lib/rate-limit';
+import { logUsage } from '@/lib/usage-logger';
 
 // Dynamic import for DNS to allow testing without mocking
 let dnsLookup: typeof import('node:dns/promises').lookup | null = null;
@@ -322,6 +323,7 @@ async function fetchWithSizeLimit(
 
 export async function POST(req: Request) {
   console.log('[fit-assessment] Request received');
+  const startTime = Date.now();
   try {
     // Check content-length to prevent DoS via large payloads
     const contentLength = req.headers.get('content-length');
@@ -502,6 +504,17 @@ export async function POST(req: Request) {
                 cacheCreation: usage.cache_creation_input_tokens ?? 0,
                 cacheRead: usage.cache_read_input_tokens ?? 0,
               }));
+
+              // Log to Vercel Blob for usage dashboard (fire-and-forget)
+              logUsage('fit-assessment-anonymous', {
+                endpoint: 'fit-assessment',
+                model: 'claude-sonnet-4-20250514',
+                inputTokens: usage.input_tokens,
+                outputTokens: usage.output_tokens,
+                cacheCreation: usage.cache_creation_input_tokens ?? 0,
+                cacheRead: usage.cache_read_input_tokens ?? 0,
+                durationMs: Date.now() - startTime,
+              }).catch((err) => console.warn('[fit-assessment] Failed to log usage to blob:', err));
             } catch (usageError) {
               console.warn('[fit-assessment] Failed to log usage:', usageError);
             }

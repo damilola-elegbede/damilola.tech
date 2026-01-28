@@ -22,12 +22,22 @@ interface LandingPageBreakdown {
   percentage: number;
 }
 
+interface RawEvent {
+  timestamp: string;
+  sessionId: string;
+  source: string;
+  medium: string;
+  campaign: string | null;
+  landingPage: string;
+}
+
 interface TrafficStats {
   totalSessions: number;
   bySource: TrafficBreakdown[];
   byMedium: TrafficBreakdown[];
   byCampaign: CampaignBreakdown[];
   topLandingPages: LandingPageBreakdown[];
+  rawEvents: RawEvent[];
   environment: string;
   dateRange: {
     start: string;
@@ -49,6 +59,7 @@ const COLORS = [
 ];
 
 type PresetType = '7d' | '30d' | '90d' | 'custom';
+type EnvironmentType = '' | 'preview' | 'production';
 
 function formatDateForInput(date: Date): string {
   return date.toISOString().split('T')[0];
@@ -65,6 +76,21 @@ function getPresetDates(preset: '7d' | '30d' | '90d'): { start: string; end: str
   };
 }
 
+function formatTimestamp(timestamp: string): string {
+  const date = new Date(timestamp);
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function truncateSessionId(sessionId: string): string {
+  if (sessionId.length <= 12) return sessionId;
+  return `${sessionId.slice(0, 8)}...`;
+}
+
 export default function TrafficPage() {
   const [stats, setStats] = useState<TrafficStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,6 +98,7 @@ export default function TrafficPage() {
   const [preset, setPreset] = useState<PresetType>('30d');
   const [startDate, setStartDate] = useState(() => getPresetDates('30d').start);
   const [endDate, setEndDate] = useState(() => getPresetDates('30d').end);
+  const [environment, setEnvironment] = useState<EnvironmentType>('');
 
   useEffect(() => {
     async function fetchStats() {
@@ -82,6 +109,9 @@ export default function TrafficPage() {
           startDate,
           endDate,
         });
+        if (environment) {
+          params.set('env', environment);
+        }
         const res = await fetch(`/api/admin/traffic?${params}`);
         if (!res.ok) throw new Error('Failed to fetch traffic stats');
         const data = await res.json();
@@ -93,7 +123,7 @@ export default function TrafficPage() {
       }
     }
     fetchStats();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, environment]);
 
   const handlePresetClick = (newPreset: '7d' | '30d' | '90d') => {
     const dates = getPresetDates(newPreset);
@@ -137,7 +167,7 @@ export default function TrafficPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text)]">Traffic Sources</h1>
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">
@@ -145,7 +175,48 @@ export default function TrafficPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-[var(--color-text-muted)]">Time range:</span>
+          {/* Environment selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-[var(--color-text-muted)]">Env:</span>
+            <div className="flex gap-1" role="group" aria-label="Environment selector">
+              <button
+                type="button"
+                onClick={() => setEnvironment('')}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  environment === ''
+                    ? 'bg-[var(--color-accent)] text-white'
+                    : 'border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text)] hover:bg-[var(--color-border)]'
+                }`}
+              >
+                Auto
+              </button>
+              <button
+                type="button"
+                onClick={() => setEnvironment('preview')}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  environment === 'preview'
+                    ? 'bg-[var(--color-accent)] text-white'
+                    : 'border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text)] hover:bg-[var(--color-border)]'
+                }`}
+              >
+                Preview
+              </button>
+              <button
+                type="button"
+                onClick={() => setEnvironment('production')}
+                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  environment === 'production'
+                    ? 'bg-[var(--color-accent)] text-white'
+                    : 'border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text)] hover:bg-[var(--color-border)]'
+                }`}
+              >
+                Production
+              </button>
+            </div>
+          </div>
+          <span className="text-[var(--color-text-muted)]">|</span>
+          {/* Time range selector */}
+          <span className="text-sm text-[var(--color-text-muted)]">Time:</span>
           <div className="flex gap-1" role="group" aria-label="Preset time ranges">
             {(['7d', '30d', '90d'] as const).map((p) => (
               <button
@@ -424,6 +495,75 @@ export default function TrafficPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Individual page views table */}
+      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-6">
+        <h2 className="mb-4 text-lg font-semibold text-[var(--color-text)]">
+          Individual Page Views
+        </h2>
+        <div className="max-h-96 overflow-y-auto">
+          <table className="w-full">
+            <thead className="sticky top-0 bg-[var(--color-card)]">
+              <tr className="border-b border-[var(--color-border)]">
+                <th className="pb-2 text-left text-sm font-medium text-[var(--color-text-muted)]">
+                  Timestamp
+                </th>
+                <th className="pb-2 text-left text-sm font-medium text-[var(--color-text-muted)]">
+                  Session
+                </th>
+                <th className="pb-2 text-left text-sm font-medium text-[var(--color-text-muted)]">
+                  Source
+                </th>
+                <th className="pb-2 text-left text-sm font-medium text-[var(--color-text-muted)]">
+                  Medium
+                </th>
+                <th className="pb-2 text-left text-sm font-medium text-[var(--color-text-muted)]">
+                  Campaign
+                </th>
+                <th className="pb-2 text-left text-sm font-medium text-[var(--color-text-muted)]">
+                  Landing Page
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats?.rawEvents.map((event, index) => (
+                <tr key={`${event.sessionId}-${event.timestamp}-${index}`} className="border-b border-[var(--color-border)]/50">
+                  <td className="py-2 text-sm text-[var(--color-text-muted)]">
+                    {formatTimestamp(event.timestamp)}
+                  </td>
+                  <td className="py-2 text-sm font-mono text-[var(--color-text)]" title={event.sessionId}>
+                    {truncateSessionId(event.sessionId)}
+                  </td>
+                  <td className="py-2 text-sm text-[var(--color-text)]">
+                    {event.source}
+                  </td>
+                  <td className="py-2 text-sm text-[var(--color-text)]">
+                    {event.medium}
+                  </td>
+                  <td className="py-2 text-sm text-[var(--color-text-muted)]">
+                    {event.campaign || '-'}
+                  </td>
+                  <td className="py-2 text-sm font-mono text-[var(--color-text)]">
+                    {event.landingPage}
+                  </td>
+                </tr>
+              ))}
+              {(!stats?.rawEvents || stats.rawEvents.length === 0) && (
+                <tr>
+                  <td colSpan={6} className="py-4 text-center text-sm text-[var(--color-text-muted)]">
+                    No page views available
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {stats?.rawEvents && stats.rawEvents.length > 0 && (
+          <p className="mt-3 text-xs text-[var(--color-text-muted)]">
+            Showing {stats.rawEvents.length} page view{stats.rawEvents.length !== 1 ? 's' : ''}
+          </p>
+        )}
       </div>
     </div>
   );
