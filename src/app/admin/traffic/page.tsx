@@ -59,7 +59,6 @@ const COLORS = [
 ];
 
 type PresetType = '7d' | '30d' | '90d' | 'custom';
-type EnvironmentType = '' | 'preview' | 'production';
 
 function formatDateForInput(date: Date): string {
   return date.toISOString().split('T')[0];
@@ -100,7 +99,6 @@ export default function TrafficPage() {
   const [preset, setPreset] = useState<PresetType>('30d');
   const [startDate, setStartDate] = useState(() => getPresetDates('30d').start);
   const [endDate, setEndDate] = useState(() => getPresetDates('30d').end);
-  const [environment, setEnvironment] = useState<EnvironmentType>('');
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -113,9 +111,6 @@ export default function TrafficPage() {
           startDate,
           endDate,
         });
-        if (environment) {
-          params.set('env', environment);
-        }
         const res = await fetch(`/api/admin/traffic?${params}`);
         if (!res.ok) throw new Error('Failed to fetch traffic stats');
         const data = await res.json();
@@ -127,7 +122,7 @@ export default function TrafficPage() {
       }
     }
     fetchStats();
-  }, [startDate, endDate, environment]);
+  }, [startDate, endDate]);
 
   const handlePresetClick = (newPreset: '7d' | '30d' | '90d') => {
     const dates = getPresetDates(newPreset);
@@ -179,46 +174,6 @@ export default function TrafficPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {/* Environment selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-[var(--color-text-muted)]">Env:</span>
-            <div className="flex gap-1" role="group" aria-label="Environment selector">
-              <button
-                type="button"
-                onClick={() => setEnvironment('')}
-                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                  environment === ''
-                    ? 'bg-[var(--color-accent)] text-white'
-                    : 'border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text)] hover:bg-[var(--color-border)]'
-                }`}
-              >
-                Auto
-              </button>
-              <button
-                type="button"
-                onClick={() => setEnvironment('preview')}
-                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                  environment === 'preview'
-                    ? 'bg-[var(--color-accent)] text-white'
-                    : 'border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text)] hover:bg-[var(--color-border)]'
-                }`}
-              >
-                Preview
-              </button>
-              <button
-                type="button"
-                onClick={() => setEnvironment('production')}
-                className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                  environment === 'production'
-                    ? 'bg-[var(--color-accent)] text-white'
-                    : 'border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text)] hover:bg-[var(--color-border)]'
-                }`}
-              >
-                Production
-              </button>
-            </div>
-          </div>
-          <span className="text-[var(--color-text-muted)]">|</span>
           {/* Time range selector */}
           <span className="text-sm text-[var(--color-text-muted)]">Time:</span>
           <div className="flex gap-1" role="group" aria-label="Preset time ranges">
