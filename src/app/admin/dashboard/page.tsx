@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StatsCard } from '@/components/admin/StatsCard';
 import { formatNumber } from '@/lib/format-number';
+import { useAdminCacheWithFallback } from '@/hooks/use-admin-cache';
+import { CACHE_KEYS } from '@/lib/admin-cache';
 
 interface TrafficSourceSummary {
   source: string;
@@ -21,28 +22,16 @@ interface Stats {
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: stats, error, isLoading, isValidating } = useAdminCacheWithFallback<Stats>({
+    cacheKey: CACHE_KEYS.DASHBOARD,
+    fetcher: async () => {
+      const res = await fetch('/api/admin/stats');
+      if (!res.ok) throw new Error('Failed to fetch stats');
+      return res.json();
+    },
+  });
 
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const statsRes = await fetch('/api/admin/stats');
-
-        if (!statsRes.ok) throw new Error('Failed to fetch stats');
-        const data = await statsRes.json();
-        setStats(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchStats();
-  }, []);
-
-  if (isLoading) {
+  if (isLoading && !stats) {
     return (
       <div className="flex h-64 items-center justify-center" role="status" aria-label="Loading statistics" aria-live="polite">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
@@ -50,21 +39,29 @@ export default function DashboardPage() {
     );
   }
 
-  if (error) {
+  if (error && !stats) {
     return (
       <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-400">
-        {error}
+        {error.message}
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--color-text)]">Dashboard</h1>
-        <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-          Environment: {stats?.environment || 'unknown'}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--color-text)]">Dashboard</h1>
+          <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+            Environment: {stats?.environment || 'unknown'}
+          </p>
+        </div>
+        {isValidating && (
+          <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+            Refreshing...
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { formatNumber } from '@/lib/format-number';
 import { truncateSessionId } from '@/lib/session';
 import { formatInMT } from '@/lib/timezone';
+import { useAdminCacheWithFallback } from '@/hooks/use-admin-cache';
+import { PRESET_TO_TRAFFIC_CACHE_KEY, type CacheKey } from '@/lib/admin-cache';
 
 interface TrafficBreakdown {
   source: string;
@@ -84,57 +86,51 @@ function getPresetDates(preset: '7d' | '30d' | '90d'): { start: string; end: str
 const ITEMS_PER_PAGE = 20;
 
 export default function TrafficPage() {
-  const [stats, setStats] = useState<TrafficStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [preset, setPreset] = useState<PresetType>('30d');
   const [startDate, setStartDate] = useState(() => getPresetDates('30d').start);
   const [endDate, setEndDate] = useState(() => getPresetDates('30d').end);
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    async function fetchStats() {
-      setError(null);
-      setIsLoading(true);
-      setCurrentPage(1); // Reset pagination when filters change
-      try {
-        const params = new URLSearchParams({
-          startDate,
-          endDate,
-        });
-        const res = await fetch(`/api/admin/traffic?${params}`);
-        if (!res.ok) throw new Error('Failed to fetch traffic stats');
-        const data = await res.json();
-        setStats(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchStats();
+  // Determine cache key based on preset (null for custom ranges)
+  const cacheKey = PRESET_TO_TRAFFIC_CACHE_KEY[preset] as CacheKey | null;
+
+  // Fetcher function for traffic stats
+  const fetchTrafficStats = useCallback(async () => {
+    const params = new URLSearchParams({ startDate, endDate });
+    const res = await fetch(`/api/admin/traffic?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch traffic stats');
+    return res.json();
   }, [startDate, endDate]);
+
+  const { data: stats, error, isLoading, isValidating } = useAdminCacheWithFallback<TrafficStats>({
+    cacheKey,
+    fetcher: fetchTrafficStats,
+    dateRange: { start: startDate, end: endDate },
+  });
 
   const handlePresetClick = (newPreset: '7d' | '30d' | '90d') => {
     const dates = getPresetDates(newPreset);
     setPreset(newPreset);
     setStartDate(dates.start);
     setEndDate(dates.end);
+    setCurrentPage(1); // Reset pagination when date range changes
   };
 
   const handleStartDateChange = (value: string) => {
     setPreset('custom');
     setStartDate(value);
+    setCurrentPage(1); // Reset pagination when date range changes
   };
 
   const handleEndDateChange = (value: string) => {
     setPreset('custom');
     setEndDate(value);
+    setCurrentPage(1); // Reset pagination when date range changes
   };
 
   const isValidDateRange = startDate <= endDate;
 
-  if (isLoading) {
+  if (isLoading && !stats) {
     return (
       <div className="flex h-64 items-center justify-center" role="status" aria-label="Loading traffic data" aria-live="polite" aria-busy="true">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
@@ -142,10 +138,10 @@ export default function TrafficPage() {
     );
   }
 
-  if (error) {
+  if (error && !stats) {
     return (
       <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-400">
-        {error}
+        {error.message}
       </div>
     );
   }
@@ -159,7 +155,15 @@ export default function TrafficPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text)]">Traffic Sources</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-[var(--color-text)]">Traffic Sources</h1>
+            {isValidating && (
+              <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+                Refreshing...
+              </div>
+            )}
+          </div>
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">
             Environment: {stats?.environment || 'unknown'}
           </p>
