@@ -69,9 +69,15 @@ export function useAdminCacheWithFallback<T>({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: freshData, dateRange }),
-      }).catch((err) => {
-        console.warn('[useAdminCache] Failed to update cache:', err);
-      });
+      })
+        .then((res) => {
+          if (!res.ok) {
+            console.warn('[useAdminCache] Cache update failed:', res.status);
+          }
+        })
+        .catch((err) => {
+          console.warn('[useAdminCache] Failed to update cache:', err);
+        });
     }
 
     return freshData;
@@ -127,9 +133,15 @@ export function useAdminCacheWithFallback<T>({
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data: freshData, dateRange }),
-              }).catch((err) => {
-                console.warn('[useAdminCache] Failed to update cache:', err);
-              });
+              })
+                .then((res) => {
+                  if (!res.ok) {
+                    console.warn('[useAdminCache] Cache update failed:', res.status);
+                  }
+                })
+                .catch((err) => {
+                  console.warn('[useAdminCache] Failed to update cache:', err);
+                });
             } catch (err) {
               console.warn('[useAdminCache] Background revalidation failed:', err);
             }
