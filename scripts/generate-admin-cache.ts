@@ -139,6 +139,7 @@ async function writeCacheToBlob<T>(
     access: 'public',
     token,
     addRandomSuffix: false,
+    allowOverwrite: true,
   });
 }
 
