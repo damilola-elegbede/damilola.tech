@@ -14,15 +14,15 @@ describe('getMTDayBounds', () => {
     it('start time represents midnight MT', () => {
       const { startUTC } = getMTDayBounds('2024-06-15');
       const startDate = new Date(startUTC);
-      const mtHour = parseInt(
-        new Intl.DateTimeFormat('en-US', {
-          timeZone: MT_TIMEZONE,
-          hour: 'numeric',
-          hour12: false,
-        }).format(startDate),
-        10
-      );
-      expect(mtHour).toBe(0); // Midnight in MT
+      // Use formatToParts to reliably extract hour value
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: MT_TIMEZONE,
+        hour: 'numeric',
+        hour12: false,
+      }).formatToParts(startDate);
+      const mtHour = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10);
+      // Intl can return 24 for midnight in some environments, normalize it
+      expect(mtHour % 24).toBe(0); // Midnight in MT
     });
 
     it('end time represents 23:59:59 MT', () => {
