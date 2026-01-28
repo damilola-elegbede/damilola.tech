@@ -36,13 +36,18 @@ export function getMTDayBounds(dateStr: string): { startUTC: number; endUTC: num
     return { startUTC: NaN, endUTC: NaN };
   }
 
-  // Compute offset for the actual midnight instant (start of day)
-  // On DST transition days, midnight may use different offset than midday
-  const startOffset = getMTOffsetHours(new Date(Date.UTC(year, month - 1, day, 0, 0, 0)));
+  // Use midday UTC as a reference point that's guaranteed to be on the target MT day
+  // (midday UTC is always afternoon/evening MT, never crossing day boundaries)
+  const middayUTC = new Date(Date.UTC(year, month - 1, day, 18, 0, 0));
+  const approxOffset = getMTOffsetHours(middayUTC);
 
-  // Compute offset for the actual end of day instant
-  // On DST transition days, 23:59:59 may use different offset than midnight
-  const endOffset = getMTOffsetHours(new Date(Date.UTC(year, month - 1, day, 23, 59, 59)));
+  // Calculate approximate MT midnight in UTC, then get the actual offset at that instant
+  const mtMidnightUTC = new Date(Date.UTC(year, month - 1, day, approxOffset, 0, 0));
+  const startOffset = getMTOffsetHours(mtMidnightUTC);
+
+  // Calculate approximate MT end-of-day in UTC, then get the actual offset at that instant
+  const mtEndApproxUTC = new Date(Date.UTC(year, month - 1, day, 23 + approxOffset, 59, 59));
+  const endOffset = getMTOffsetHours(mtEndApproxUTC);
 
   // Midnight MT = startOffset:00 UTC (e.g., midnight MST = 07:00 UTC, MDT = 06:00 UTC)
   const startUTC = Date.UTC(year, month - 1, day, startOffset, 0, 0, 0);
