@@ -366,9 +366,17 @@ export async function POST(req: Request) {
         return createRateLimitResponse(rateLimitResult);
       }
 
-      const { prompt: jobDescription } = await req.json();
+      let body: { prompt?: unknown };
+      try {
+        body = await req.json();
+      } catch {
+        logger.debug('request.validation_failed', { reason: 'invalid_json' });
+        return Response.json({ error: 'Invalid JSON in request body.' }, { status: 400 });
+      }
+
+      const jobDescription = body.prompt;
       logger.debug('request.body_parsed', {
-        jobDescriptionLength: jobDescription?.length ?? 0,
+        jobDescriptionLength: typeof jobDescription === 'string' ? jobDescription.length : 0,
       });
 
       if (!jobDescription || typeof jobDescription !== 'string') {

@@ -197,13 +197,13 @@ export async function logUsage(
     });
   } catch (error) {
     // Usage logging failures are ERROR level - this is data loss
+    // But we use fire-and-forget pattern to avoid breaking API responses
     logger.error('usage.log_failed', {
       sessionId: sessionId.slice(0, 8),
       endpoint: request.endpoint,
       error: error instanceof Error ? error.message : String(error),
     });
-    // Re-throw to allow caller to handle if needed
-    throw error;
+    // Fire-and-forget: don't throw to avoid breaking caller flow
   }
 }
 

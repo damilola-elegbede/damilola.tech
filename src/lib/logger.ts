@@ -55,6 +55,41 @@ export function truncate(str: string, maxLength: number = MAX_MESSAGE_LENGTH): s
 }
 
 /**
+ * Sanitize a URL for logging by removing credentials and truncating.
+ * Removes username:password from URLs and strips query params for security.
+ */
+export function sanitizeUrlForLogging(url: string): string {
+  try {
+    const parsed = new URL(url);
+    // Remove auth credentials
+    parsed.username = '';
+    parsed.password = '';
+    // Remove query params (may contain tokens)
+    parsed.search = '';
+    return truncate(parsed.href, 150);
+  } catch {
+    // Invalid URL, just truncate
+    return truncate(url, 100);
+  }
+}
+
+/**
+ * Hash an IP address for privacy-compliant logging.
+ * Uses a simple hash to allow correlation without storing raw IPs.
+ */
+export function hashIp(ip: string): string {
+  // Simple hash for log correlation without storing raw IP
+  // Uses a deterministic but irreversible transformation
+  let hash = 0;
+  for (let i = 0; i < ip.length; i++) {
+    const char = ip.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return 'ip_' + Math.abs(hash).toString(16).slice(0, 8);
+}
+
+/**
  * Truncate stack trace to N frames in production
  */
 export function truncateStack(stack: string | undefined): string | undefined {
@@ -275,10 +310,10 @@ export const logger = {
    */
   security: {
     ssrfBlocked: (ip: string, url: string, reason: string) =>
-      log('warn', 'security.ssrf_blocked', { ip, url: truncate(url), reason }),
+      log('warn', 'security.ssrf_blocked', { ip, url: sanitizeUrlForLogging(url), reason }),
 
     rateLimitTriggered: (ip: string, endpoint: string, data?: Record<string, unknown>) =>
-      log('warn', 'security.rate_limit_triggered', { ip, endpoint, ...data }),
+      log('warn', 'security.rate_limit_triggered', { ipHash: hashIp(ip), endpoint, ...data }),
 
     largePayloadRejected: (ip: string, contentLength: number, maxAllowed: number) =>
       log('warn', 'security.large_payload_rejected', { ip, contentLength, maxAllowed }),

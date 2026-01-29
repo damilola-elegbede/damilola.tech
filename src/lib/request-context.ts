@@ -64,11 +64,15 @@ export function withRequestContext<T>(context: RequestContext, fn: () => T): T {
 /**
  * Update the current request context with additional fields
  * Useful for adding sessionId after authentication
+ *
+ * Creates a new context object to avoid mutation of shared state,
+ * which could lead to context pollution in concurrent requests.
  */
 export function updateRequestContext(updates: Partial<RequestContext>): void {
   const current = getRequestContext();
   if (current) {
-    Object.assign(current, updates);
+    // Create new context instead of mutating to prevent context pollution
+    asyncLocalStorage.enterWith({ ...current, ...updates });
   }
 }
 

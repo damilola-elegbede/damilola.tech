@@ -158,8 +158,9 @@ async function checkRateLimitRedis(ip: string): Promise<{
       operation: 'check',
       error: error instanceof Error ? error.message : String(error),
     });
-    // On Redis error, fail closed to prevent bypass attacks
-    return { limited: true, retryAfter: 60 };
+    // On Redis error, fall back to memory-based limiting instead of blocking all users
+    logger.warn('rate_limit.redis_fallback', { ip, operation: 'check' });
+    return checkRateLimitMemory(ip);
   }
 }
 

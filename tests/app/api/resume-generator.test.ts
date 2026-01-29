@@ -1081,28 +1081,24 @@ describe('resume-generator API route', () => {
   });
 
   describe('error handling', () => {
-    it('returns 503 on malformed JSON body', async () => {
+    it('returns 400 on malformed JSON body', async () => {
       const { POST } = await import('@/app/api/resume-generator/route');
 
-      // Test with invalid JSON body which will trigger the generic catch block
+      // Test with invalid JSON body which is now caught early with proper 400 response
       const request = new Request('http://localhost/api/resume-generator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: 'invalid json {{{',
       });
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(503);
-      expect(data.error).toContain('AI service');
-
-      consoleSpy.mockRestore();
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Invalid JSON');
     });
 
-    it('handles general errors gracefully', async () => {
+    it('handles malformed JSON gracefully', async () => {
       const { POST } = await import('@/app/api/resume-generator/route');
 
       const request = new Request('http://localhost/api/resume-generator', {
@@ -1111,15 +1107,11 @@ describe('resume-generator API route', () => {
         body: 'invalid json {{{',
       });
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(503); // JSON parse error caught by main catch block
-      expect(data.error).toContain('AI service');
-
-      consoleSpy.mockRestore();
+      expect(response.status).toBe(400); // JSON parse error now caught with proper 400 response
+      expect(data.error).toContain('Invalid JSON');
     });
 
     it('handles fetch timeout', async () => {
