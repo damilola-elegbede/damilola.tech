@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui';
 import { generateCsrfToken } from '@/lib/csrf-actions';
@@ -10,6 +10,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  const isSubmittingRef = useRef(false);
   const router = useRouter();
 
   // Fetch CSRF token on mount
@@ -22,8 +23,13 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Ref check prevents race condition from React state batching
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
     if (!csrfToken) {
       setError('Security token not ready. Please try again.');
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -57,6 +63,7 @@ export function LoginForm() {
       setError('An error occurred');
     } finally {
       setIsLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -76,7 +83,7 @@ export function LoginForm() {
         />
       </div>
       {error && (
-        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+        <div role="alert" aria-live="polite" aria-atomic="true" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
           {error}
         </div>
       )}

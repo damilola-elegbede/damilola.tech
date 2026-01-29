@@ -74,9 +74,10 @@ export async function POST(req: Request) {
     let body: unknown;
     try {
       body = await req.json();
-    } catch {
-      // Record attempt for invalid JSON to prevent rate limit bypass
-      await logAdminEvent('admin_login_failure', { reason: 'invalid_json' }, ip);
+    } catch (error) {
+      // Distinguish JSON parse errors from other failures
+      const reason = error instanceof SyntaxError ? 'invalid_json' : 'request_error';
+      await logAdminEvent('admin_login_failure', { reason }, ip);
       const limitResponse = await recordAndCheckLimit();
       if (limitResponse) return limitResponse;
       return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
@@ -92,10 +93,10 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Password is required' }, { status: 400 });
     }
 
-    const isValid = verifyPassword(password);
-    if (!isValid) {
+    const result = verifyPassword(password);
+    if (!result.success) {
       // Record failed attempt and check for lockout
-      await logAdminEvent('admin_login_failure', { reason: 'invalid_password' }, ip);
+      await logAdminEvent('admin_login_failure', { reason: result.reason }, ip);
       const limitResponse = await recordAndCheckLimit();
       if (limitResponse) return limitResponse;
 
