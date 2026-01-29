@@ -22,7 +22,7 @@ export const CHAT_FILENAME_PATTERNS = {
 
   // Legacy format: {uuid}.json
   legacy:
-    /^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.json$/,
+    /^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.json$/i,
 } as const;
 
 export type ChatFilenameFormat =
@@ -65,6 +65,10 @@ export function parseChatFilename(
       /T(\d{2})-(\d{2})-(\d{2})Z/,
       'T$1:$2:$3.000Z'
     );
+    const parsedDate = new Date(timestamp);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return null;
+    }
     return {
       format: 'unified',
       sessionId: unifiedMatch[2],
@@ -93,6 +97,10 @@ export function parseChatFilename(
       /T(\d{2})-(\d{2})-(\d{2})Z/,
       'T$1:$2:$3.000Z'
     );
+    const parsedDate = new Date(timestamp);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return null;
+    }
     return {
       format: 'timestampShortId',
       sessionId: timestampMatch[2],

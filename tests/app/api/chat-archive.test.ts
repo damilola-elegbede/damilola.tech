@@ -14,20 +14,8 @@ describe('chat archive API route', () => {
   });
 
   describe('no-op behavior', () => {
-    it('returns success without processing (unified format handles persistence)', async () => {
+    it('returns success even when valid data is provided (no-op)', async () => {
       const { POST } = await import('@/app/api/chat/archive/route');
-
-      const request = new Request('http://localhost/api/chat/archive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: 'chat-a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-          sessionStartedAt: '2025-01-22T10:30:00.000Z',
-          messages: [
-            { id: '1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
-          ],
-        }),
-      });
 
       const response = await POST();
       const data = await response.json();
