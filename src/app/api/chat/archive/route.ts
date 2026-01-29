@@ -5,8 +5,8 @@ export const runtime = 'nodejs';
 // 100KB max - archived sessions contain message history
 const MAX_BODY_SIZE = 100 * 1024;
 
-// UUID v4 regex pattern
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Session ID regex pattern: chat-prefixed UUID v4
+const SESSION_ID_REGEX = /^chat-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface MessagePart {
   type: 'text';
@@ -60,8 +60,16 @@ function getValidationError(body: unknown): string | null {
 
   // Normalize to lowercase for consistent storage
   const normalizedId = req.sessionId.toLowerCase();
-  if (!UUID_REGEX.test(normalizedId)) {
-    return 'sessionId must be a valid UUID';
+  if (!SESSION_ID_REGEX.test(normalizedId)) {
+    console.error(JSON.stringify({
+      type: 'session_validation_error',
+      timestamp: new Date().toISOString(),
+      endpoint: 'chat/archive',
+      error: 'invalid_session_id_format',
+      receivedFormat: normalizedId?.slice(0, 25),
+      expectedPattern: 'chat-{uuid}',
+    }));
+    return 'sessionId must be a valid chat-prefixed UUID';
   }
   // Update the sessionId in place for consistent downstream use
   req.sessionId = normalizedId;
@@ -92,12 +100,18 @@ function formatTimestamp(date: Date): string {
   return date.toISOString().replace(/:/g, '-').replace(/\.\d{3}Z$/, 'Z');
 }
 
-function getShortId(uuid: string): string {
-  // Extract first 8 characters of UUID for brevity in filename
-  return uuid.split('-')[0];
+function getShortId(sessionId: string): string {
+  // Extract first 8 characters of UUID portion for brevity in filename
+  // Session ID format: chat-{uuid}, so split by '-' and take index 1
+  const parts = sessionId.split('-');
+  return parts.length > 1 ? parts[1] : parts[0];
 }
 
 export async function POST(req: Request) {
+  console.log(JSON.stringify({
+    type: 'archive_request',
+    timestamp: new Date().toISOString(),
+  }));
   try {
     // Check content-length to prevent DoS via large payloads
     const contentLength = req.headers.get('content-length');

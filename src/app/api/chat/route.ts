@@ -77,11 +77,32 @@ export async function POST(req: Request) {
     }
 
     // Validate session identifiers to prevent path injection
+    // Session IDs must be prefixed with 'chat-' followed by a UUID v4
     const isValidSessionId =
       typeof sessionId === 'string' &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId);
+      /^chat-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId);
     const isValidSessionStartedAt =
       typeof sessionStartedAt === 'string' && !Number.isNaN(Date.parse(sessionStartedAt));
+
+    // Log validation failures for debugging
+    if (sessionId && !isValidSessionId) {
+      console.error(JSON.stringify({
+        type: 'session_validation_error',
+        timestamp: new Date().toISOString(),
+        endpoint: 'chat',
+        error: 'invalid_session_id_format',
+        receivedFormat: typeof sessionId === 'string' ? sessionId.slice(0, 25) : typeof sessionId,
+        expectedPattern: 'chat-{uuid}',
+      }));
+    }
+    if (sessionStartedAt && !isValidSessionStartedAt) {
+      console.error(JSON.stringify({
+        type: 'session_validation_error',
+        timestamp: new Date().toISOString(),
+        endpoint: 'chat',
+        error: 'invalid_session_started_at',
+      }));
+    }
 
     // Rate limit check: always use IP to prevent bypass via client-controlled sessionId
     const ip = getClientIp(req);
