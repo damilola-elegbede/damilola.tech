@@ -225,7 +225,7 @@ describe('ResumeGenerationsTable', () => {
     });
 
     it('shows positive score change in green with plus sign', () => {
-      const { } = render(
+      render(
         <ResumeGenerationsTable
           generations={[mockGeneration1]}
           onRowClick={mockOnRowClick}
@@ -246,7 +246,7 @@ describe('ResumeGenerationsTable', () => {
         scoreAfter: 70,
       };
 
-      const { } = render(
+      render(
         <ResumeGenerationsTable
           generations={[negativeScoreGen]}
           onRowClick={mockOnRowClick}
@@ -314,7 +314,7 @@ describe('ResumeGenerationsTable', () => {
     });
 
     it('displays status with correct styling', () => {
-      const { } = render(
+      render(
         <ResumeGenerationsTable
           generations={[mockGeneration1]}
           onRowClick={mockOnRowClick}

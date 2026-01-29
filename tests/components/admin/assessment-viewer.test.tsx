@@ -278,13 +278,13 @@ describe('AssessmentViewer', () => {
     });
 
     it('renders monospace font for assessment ID', () => {
-      const { } = render(<AssessmentViewer assessment={mockAssessment} />);
+      render(<AssessmentViewer assessment={mockAssessment} />);
       const assessmentIdElement = screen.getByText('test-assessment-123');
       expect(assessmentIdElement).toHaveClass('font-mono');
     });
 
     it('renders monospace font for user agent', () => {
-      const { } = render(<AssessmentViewer assessment={mockAssessment} />);
+      render(<AssessmentViewer assessment={mockAssessment} />);
       const userAgentElement = screen.getByText('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)');
       expect(userAgentElement).toHaveClass('font-mono');
     });

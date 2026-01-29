@@ -39,8 +39,8 @@ describe('StatsCard', () => {
 
   it('does not render icon container when icon not provided', () => {
     const { container } = render(<StatsCard title="Total Users" value={100} />);
-    const iconContainer = container.querySelector('.rounded-lg.bg-\\[var\\(--color-accent\\)\\]\\/10');
-    expect(iconContainer).not.toBeInTheDocument();
+    const svg = container.querySelector('svg');
+    expect(svg).not.toBeInTheDocument();
   });
 
   describe('number formatting', () => {

@@ -31,6 +31,7 @@ vi.mock('@/lib/rate-limit', () => ({
 describe('admin chats/[id] API route', () => {
   const validBlobUrl = 'https://abc123xyz.blob.vercel-storage.com/damilola.tech/chats/chat-123.json';
   const encodedValidUrl = encodeURIComponent(validBlobUrl);
+  const originalFetch = global.fetch;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -41,6 +42,7 @@ describe('admin chats/[id] API route', () => {
   });
 
   afterEach(() => {
+    global.fetch = originalFetch;
     vi.restoreAllMocks();
   });
 

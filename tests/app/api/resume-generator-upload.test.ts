@@ -91,21 +91,21 @@ describe('resume-generator/upload-pdf API route', () => {
   } = {}): Request {
     const formData = new Map<string, File | string | null>();
 
-    if (overrides.pdf !== undefined) {
+    if (overrides.pdf !== undefined && overrides.pdf !== null) {
       formData.set('pdf', overrides.pdf);
-    } else {
+    } else if (overrides.pdf === undefined) {
       formData.set('pdf', createPdfFile());
     }
 
-    if (overrides.companyName !== undefined) {
+    if (overrides.companyName !== undefined && overrides.companyName !== null) {
       formData.set('companyName', overrides.companyName);
-    } else {
+    } else if (overrides.companyName === undefined) {
       formData.set('companyName', 'Test Company');
     }
 
-    if (overrides.roleTitle !== undefined) {
+    if (overrides.roleTitle !== undefined && overrides.roleTitle !== null) {
       formData.set('roleTitle', overrides.roleTitle);
-    } else {
+    } else if (overrides.roleTitle === undefined) {
       formData.set('roleTitle', 'Senior Engineer');
     }
 
@@ -253,11 +253,19 @@ describe('resume-generator/upload-pdf API route', () => {
       const [blobPath] = mockPut.mock.calls[0];
       const pathParts = blobPath.split('/');
       const filename = pathParts[pathParts.length - 1];
-      const [company, role] = filename.split('-');
+      // Filename format: {company}-{role}-{date}-{timestamp}.pdf
+      // Split by '-' and validate the company and role slugs (first two segments)
+      const segments = filename.replace('.pdf', '').split('-');
+      const companySlug = segments[0];
+      // Role slug is the second segment
+      const roleSlug = segments[1];
 
       // Each component should be truncated to 30 chars
-      expect(company.length).toBeLessThanOrEqual(30);
-      expect(role.length).toBeLessThanOrEqual(30);
+      expect(companySlug.length).toBeLessThanOrEqual(30);
+      expect(roleSlug.length).toBeLessThanOrEqual(30);
+      // Verify they are properly sanitized slugs (lowercase, no special chars)
+      expect(companySlug).toMatch(/^[a-z0-9]+$/);
+      expect(roleSlug).toMatch(/^[a-z0-9]+$/);
     });
 
     it('uses preview environment when VERCEL_ENV is preview', async () => {

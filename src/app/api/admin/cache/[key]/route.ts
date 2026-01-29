@@ -78,6 +78,12 @@ export async function PUT(
     return Response.json({ error: 'Content-Type must be application/json' }, { status: 400 });
   }
 
+  // Pre-parse size guard using Content-Length
+  const contentLength = request.headers.get('content-length');
+  if (contentLength && Number(contentLength) > 5 * 1024 * 1024) {
+    return Response.json({ error: 'Request body too large' }, { status: 413 });
+  }
+
   // Parse JSON with error handling
   let body: unknown;
   try {

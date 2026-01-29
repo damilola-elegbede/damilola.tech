@@ -1081,14 +1081,10 @@ describe('resume-generator API route', () => {
   });
 
   describe('error handling', () => {
-    it('returns 503 on Anthropic SDK error', async () => {
-      // Need to re-import with mocked error - can't easily override after import
-      // Instead, test by checking that other errors are handled properly
-      // This test would require a different approach in a real scenario
-
+    it('returns 503 on malformed JSON body', async () => {
       const { POST } = await import('@/app/api/resume-generator/route');
 
-      // Test with invalid JSON body which will trigger catch block
+      // Test with invalid JSON body which will trigger the generic catch block
       const request = new Request('http://localhost/api/resume-generator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

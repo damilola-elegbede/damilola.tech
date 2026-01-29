@@ -45,11 +45,12 @@ export function useAdminCacheWithFallback<T>({
   fetcher,
   dateRange,
 }: UseAdminCacheOptions<T>): UseAdminCacheResult<T> {
-  // Generate a stable unique ID per hook instance (only increments once on mount)
-  const noCacheIdRef = useRef<number | null>(null);
-  if (noCacheIdRef.current === null) {
-    noCacheIdRef.current = ++noCacheCounter;
+  // Generate a stable unique ID per hook instance using lazy initialization
+  const idRef = useRef<{ id: number } | null>(null);
+  if (idRef.current === null) {
+    idRef.current = { id: ++noCacheCounter };
   }
+  const noCacheId = idRef.current.id;
 
   // Track if we've triggered background revalidation
   const revalidationTriggeredRef = useRef(false);
@@ -65,7 +66,7 @@ export function useAdminCacheWithFallback<T>({
   // Generate SWR key - stable for same cacheKey/dateRange combination
   const swrKey = cacheKey
     ? cacheKey
-    : `no-cache-${noCacheIdRef.current}-${dateRange?.start ?? ''}-${dateRange?.end ?? ''}`;
+    : `no-cache-${noCacheId}-${dateRange?.start ?? ''}-${dateRange?.end ?? ''}`;
 
   // Function to fetch fresh data and update Blob cache
   const fetchFreshAndUpdateCache = useCallback(async (): Promise<T> => {

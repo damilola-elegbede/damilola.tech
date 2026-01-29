@@ -23,6 +23,7 @@ vi.mock('next/headers', () => ({
 
 describe('admin stats API route', () => {
   const originalEnv = { ...process.env };
+  const originalFetch = global.fetch;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -33,6 +34,7 @@ describe('admin stats API route', () => {
 
   afterEach(() => {
     process.env = { ...originalEnv };
+    global.fetch = originalFetch;
     vi.restoreAllMocks();
   });
 

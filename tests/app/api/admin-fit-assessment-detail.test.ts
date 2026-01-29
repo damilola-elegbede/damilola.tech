@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+const originalFetch = global.fetch;
+
 // Mock admin-auth
 vi.mock('@/lib/admin-auth', () => ({
   verifyToken: vi.fn(),
@@ -33,6 +35,7 @@ describe('admin fit-assessment detail API route', () => {
   });
 
   afterEach(() => {
+    global.fetch = originalFetch;
     vi.restoreAllMocks();
   });
 

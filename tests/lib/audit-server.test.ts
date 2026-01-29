@@ -11,6 +11,7 @@ vi.mock('@vercel/blob', () => ({
 // Mock crypto.randomUUID
 const originalRandomUUID = crypto.randomUUID;
 const mockRandomUUID = vi.fn();
+const originalVercelEnv = process.env.VERCEL_ENV;
 
 describe('audit-server', () => {
   beforeEach(() => {
@@ -20,12 +21,18 @@ describe('audit-server', () => {
     crypto.randomUUID = mockRandomUUID;
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-28T14:30:00.000Z'));
+    delete process.env.VERCEL_ENV;
   });
 
   afterEach(() => {
     crypto.randomUUID = originalRandomUUID;
     vi.restoreAllMocks();
     vi.useRealTimers();
+    if (originalVercelEnv === undefined) {
+      delete process.env.VERCEL_ENV;
+    } else {
+      process.env.VERCEL_ENV = originalVercelEnv;
+    }
   });
 
   describe('logAdminEvent', () => {

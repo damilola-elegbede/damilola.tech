@@ -1,5 +1,5 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Experience } from '@/components/sections/experience';
 
 // Mock dependencies
@@ -66,6 +66,8 @@ vi.mock('@/lib/resume-data', () => ({
 }));
 
 describe('Experience', () => {
+  const originalFetch = global.fetch;
+
   beforeEach(() => {
     vi.clearAllMocks();
     global.fetch = vi.fn(() =>
@@ -73,6 +75,10 @@ describe('Experience', () => {
         json: () => Promise.resolve({}),
       })
     ) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
   it('renders the section heading', async () => {

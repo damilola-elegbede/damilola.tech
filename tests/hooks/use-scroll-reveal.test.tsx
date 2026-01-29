@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { renderHook, cleanup, act, waitFor } from '@testing-library/react';
 import { useScrollReveal } from '@/hooks/use-scroll-reveal';
 
@@ -6,8 +6,23 @@ describe('useScrollReveal', () => {
   let mockObserve: ReturnType<typeof vi.fn>;
   let mockDisconnect: ReturnType<typeof vi.fn>;
   let observerCallback: IntersectionObserverCallback | null = null;
+  let originalIntersectionObserver: typeof IntersectionObserver | undefined;
+
+  beforeAll(() => {
+    originalIntersectionObserver = global.IntersectionObserver;
+  });
+
+  afterAll(() => {
+    if (originalIntersectionObserver) {
+      global.IntersectionObserver = originalIntersectionObserver;
+    } else {
+      // @ts-expect-error - restore undefined in test environment
+      global.IntersectionObserver = undefined;
+    }
+  });
 
   beforeEach(() => {
+    observerCallback = null;
     mockObserve = vi.fn();
     mockDisconnect = vi.fn();
 

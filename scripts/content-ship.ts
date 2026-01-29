@@ -141,7 +141,7 @@ async function main() {
   }
   console.log('Committed main repo.\n');
 
-  // Step 7: Push main repo
+  // Step 6: Push main repo
   console.log('Pushing main repo to remote...');
   try {
     exec('git push', { cwd: process.cwd() });

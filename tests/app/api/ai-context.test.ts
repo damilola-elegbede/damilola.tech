@@ -121,7 +121,10 @@ Mentorship amplifies impact.`;
       // Ensure it's a plain object, not a Map
       expect(Array.isArray(data)).toBe(false);
       expect(data.constructor).toBe(Object);
-      expect(Object.keys(data)).toEqual(['verily-health', 'google-cloud']);
+      expect(Object.keys(data)).toEqual(
+        expect.arrayContaining(['verily-health', 'google-cloud'])
+      );
+      expect(Object.keys(data)).toHaveLength(2);
     });
 
     it('returns empty object when no context is found', async () => {

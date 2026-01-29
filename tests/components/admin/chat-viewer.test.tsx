@@ -63,8 +63,8 @@ describe('ChatViewer', () => {
       render(<ChatViewer chat={chatWithoutId} />);
 
       expect(screen.getByText('Session ID')).toBeInTheDocument();
-      const metadataCards = screen.getAllByText('-');
-      expect(metadataCards.length).toBeGreaterThan(0);
+      const sessionIdCard = screen.getByText('Session ID').parentElement!;
+      expect(sessionIdCard).toHaveTextContent('-');
     });
 
     it('renders formatted session start timestamp', () => {
