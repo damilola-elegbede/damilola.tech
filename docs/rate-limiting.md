@@ -351,6 +351,8 @@ function verifyPassword(provided: string): VerifyResult {
 
 The application trusts Vercel's `x-forwarded-for` header, which is controlled by Vercel's edge network and cannot be spoofed by clients.
 
+> **Security Warning:** This IP extraction method is only secure when deployed on Vercel. Other deployment environments may allow header spoofing unless configured to strip/replace `x-forwarded-for` at the edge.
+
 ### Redis Failure Handling
 
 **Circuit Breaker prevents:**

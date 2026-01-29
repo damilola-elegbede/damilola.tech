@@ -83,7 +83,7 @@ export function LoginForm() {
         />
       </div>
       {error && (
-        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+        <div role="alert" aria-live="polite" aria-atomic="true" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
           {error}
         </div>
       )}
