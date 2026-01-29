@@ -187,6 +187,41 @@ describe('admin chats API route', () => {
       });
     });
 
+    it('handles chat-prefixed format from live saves', async () => {
+      process.env.VERCEL_ENV = 'production';
+
+      mockList.mockResolvedValue({
+        blobs: [
+          {
+            pathname: 'damilola.tech/chats/production/chat-939d8245-20b8-49b3-9e1b-746232af362e.json',
+            size: 4500,
+            url: 'https://blob.url/chat-prefixed',
+            uploadedAt: new Date('2026-01-28T12:30:00Z'),
+          },
+        ],
+        cursor: undefined,
+        hasMore: false,
+      });
+
+      const { GET } = await import('@/app/api/admin/chats/route');
+
+      const request = new Request('http://localhost/api/admin/chats');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.chats).toHaveLength(1);
+      expect(data.chats[0]).toEqual({
+        id: 'damilola.tech/chats/production/chat-939d8245-20b8-49b3-9e1b-746232af362e.json',
+        pathname: 'damilola.tech/chats/production/chat-939d8245-20b8-49b3-9e1b-746232af362e.json',
+        sessionId: 'chat-939d8245-20b8-49b3-9e1b-746232af362e', // Full chat-{uuid} as sessionId
+        environment: 'production',
+        timestamp: '2026-01-28T12:30:00.000Z', // From uploadedAt
+        size: 4500,
+        url: 'https://blob.url/chat-prefixed',
+      });
+    });
+
     it('filters out zero-byte files', async () => {
       process.env.VERCEL_ENV = 'production';
 
