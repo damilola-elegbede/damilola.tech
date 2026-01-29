@@ -35,7 +35,11 @@ async function getDnsLookup() {
 // Use Node.js runtime (not edge) to allow local file fallback in development
 export const runtime = 'nodejs';
 
-const client = new Anthropic();
+const client = new Anthropic({
+  defaultHeaders: {
+    'anthropic-beta': 'extended-cache-ttl-2025-04-11',
+  },
+});
 
 // Use generated prompt in production, fall back to runtime fetch in development
 const isGeneratedPromptAvailable = RESUME_GENERATOR_PROMPT !== '__DEVELOPMENT_PLACEHOLDER__';

@@ -14,7 +14,11 @@ import { logUsage } from '@/lib/usage-logger';
 // Use Node.js runtime for reliable Anthropic SDK streaming
 export const runtime = 'nodejs';
 
-const client = new Anthropic();
+const client = new Anthropic({
+  defaultHeaders: {
+    'anthropic-beta': 'extended-cache-ttl-2025-04-11',
+  },
+});
 
 // Use generated prompt in production, fall back to runtime fetch in development
 const isGeneratedPromptAvailable = CHATBOT_SYSTEM_PROMPT !== '__DEVELOPMENT_PLACEHOLDER__';
