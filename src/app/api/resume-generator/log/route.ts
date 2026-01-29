@@ -7,6 +7,8 @@ import type {
   ResumeGenerationLog,
 } from '@/lib/types/resume-generation';
 import type { JobIdentifier } from '@/lib/job-id';
+import { logger, logColdStartIfNeeded } from '@/lib/logger';
+import { withRequestContext, createRequestContext } from '@/lib/request-context';
 
 // Use Node.js runtime for blob operations
 export const runtime = 'nodejs';
@@ -42,29 +44,34 @@ async function fetchExistingRecord(
     const blob = blobs[0];
     const response = await fetch(blob.url);
     if (!response.ok) {
-      console.warn(`[resume-generator/log] Failed to fetch existing record: ${response.status}`);
+      logger.warn('Failed to fetch existing record', { status: response.status });
       return null;
     }
 
     const log = await response.json();
     return { log, url: blob.url };
   } catch (error) {
-    console.warn('[resume-generator/log] Error fetching existing record:', error);
+    logger.warn('Error fetching existing record', { error });
     return null;
   }
 }
 
 export async function POST(req: Request) {
-  console.log('[resume-generator/log] Request received');
+  const ctx = createRequestContext(req, '/api/resume-generator/log');
 
-  // Verify admin authentication
-  const cookieStore = await cookies();
-  const adminToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
-  if (!adminToken || !(await verifyToken(adminToken))) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/resume-generator/log', { method: 'POST' });
 
-  try {
+    // Verify admin authentication
+    const cookieStore = await cookies();
+    const adminToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
+    if (!adminToken || !(await verifyToken(adminToken))) {
+      logger.request.failed('/api/resume-generator/log', ctx.startTime, new Error('Unauthorized'));
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
     const body = await req.json();
     const {
       generationId,
@@ -84,15 +91,17 @@ export async function POST(req: Request) {
       optimizedResumeJson,
     } = body;
 
-    // Validate required fields
-    if (!generationId || !companyName || !roleTitle || !jobDescriptionFull) {
-      return Response.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+      // Validate required fields
+      if (!generationId || !companyName || !roleTitle || !jobDescriptionFull) {
+        logger.request.failed('/api/resume-generator/log', ctx.startTime, new Error('Missing required fields'));
+        return Response.json({ error: 'Missing required fields' }, { status: 400 });
+      }
 
-    // Validate v2 required fields
-    if (!jobId || !jobIdentifier) {
-      return Response.json({ error: 'Missing jobId or jobIdentifier for v2 format' }, { status: 400 });
-    }
+      // Validate v2 required fields
+      if (!jobId || !jobIdentifier) {
+        logger.request.failed('/api/resume-generator/log', ctx.startTime, new Error('Missing jobId or jobIdentifier'));
+        return Response.json({ error: 'Missing jobId or jobIdentifier for v2 format' }, { status: 400 });
+      }
 
     const environment = getEnvironment();
     const now = new Date().toISOString();
@@ -102,9 +111,9 @@ export async function POST(req: Request) {
 
     let log: ResumeGenerationLogV2;
 
-    if (existing) {
-      // Merge with existing record
-      console.log('[resume-generator/log] Found existing record, merging...');
+      if (existing) {
+        // Merge with existing record
+        logger.debug('Found existing record, merging', { jobId });
 
       const existingLog = existing.log;
 
@@ -173,9 +182,9 @@ export async function POST(req: Request) {
         appliedDate: existingLog.appliedDate,
         notes: existingLog.notes,
       };
-    } else {
-      // Create new V2 record
-      console.log('[resume-generator/log] Creating new v2 record');
+      } else {
+        // Create new V2 record
+        logger.debug('Creating new v2 record', { jobId });
 
       log = {
         version: 2,
@@ -211,31 +220,35 @@ export async function POST(req: Request) {
       };
     }
 
-    // Save to blob using jobId-based path (enables deduplication via overwrite)
-    const blobPath = `damilola.tech/resume-generations/${environment}/${jobId}.json`;
+      // Save to blob using jobId-based path (enables deduplication via overwrite)
+      const blobPath = `damilola.tech/resume-generations/${environment}/${jobId}.json`;
 
-    console.log('[resume-generator/log] Saving to blob:', blobPath);
+      const blob = await put(blobPath, JSON.stringify(log, null, 2), {
+        access: 'public',
+        contentType: 'application/json',
+      });
 
-    const blob = await put(blobPath, JSON.stringify(log, null, 2), {
-      access: 'public',
-      contentType: 'application/json',
-    });
+      logger.request.completed('/api/resume-generator/log', ctx.startTime, {
+        generationId,
+        jobId,
+        isUpdate: !!existing,
+        generationCount: log.generationHistory.length + 1,
+      });
 
-    console.log('[resume-generator/log] Saved successfully:', blob.url);
-
-    return Response.json({
-      success: true,
-      url: blob.url,
-      generationId,
-      jobId,
-      isUpdate: !!existing,
-      generationCount: log.generationHistory.length + 1,
-    });
-  } catch (error) {
-    console.error('[resume-generator/log] Error:', error);
-    return Response.json(
-      { error: 'Failed to save generation log' },
-      { status: 500 }
-    );
-  }
+      return Response.json({
+        success: true,
+        url: blob.url,
+        generationId,
+        jobId,
+        isUpdate: !!existing,
+        generationCount: log.generationHistory.length + 1,
+      });
+    } catch (error) {
+      logger.request.failed('/api/resume-generator/log', ctx.startTime, error);
+      return Response.json(
+        { error: 'Failed to save generation log' },
+        { status: 500 }
+      );
+    }
+  });
 }

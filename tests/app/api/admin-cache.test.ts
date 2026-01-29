@@ -140,10 +140,6 @@ describe('admin cache API route', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to read cache');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/cache/usage-7d] Error reading cache:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });
@@ -428,10 +424,6 @@ describe('admin cache API route', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to write cache');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/cache/usage-7d] Error writing cache:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });

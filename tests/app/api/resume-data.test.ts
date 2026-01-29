@@ -6,6 +6,13 @@ vi.mock('@/lib/blob', () => ({
   fetchAllContent: mockFetchAllContent,
 }));
 
+// Helper to create a mock Request
+function createMockRequest(): Request {
+  return new Request('http://localhost:3000/api/resume-data', {
+    method: 'GET',
+  });
+}
+
 describe('resume-data API route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -62,7 +69,7 @@ describe('resume-data API route', () => {
 
       const { GET } = await import('@/app/api/resume-data/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -75,7 +82,7 @@ describe('resume-data API route', () => {
 
       const { GET } = await import('@/app/api/resume-data/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
 
       expect(response.headers.get('content-type')).toContain('application/json');
     });
@@ -85,7 +92,7 @@ describe('resume-data API route', () => {
 
       const { GET } = await import('@/app/api/resume-data/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(data).toHaveProperty('personalInfo');
@@ -100,7 +107,7 @@ describe('resume-data API route', () => {
 
       const { GET } = await import('@/app/api/resume-data/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(data.personalInfo.name).toBe('Damilola Elegbede');
@@ -121,7 +128,7 @@ describe('resume-data API route', () => {
 
       const { GET } = await import('@/app/api/resume-data/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(503);
@@ -141,7 +148,7 @@ describe('resume-data API route', () => {
 
       const { GET } = await import('@/app/api/resume-data/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(503);
@@ -153,19 +160,11 @@ describe('resume-data API route', () => {
 
       const { GET } = await import('@/app/api/resume-data/route');
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(503);
       expect(data.error).toBe('Failed to load resume data.');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[resume-data] Error fetching resume data:',
-        expect.any(Error)
-      );
-
-      consoleSpy.mockRestore();
     });
 
     it('returns 503 when resume contains invalid JSON', async () => {
@@ -176,38 +175,23 @@ describe('resume-data API route', () => {
 
       const { GET } = await import('@/app/api/resume-data/route');
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(503);
       expect(data.error).toBe('Failed to load resume data.');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[resume-data] Error fetching resume data:',
-        expect.any(Error)
-      );
-
-      consoleSpy.mockRestore();
     });
 
-    it('logs error message with correct prefix', async () => {
+    it('handles network timeout errors gracefully', async () => {
       mockFetchAllContent.mockRejectedValue(new Error('Network timeout'));
 
       const { GET } = await import('@/app/api/resume-data/route');
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const response = await GET(createMockRequest());
+      const data = await response.json();
 
-      await GET();
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[resume-data] Error fetching resume data:',
-        expect.objectContaining({
-          message: 'Network timeout',
-        })
-      );
-
-      consoleSpy.mockRestore();
+      expect(response.status).toBe(503);
+      expect(data.error).toBe('Failed to load resume data.');
     });
   });
 

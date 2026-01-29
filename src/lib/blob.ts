@@ -1,5 +1,6 @@
 import { list } from '@vercel/blob';
 import { CONTENT_DIRS } from './content-utils';
+import { logger } from './logger';
 
 // Cache for blob content to avoid repeated fetches
 const blobCache = new Map<string, string>();
@@ -16,10 +17,7 @@ export interface FetchBlobOptions {
  * Fetch content from Vercel Blob storage using the @vercel/blob SDK.
  * Files are stored under the content/ prefix (e.g., content/chatbot-system-prompt.md)
  */
-export async function fetchBlob(
-  filename: string,
-  options?: FetchBlobOptions
-): Promise<string> {
+export async function fetchBlob(filename: string, options?: FetchBlobOptions): Promise<string> {
   // Check cache first
   if (blobCache.has(filename)) {
     return blobCache.get(filename)!;
@@ -32,9 +30,11 @@ export async function fetchBlob(
     if (options?.required) {
       throw new Error(`${message}. Build cannot proceed.`);
     }
-    console.warn(message);
+    logger.debug('blob.token_not_configured', { filename });
     return '';
   }
+
+  const startTime = Date.now();
 
   try {
     // List blobs with the specific prefix to find our file
@@ -48,11 +48,10 @@ export async function fetchBlob(
     const blob = blobs.find((b) => b.pathname === blobPath);
 
     if (!blob) {
-      const message = `Blob not found: ${blobPath}`;
       if (options?.required) {
         throw new Error(`Required blob file not found: ${filename}. Build cannot proceed.`);
       }
-      console.warn(message);
+      logger.debug('blob.not_found', { filename, blobPath });
       return '';
     }
 
@@ -68,12 +67,16 @@ export async function fetchBlob(
         if (options?.required) {
           throw new Error(message);
         }
-        console.warn(message);
+        logger.blob.readFailure(filename, new Error(`HTTP ${response.status}`));
         return '';
       }
 
       const content = await response.text();
       blobCache.set(filename, content);
+
+      const durationMs = Date.now() - startTime;
+      logger.blob.readSuccess(filename, durationMs);
+
       return content;
     } finally {
       clearTimeout(timeoutId);
@@ -82,7 +85,7 @@ export async function fetchBlob(
     if (options?.required) {
       throw error;
     }
-    console.error(`Error fetching blob ${filename}:`, error);
+    logger.blob.readFailure(filename, error);
     return '';
   }
 }
@@ -203,7 +206,7 @@ async function tryLocalContentDirs(filename: string): Promise<string | null> {
       const localPath = path.join(process.cwd(), dir, filename);
       try {
         const content = await fs.readFile(localPath, 'utf-8');
-        console.log(`Using local ${filename} from ${dir}`);
+        logger.debug('blob.local_fallback_used', { filename, dir });
         return content;
       } catch {
         // File not found in this directory, try next
@@ -230,7 +233,7 @@ async function fetchWithLocalFallback(filename: string): Promise<string> {
   const localContent = await tryLocalContentDirs(filename);
   if (localContent) return localContent;
 
-  console.warn(`${filename} not found in blob or locally`);
+  logger.debug('blob.file_not_found', { filename });
   return '';
 }
 
@@ -250,7 +253,7 @@ async function fetchWithLocalFallbackRequired(filename: string): Promise<string>
       return await fetchBlob(filename, { required: true });
     } catch {
       // If blob fails, try local fallback
-      console.warn(`Blob fetch failed for ${filename}, trying local fallback...`);
+      logger.debug('blob.fetch_failed_trying_local', { filename });
     }
   }
 
@@ -260,9 +263,13 @@ async function fetchWithLocalFallbackRequired(filename: string): Promise<string>
 
   // If no blob token and no local file, throw the appropriate error
   if (!token) {
-    throw new Error(`BLOB_READ_WRITE_TOKEN not configured for ${filename}. Build cannot proceed.`);
+    throw new Error(
+      `BLOB_READ_WRITE_TOKEN not configured for ${filename}. Build cannot proceed.`
+    );
   }
-  throw new Error(`Required file ${filename} not found in blob or locally. Build cannot proceed.`);
+  throw new Error(
+    `Required file ${filename} not found in blob or locally. Build cannot proceed.`
+  );
 }
 
 /**

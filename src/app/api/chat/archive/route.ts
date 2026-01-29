@@ -1,4 +1,6 @@
 import { put } from '@vercel/blob';
+import { logger, logColdStartIfNeeded } from '@/lib/logger';
+import { withRequestContext, createRequestContext } from '@/lib/request-context';
 
 export const runtime = 'nodejs';
 
@@ -98,56 +100,71 @@ function getShortId(uuid: string): string {
 }
 
 export async function POST(req: Request) {
-  try {
-    // Check content-length to prevent DoS via large payloads
-    const contentLength = req.headers.get('content-length');
-    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
-      return Response.json({ error: 'Request body too large' }, { status: 413 });
-    }
+  const ctx = createRequestContext(req, '/api/chat/archive');
 
-    let body: unknown;
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/chat/archive', { method: 'POST' });
+
     try {
-      body = await req.json();
-    } catch {
-      return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+      // Check content-length to prevent DoS via large payloads
+      const contentLength = req.headers.get('content-length');
+      if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+        logger.request.failed('/api/chat/archive', ctx.startTime, new Error('Request body too large'));
+        return Response.json({ error: 'Request body too large' }, { status: 413 });
+      }
+
+      let body: unknown;
+      try {
+        body = await req.json();
+      } catch (error) {
+        logger.request.failed('/api/chat/archive', ctx.startTime, error);
+        return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+      }
+
+      const validationError = getValidationError(body);
+      if (validationError) {
+        logger.request.failed('/api/chat/archive', ctx.startTime, new Error(validationError));
+        return Response.json({ error: validationError }, { status: 400 });
+      }
+
+      if (!isValidRequest(body)) {
+        logger.request.failed('/api/chat/archive', ctx.startTime, new Error('Invalid request structure'));
+        return Response.json({ error: 'Invalid request structure' }, { status: 400 });
+      }
+
+      const { sessionId, sessionStartedAt, messages } = body;
+      const environment = process.env.VERCEL_ENV || 'development';
+      const now = new Date();
+
+      const archivedSession: ArchivedSession = {
+        version: 1,
+        sessionId,
+        environment,
+        archivedAt: now.toISOString(),
+        sessionStartedAt,
+        messageCount: messages.length,
+        messages,
+      };
+
+      const timestamp = formatTimestamp(now);
+      const shortId = getShortId(sessionId);
+      const pathname = `damilola.tech/chats/${environment}/${timestamp}-${shortId}.json`;
+
+      await put(pathname, JSON.stringify(archivedSession), {
+        access: 'public',
+        addRandomSuffix: true,
+        contentType: 'application/json',
+      });
+
+      logger.request.completed('/api/chat/archive', ctx.startTime, {
+        sessionId,
+        messageCount: messages.length,
+      });
+      return Response.json({ success: true });
+    } catch (error) {
+      logger.request.failed('/api/chat/archive', ctx.startTime, error);
+      return Response.json({ error: 'Failed to archive session' }, { status: 500 });
     }
-
-    const validationError = getValidationError(body);
-    if (validationError) {
-      return Response.json({ error: validationError }, { status: 400 });
-    }
-
-    if (!isValidRequest(body)) {
-      return Response.json({ error: 'Invalid request structure' }, { status: 400 });
-    }
-
-    const { sessionId, sessionStartedAt, messages } = body;
-    const environment = process.env.VERCEL_ENV || 'development';
-    const now = new Date();
-
-    const archivedSession: ArchivedSession = {
-      version: 1,
-      sessionId,
-      environment,
-      archivedAt: now.toISOString(),
-      sessionStartedAt,
-      messageCount: messages.length,
-      messages,
-    };
-
-    const timestamp = formatTimestamp(now);
-    const shortId = getShortId(sessionId);
-    const pathname = `damilola.tech/chats/${environment}/${timestamp}-${shortId}.json`;
-
-    await put(pathname, JSON.stringify(archivedSession), {
-      access: 'public',
-      addRandomSuffix: true,
-      contentType: 'application/json',
-    });
-
-    return Response.json({ success: true });
-  } catch (error) {
-    console.error('[chat/archive] Error archiving session:', error);
-    return Response.json({ error: 'Failed to archive session' }, { status: 500 });
-  }
+  });
 }

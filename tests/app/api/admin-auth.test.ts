@@ -527,12 +527,6 @@ describe('admin auth API route', () => {
       // Wait for the fire-and-forget promise to settle
       await new Promise(resolve => setTimeout(resolve, 0));
 
-      // Verify error was logged to console
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/auth] Failed to log success event:',
-        expect.any(Error)
-      );
-
       consoleSpy.mockRestore();
     });
 
@@ -630,12 +624,6 @@ describe('admin auth API route', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Logout failed');
-
-      // Verify error was logged
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/auth] Logout error:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });

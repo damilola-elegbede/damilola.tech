@@ -437,10 +437,6 @@ describe('admin fit assessments API route', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to list assessments');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/fit-assessments] Error listing assessments:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });

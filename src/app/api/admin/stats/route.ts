@@ -2,6 +2,8 @@ import { cookies } from 'next/headers';
 import { list } from '@vercel/blob';
 import { verifyToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
 import type { AuditEvent, TrafficSource } from '@/lib/types';
+import { logger, logColdStartIfNeeded } from '@/lib/logger';
+import { withRequestContext, createRequestContext } from '@/lib/request-context';
 
 export const runtime = 'nodejs';
 
@@ -21,14 +23,20 @@ interface Stats {
 }
 
 export async function GET(req: Request) {
-  // Verify authentication
-  const cookieStore = await cookies();
-  const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
-  if (!token || !(await verifyToken(token))) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const ctx = createRequestContext(req, '/api/admin/stats');
 
-  try {
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/admin/stats', { method: 'GET' });
+
+    // Verify authentication
+    const cookieStore = await cookies();
+    const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
+    if (!token || !(await verifyToken(token))) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
     const { searchParams } = new URL(req.url);
     const environment = searchParams.get('env') || process.env.VERCEL_ENV || 'production';
 
@@ -152,26 +160,28 @@ export async function GET(req: Request) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 3); // Top 3 sources
 
-    const stats: Stats = {
-      chats: { total: chatCount },
-      fitAssessments: { total: assessmentCount },
-      resumeGenerations: {
-        total: resumeGenCount,
-        byStatus: resumeByStatus,
-      },
-      audit: {
-        total: auditCount,
-        byType: auditByType,
-      },
-      traffic: {
-        topSources,
-      },
-      environment,
-    };
+      const stats: Stats = {
+        chats: { total: chatCount },
+        fitAssessments: { total: assessmentCount },
+        resumeGenerations: {
+          total: resumeGenCount,
+          byStatus: resumeByStatus,
+        },
+        audit: {
+          total: auditCount,
+          byType: auditByType,
+        },
+        traffic: {
+          topSources,
+        },
+        environment,
+      };
 
-    return Response.json(stats);
-  } catch (error) {
-    console.error('[admin/stats] Error getting stats:', error);
-    return Response.json({ error: 'Failed to get stats' }, { status: 500 });
-  }
+      logger.request.completed('/api/admin/stats', ctx.startTime);
+      return Response.json(stats);
+    } catch (error) {
+      logger.request.failed('/api/admin/stats', ctx.startTime, error);
+      return Response.json({ error: 'Failed to get stats' }, { status: 500 });
+    }
+  });
 }

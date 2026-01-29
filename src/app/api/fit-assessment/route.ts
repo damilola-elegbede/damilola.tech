@@ -9,6 +9,13 @@ import {
   RATE_LIMIT_CONFIGS,
 } from '@/lib/rate-limit';
 import { logUsage } from '@/lib/usage-logger';
+import { logger, logColdStartIfNeeded, checkTimeoutWarning } from '@/lib/logger';
+import {
+  withRequestContext,
+  createRequestContext,
+  updateRequestContext,
+  captureContext,
+} from '@/lib/request-context';
 
 // Dynamic import for DNS to allow testing without mocking
 let dnsLookup: typeof import('node:dns/promises').lookup | null = null;
@@ -51,9 +58,9 @@ const JD_KEYWORDS = [
   'position',
   'duties',
   'about the role',
-  'what you\'ll do',
+  "what you'll do",
   'who you are',
-  'what we\'re looking for',
+  "what we're looking for",
   'minimum requirements',
   'preferred qualifications',
   'about this job',
@@ -188,7 +195,10 @@ function isPrivateIp(address: string): boolean {
  * Validate URL for SSRF protection with DNS resolution.
  * Returns error message if URL is blocked, null if allowed.
  */
-async function validateUrlForSsrf(urlString: string): Promise<string | null> {
+async function validateUrlForSsrf(
+  urlString: string,
+  ip: string
+): Promise<string | null> {
   let url: URL;
   try {
     url = new URL(urlString);
@@ -198,6 +208,7 @@ async function validateUrlForSsrf(urlString: string): Promise<string | null> {
 
   // Only allow http and https protocols
   if (!['http:', 'https:'].includes(url.protocol)) {
+    logger.security.ssrfBlocked(ip, urlString, 'invalid_protocol');
     return 'Only HTTP and HTTPS URLs are supported.';
   }
 
@@ -205,22 +216,24 @@ async function validateUrlForSsrf(urlString: string): Promise<string | null> {
 
   // Check blocked hostnames
   if (BLOCKED_HOSTNAMES.includes(hostname)) {
+    logger.security.ssrfBlocked(ip, urlString, 'blocked_hostname');
     return 'This URL is not allowed.';
   }
 
   // Block cloud metadata endpoints
   if (hostname === '169.254.169.254') {
+    logger.security.ssrfBlocked(ip, urlString, 'cloud_metadata');
     return 'This URL is not allowed.';
   }
 
   // Strip brackets from IPv6 addresses for isIP check
-  const ipAddress = hostname.startsWith('[') && hostname.endsWith(']')
-    ? hostname.slice(1, -1)
-    : hostname;
+  const ipAddress =
+    hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
 
   // Check if hostname is an IP address directly
   if (isIP(ipAddress)) {
     if (isPrivateIp(ipAddress)) {
+      logger.security.ssrfBlocked(ip, urlString, 'private_ip');
       return 'This URL is not allowed.';
     }
     return null;
@@ -230,10 +243,12 @@ async function validateUrlForSsrf(urlString: string): Promise<string | null> {
   try {
     const lookup = await getDnsLookup();
     if (lookup) {
+      logger.debug('dns.resolve_attempt', { hostname });
       const results = await lookup(hostname, { all: true });
       const addresses = results.map((r) => r.address);
 
       if (addresses.some(isPrivateIp)) {
+        logger.security.ssrfBlocked(ip, urlString, 'dns_resolves_to_private');
         return 'This URL is not allowed.';
       }
     }
@@ -243,7 +258,10 @@ async function validateUrlForSsrf(urlString: string): Promise<string | null> {
     // don't resolve, and mocking Node's native dns/promises module is complex.
     // In production, unresolvable domains will fail at the fetch stage anyway.
     // For stricter security, consider adding real DNS mocking to tests.
-    console.warn(`[fit-assessment] DNS resolution failed for ${hostname}:`, error);
+    logger.debug('dns.resolve_failed', {
+      hostname,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   return null;
@@ -258,6 +276,7 @@ async function fetchWithSizeLimit(
   url: string,
   maxSize: number,
   timeout: number,
+  ip: string,
   redirectCount = 0
 ): Promise<string> {
   if (redirectCount >= MAX_REDIRECTS) {
@@ -275,11 +294,12 @@ async function fetchWithSizeLimit(
     const location = response.headers.get('location');
     if (location) {
       const redirectUrl = new URL(location, url).href;
-      const redirectError = await validateUrlForSsrf(redirectUrl);
+      const redirectError = await validateUrlForSsrf(redirectUrl, ip);
       if (redirectError) {
+        logger.security.ssrfBlocked(ip, redirectUrl, 'blocked_redirect');
         throw new Error(`Redirect blocked: ${redirectError}`);
       }
-      return fetchWithSizeLimit(redirectUrl, maxSize, timeout, redirectCount + 1);
+      return fetchWithSizeLimit(redirectUrl, maxSize, timeout, ip, redirectCount + 1);
     }
   }
 
@@ -322,232 +342,264 @@ async function fetchWithSizeLimit(
 }
 
 export async function POST(req: Request) {
-  console.log('[fit-assessment] Request received');
-  const startTime = Date.now();
-  try {
-    // Check content-length to prevent DoS via large payloads
-    const contentLength = req.headers.get('content-length');
-    console.log('[fit-assessment] Content-Length:', contentLength);
-    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
-      console.log('[fit-assessment] Request body too large, rejecting');
-      return Response.json({ error: 'Request body too large.' }, { status: 413 });
-    }
+  const ctx = createRequestContext(req, '/api/fit-assessment');
 
-    // Rate limit check using IP
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/fit-assessment', { method: 'POST' });
     const ip = getClientIp(req);
-    const rateLimitResult = await checkGenericRateLimit(
-      RATE_LIMIT_CONFIGS.fitAssessment,
-      ip
-    );
-    if (rateLimitResult.limited) {
-      console.log(`[fit-assessment] Rate limited: ${ip}`);
-      return createRateLimitResponse(rateLimitResult);
-    }
 
-    const { prompt: jobDescription } = await req.json();
-    console.log('[fit-assessment] Job description length:', jobDescription?.length ?? 0);
-
-    if (!jobDescription || typeof jobDescription !== 'string') {
-      console.log('[fit-assessment] Invalid job description, rejecting');
-      return Response.json({ error: 'Job description is required.' }, { status: 400 });
-    }
-
-    // Check if input is a URL
-    let jobDescriptionText = jobDescription;
-
-    if (isUrl(jobDescription)) {
-      console.log('[fit-assessment] Detected URL, fetching content...');
-      const urlToFetch = jobDescription.trim();
-
-      // SSRF protection: validate URL before fetching
-      const ssrfError = await validateUrlForSsrf(urlToFetch);
-      if (ssrfError) {
-        console.log('[fit-assessment] URL blocked by SSRF protection:', ssrfError);
-        return Response.json(
-          {
-            error: `${ssrfError} Please copy and paste the job description text directly.`,
-          },
-          { status: 400 }
-        );
+    try {
+      // Check content-length to prevent DoS via large payloads
+      const contentLength = req.headers.get('content-length');
+      if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+        logger.security.largePayloadRejected(ip, parseInt(contentLength, 10), MAX_BODY_SIZE);
+        return Response.json({ error: 'Request body too large.' }, { status: 413 });
       }
 
-      try {
-        const html = await fetchWithSizeLimit(urlToFetch, MAX_RESPONSE_SIZE, URL_FETCH_TIMEOUT);
-        const textContent = extractTextFromHtml(html);
-        console.log('[fit-assessment] Extracted content length:', textContent.length);
-
-        if (textContent.length < MIN_EXTRACTED_CONTENT_LENGTH) {
-          console.log('[fit-assessment] Extracted content too short');
-          return Response.json(
-            {
-              error:
-                'Could not extract job description from that URL. The page may require login or block automated access. Please copy and paste the job description text directly.',
-            },
-            { status: 400 }
-          );
-        }
-
-        // Validate that the extracted content looks like a job description
-        if (!looksLikeJobDescription(textContent)) {
-          console.log('[fit-assessment] Extracted content does not look like a job description');
-          return Response.json(
-            {
-              error:
-                'The URL does not appear to contain a job description. Please ensure the URL points directly to a job posting, or copy and paste the job description text directly.',
-            },
-            { status: 400 }
-          );
-        }
-
-        jobDescriptionText = textContent;
-      } catch (err) {
-        console.error('[fit-assessment] URL fetch error:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-
-        if (errorMessage.includes('HTTP ')) {
-          return Response.json(
-            {
-              error: `Could not access the job posting (${errorMessage}). Please copy and paste the job description text directly.`,
-            },
-            { status: 400 }
-          );
-        }
-
-        if (errorMessage.includes('Response too large')) {
-          return Response.json(
-            {
-              error: 'The page is too large to process. Please copy and paste the job description text directly.',
-            },
-            { status: 400 }
-          );
-        }
-
-        if (errorMessage.includes('Redirect blocked')) {
-          return Response.json(
-            {
-              error: 'The URL redirected to a blocked destination. Please copy and paste the job description text directly.',
-            },
-            { status: 400 }
-          );
-        }
-
-        return Response.json(
-          {
-            error:
-              'Could not fetch the job posting. The site may be unavailable or blocking access. Please copy and paste the job description text directly.',
-          },
-          { status: 400 }
-        );
+      // Rate limit check using IP
+      const rateLimitResult = await checkGenericRateLimit(RATE_LIMIT_CONFIGS.fitAssessment, ip);
+      if (rateLimitResult.limited) {
+        logger.security.rateLimitTriggered(ip, '/api/fit-assessment', {
+          retryAfter: rateLimitResult.retryAfter,
+        });
+        return createRateLimitResponse(rateLimitResult);
       }
-    }
 
-    // Use generated prompt in production, fall back to runtime fetch in development
-    console.log('[fit-assessment] Loading system prompt (generated:', isGeneratedPromptAvailable, ')');
-    const systemPrompt = isGeneratedPromptAvailable
-      ? FIT_ASSESSMENT_PROMPT
-      : await getFitAssessmentPrompt();
-    console.log('[fit-assessment] System prompt loaded, length:', systemPrompt.length);
+      const { prompt: jobDescription } = await req.json();
+      logger.debug('request.body_parsed', {
+        jobDescriptionLength: jobDescription?.length ?? 0,
+      });
 
-    console.log('[fit-assessment] Calling Anthropic API (streaming)...');
+      if (!jobDescription || typeof jobDescription !== 'string') {
+        logger.debug('request.validation_failed', { reason: 'missing_job_description' });
+        return Response.json({ error: 'Job description is required.' }, { status: 400 });
+      }
 
-    // Streaming API call for progressive text display
-    // Wrap job description in XML tags for prompt injection mitigation
-    // Use temperature: 0 for deterministic, consistent fit assessments across runs
-    // Enable prompt caching for the system prompt (90% cost reduction on cache hits)
-    const stream = client.messages.stream({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      temperature: 0,
-      system: [
-        {
-          type: 'text',
-          text: systemPrompt,
-          cache_control: { type: 'ephemeral' },
-        },
-      ],
-      messages: [
-        {
-          role: 'user',
-          content: `Generate an Executive Fit Report for this job description:\n\n<job_description>${jobDescriptionText}</job_description>`,
-        },
-      ],
-    });
+      // Check if input is a URL
+      let jobDescriptionText = jobDescription;
 
-    // Generate session ID before streaming to ensure correlation between success and error logs
-    const fitSessionId = `fit-assessment-${crypto.randomUUID()}`;
+      if (isUrl(jobDescription)) {
+        logger.info('url.fetch_started', { url: jobDescription.trim().slice(0, 100) });
+        const urlToFetch = jobDescription.trim();
 
-    // Return streaming response
-    return new Response(
-      new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const event of stream) {
-              if (
-                event.type === 'content_block_delta' &&
-                event.delta.type === 'text_delta'
-              ) {
-                controller.enqueue(new TextEncoder().encode(event.delta.text));
-              }
-            }
-            controller.close();
-            console.log('[fit-assessment] Stream completed');
+        // SSRF protection: validate URL before fetching
+        const ssrfError = await validateUrlForSsrf(urlToFetch, ip);
+        if (ssrfError) {
+          return Response.json(
+            {
+              error: `${ssrfError} Please copy and paste the job description text directly.`,
+            },
+            { status: 400 }
+          );
+        }
 
-            // Log usage metrics for cost tracking (fire-and-forget)
-            try {
-              const finalMessage = await stream.finalMessage();
-              const usage = finalMessage.usage;
-              console.log(JSON.stringify({
-                type: 'api_usage',
-                timestamp: new Date().toISOString(),
-                sessionId: fitSessionId,
-                endpoint: 'fit-assessment',
-                model: 'claude-sonnet-4-20250514',
-                inputTokens: usage.input_tokens,
-                outputTokens: usage.output_tokens,
-                cacheCreation: usage.cache_creation_input_tokens ?? 0,
-                cacheRead: usage.cache_read_input_tokens ?? 0,
-              }));
+        try {
+          const html = await fetchWithSizeLimit(
+            urlToFetch,
+            MAX_RESPONSE_SIZE,
+            URL_FETCH_TIMEOUT,
+            ip
+          );
+          const textContent = extractTextFromHtml(html);
+          logger.debug('url.content_extracted', { contentLength: textContent.length });
 
-              // Log to Vercel Blob for usage dashboard (fire-and-forget)
-              logUsage(fitSessionId, {
-                endpoint: 'fit-assessment',
-                model: 'claude-sonnet-4-20250514',
-                inputTokens: usage.input_tokens,
-                outputTokens: usage.output_tokens,
-                cacheCreation: usage.cache_creation_input_tokens ?? 0,
-                cacheRead: usage.cache_read_input_tokens ?? 0,
-                durationMs: Date.now() - startTime,
-              }).catch((err) => console.warn('[fit-assessment] Failed to log usage to blob:', err));
-            } catch (usageError) {
-              console.warn('[fit-assessment] Failed to log usage:', usageError);
-            }
-          } catch (streamError) {
-            console.error('[fit-assessment] Stream error:', streamError);
-            // Log error for anomaly detection (uses same sessionId for correlation)
-            console.log(JSON.stringify({
-              type: 'api_usage_error',
-              timestamp: new Date().toISOString(),
-              sessionId: fitSessionId,
-              endpoint: 'fit-assessment',
-              error: streamError instanceof Error ? streamError.message : 'Unknown',
-            }));
-            controller.error(streamError);
+          if (textContent.length < MIN_EXTRACTED_CONTENT_LENGTH) {
+            logger.warn('url.content_too_short', {
+              contentLength: textContent.length,
+              minRequired: MIN_EXTRACTED_CONTENT_LENGTH,
+            });
+            return Response.json(
+              {
+                error:
+                  'Could not extract job description from that URL. The page may require login or block automated access. Please copy and paste the job description text directly.',
+              },
+              { status: 400 }
+            );
           }
-        },
-      }),
-      {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Transfer-Encoding': 'chunked',
-        },
+
+          // Validate that the extracted content looks like a job description
+          if (!looksLikeJobDescription(textContent)) {
+            logger.warn('url.not_job_description', { contentLength: textContent.length });
+            return Response.json(
+              {
+                error:
+                  'The URL does not appear to contain a job description. Please ensure the URL points directly to a job posting, or copy and paste the job description text directly.',
+              },
+              { status: 400 }
+            );
+          }
+
+          jobDescriptionText = textContent;
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          logger.warn('url.fetch_failed', { error: errorMessage });
+
+          if (errorMessage.includes('HTTP ')) {
+            return Response.json(
+              {
+                error: `Could not access the job posting (${errorMessage}). Please copy and paste the job description text directly.`,
+              },
+              { status: 400 }
+            );
+          }
+
+          if (errorMessage.includes('Response too large')) {
+            return Response.json(
+              {
+                error:
+                  'The page is too large to process. Please copy and paste the job description text directly.',
+              },
+              { status: 400 }
+            );
+          }
+
+          if (errorMessage.includes('Redirect blocked')) {
+            return Response.json(
+              {
+                error:
+                  'The URL redirected to a blocked destination. Please copy and paste the job description text directly.',
+              },
+              { status: 400 }
+            );
+          }
+
+          return Response.json(
+            {
+              error:
+                'Could not fetch the job posting. The site may be unavailable or blocking access. Please copy and paste the job description text directly.',
+            },
+            { status: 400 }
+          );
+        }
       }
-    );
-  } catch (error) {
-    console.error('[fit-assessment] Error:', error);
-    console.error('[fit-assessment] Stack:', error instanceof Error ? error.stack : 'No stack');
-    return Response.json(
-      { error: 'AI service error.' },
-      { status: 503 }
-    );
-  }
+
+      // Use generated prompt in production, fall back to runtime fetch in development
+      logger.debug('system_prompt.loading', { isGenerated: isGeneratedPromptAvailable });
+      const systemPrompt = isGeneratedPromptAvailable
+        ? FIT_ASSESSMENT_PROMPT
+        : await getFitAssessmentPrompt();
+
+      // Generate session ID before streaming to ensure correlation between success and error logs
+      const fitSessionId = `fit-assessment-${crypto.randomUUID()}`;
+      updateRequestContext({ sessionId: fitSessionId });
+
+      logger.stream.started('/api/fit-assessment');
+
+      // Streaming API call for progressive text display
+      // Wrap job description in XML tags for prompt injection mitigation
+      // Use temperature: 0 for deterministic, consistent fit assessments across runs
+      // Enable prompt caching for the system prompt (90% cost reduction on cache hits)
+      const stream = client.messages.stream({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        temperature: 0,
+        system: [
+          {
+            type: 'text',
+            text: systemPrompt,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        messages: [
+          {
+            role: 'user',
+            content: `Generate an Executive Fit Report for this job description:\n\n<job_description>${jobDescriptionText}</job_description>`,
+          },
+        ],
+      });
+
+      // Capture context for fire-and-forget operations
+      const capturedCtx = captureContext();
+      let firstByteLogged = false;
+
+      // Return streaming response
+      return new Response(
+        new ReadableStream({
+          async start(controller) {
+            try {
+              for await (const event of stream) {
+                if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+                  // Log time to first byte
+                  if (!firstByteLogged) {
+                    logger.stream.firstByte(ctx.startTime);
+                    firstByteLogged = true;
+                  }
+                  controller.enqueue(new TextEncoder().encode(event.delta.text));
+                }
+
+                // Check for approaching timeout
+                checkTimeoutWarning(ctx.startTime, '/api/fit-assessment');
+              }
+              controller.close();
+
+              const streamDuration = Date.now() - ctx.startTime;
+
+              // Log usage metrics for cost tracking (fire-and-forget)
+              try {
+                const finalMessage = await stream.finalMessage();
+                const usage = finalMessage.usage;
+
+                const cacheHitRate =
+                  usage.input_tokens > 0
+                    ? (usage.cache_read_input_tokens ?? 0) / usage.input_tokens
+                    : 0;
+
+                logger.stream.completed(ctx.startTime, {
+                  inputTokens: usage.input_tokens,
+                  outputTokens: usage.output_tokens,
+                  cacheCreation: usage.cache_creation_input_tokens ?? 0,
+                  cacheRead: usage.cache_read_input_tokens ?? 0,
+                  cacheHitRate: Math.round(cacheHitRate * 100) / 100,
+                });
+
+                // Log to Vercel Blob for usage dashboard (fire-and-forget)
+                logUsage(fitSessionId, {
+                  endpoint: 'fit-assessment',
+                  model: 'claude-sonnet-4-20250514',
+                  inputTokens: usage.input_tokens,
+                  outputTokens: usage.output_tokens,
+                  cacheCreation: usage.cache_creation_input_tokens ?? 0,
+                  cacheRead: usage.cache_read_input_tokens ?? 0,
+                  durationMs: streamDuration,
+                }).catch((err) =>
+                  logger.error('usage.log_failed', {
+                    requestId: capturedCtx?.requestId,
+                    error: err instanceof Error ? err.message : String(err),
+                  })
+                );
+              } catch (usageError) {
+                logger.warn('usage.retrieval_failed', {
+                  error: usageError instanceof Error ? usageError.message : String(usageError),
+                });
+              }
+            } catch (error) {
+              // Handle Anthropic API errors with appropriate levels
+              if (error instanceof Anthropic.APIError) {
+                if (error.status === 429) {
+                  logger.anthropic.rateLimited(error.headers?.['retry-after'] as string | undefined);
+                } else if (error.status >= 500) {
+                  logger.anthropic.serverError(error.status, error.message);
+                } else {
+                  logger.anthropic.apiError(error.status, error.message);
+                }
+              } else {
+                logger.stream.error(ctx.startTime, error);
+              }
+              controller.error(error);
+            }
+          },
+        }),
+        {
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Transfer-Encoding': 'chunked',
+          },
+        }
+      );
+    } catch (error) {
+      logger.request.failed('/api/fit-assessment', ctx.startTime, error);
+      return Response.json({ error: 'AI service error.' }, { status: 503 });
+    }
+  });
 }

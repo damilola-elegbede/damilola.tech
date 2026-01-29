@@ -13,6 +13,13 @@ vi.mock('@/lib/parse-ai-context', () => ({
   parseAiContext: mockParseAiContext,
 }));
 
+// Helper to create a mock Request
+function createMockRequest(): Request {
+  return new Request('http://localhost:3000/api/ai-context', {
+    method: 'GET',
+  });
+}
+
 describe('ai-context API route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -69,7 +76,7 @@ Mentorship amplifies impact.`;
 
       const { GET } = await import('@/app/api/ai-context/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -101,7 +108,7 @@ Mentorship amplifies impact.`;
 
       const { GET } = await import('@/app/api/ai-context/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
 
       // Verify cache headers for CDN caching
       expect(response.headers.get('Cache-Control')).toBe(
@@ -115,7 +122,7 @@ Mentorship amplifies impact.`;
 
       const { GET } = await import('@/app/api/ai-context/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       // Ensure it's a plain object, not a Map
@@ -133,7 +140,7 @@ Mentorship amplifies impact.`;
 
       const { GET } = await import('@/app/api/ai-context/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -157,7 +164,7 @@ Mentorship amplifies impact.`;
 
       const { GET } = await import('@/app/api/ai-context/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -176,19 +183,11 @@ Mentorship amplifies impact.`;
 
       const { GET } = await import('@/app/api/ai-context/route');
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(500);
       expect(data).toEqual({ error: 'Failed to fetch AI context' });
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Error fetching AI context:',
-        expect.any(Error)
-      );
-
-      consoleSpy.mockRestore();
     });
 
     it('returns 500 when parseAiContext throws error', async () => {
@@ -199,34 +198,24 @@ Mentorship amplifies impact.`;
 
       const { GET } = await import('@/app/api/ai-context/route');
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(500);
       expect(data).toEqual({ error: 'Failed to fetch AI context' });
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Error fetching AI context:',
-        expect.any(Error)
-      );
-
-      consoleSpy.mockRestore();
     });
 
-    it('logs error to console when fetch fails', async () => {
+    it('handles fetch failures gracefully', async () => {
       const testError = new Error('Network timeout');
       mockFetchAiContext.mockRejectedValue(testError);
 
       const { GET } = await import('@/app/api/ai-context/route');
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const response = await GET(createMockRequest());
+      const data = await response.json();
 
-      await GET();
-
-      expect(consoleSpy).toHaveBeenCalledWith('Error fetching AI context:', testError);
-
-      consoleSpy.mockRestore();
+      expect(response.status).toBe(500);
+      expect(data).toEqual({ error: 'Failed to fetch AI context' });
     });
   });
 

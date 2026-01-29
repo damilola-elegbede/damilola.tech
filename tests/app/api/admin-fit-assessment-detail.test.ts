@@ -342,10 +342,6 @@ describe('admin fit-assessment detail API route', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to fetch assessment');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/fit-assessments/[id]] Error fetching assessment:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });

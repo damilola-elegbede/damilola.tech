@@ -10,6 +10,13 @@ import {
   RATE_LIMIT_CONFIGS,
 } from '@/lib/rate-limit';
 import { logUsage } from '@/lib/usage-logger';
+import { logger, logColdStartIfNeeded, checkTimeoutWarning } from '@/lib/logger';
+import {
+  withRequestContext,
+  createRequestContext,
+  updateRequestContext,
+  captureContext,
+} from '@/lib/request-context';
 
 // Use Node.js runtime for reliable Anthropic SDK streaming
 export const runtime = 'nodejs';
@@ -57,177 +64,220 @@ function escapeXml(value: string): string {
 }
 
 export async function POST(req: Request) {
-  console.log('[chat] Request received');
-  const startTime = Date.now();
-  try {
-    // Check content-length to prevent DoS via large payloads
-    const contentLength = req.headers.get('content-length');
-    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
-      return Response.json({ error: 'Request body too large.' }, { status: 413 });
-    }
+  const ctx = createRequestContext(req, '/api/chat');
 
-    let messages, sessionId, sessionStartedAt;
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/chat', { method: 'POST' });
+
     try {
-      const body = await req.json();
-      messages = body.messages;
-      sessionId = body.sessionId;
-      sessionStartedAt = body.sessionStartedAt;
-    } catch {
-      return Response.json({ error: 'Invalid JSON in request body.' }, { status: 400 });
-    }
+      // Check content-length to prevent DoS via large payloads
+      const contentLength = req.headers.get('content-length');
+      if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+        logger.security.largePayloadRejected(
+          ctx.ip || 'unknown',
+          parseInt(contentLength, 10),
+          MAX_BODY_SIZE
+        );
+        return Response.json({ error: 'Request body too large.' }, { status: 413 });
+      }
 
-    // Validate session identifiers to prevent path injection
-    const isValidSessionId =
-      typeof sessionId === 'string' &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId);
-    const isValidSessionStartedAt =
-      typeof sessionStartedAt === 'string' && !Number.isNaN(Date.parse(sessionStartedAt));
+      let messages, sessionId, sessionStartedAt;
+      try {
+        const body = await req.json();
+        messages = body.messages;
+        sessionId = body.sessionId;
+        sessionStartedAt = body.sessionStartedAt;
+      } catch {
+        logger.debug('request.invalid_json', { endpoint: '/api/chat' });
+        return Response.json({ error: 'Invalid JSON in request body.' }, { status: 400 });
+      }
 
-    // Rate limit check: always use IP to prevent bypass via client-controlled sessionId
-    const ip = getClientIp(req);
-    const rateLimitResult = await checkGenericRateLimit(
-      RATE_LIMIT_CONFIGS.chat,
-      ip
-    );
-    if (rateLimitResult.limited) {
-      console.log(`[chat] Rate limited: ${ip}`);
-      return createRateLimitResponse(rateLimitResult);
-    }
+      // Validate session identifiers to prevent path injection
+      const isValidSessionId =
+        typeof sessionId === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId);
+      const isValidSessionStartedAt =
+        typeof sessionStartedAt === 'string' && !Number.isNaN(Date.parse(sessionStartedAt));
 
-    if (!validateMessages(messages)) {
-      return Response.json(
-        { error: 'Invalid messages format or content too long.' },
-        { status: 400 }
-      );
-    }
+      // Update context with session ID for log correlation
+      if (isValidSessionId) {
+        updateRequestContext({ sessionId: `sess_${sessionId.slice(0, 8)}` });
+      }
 
-    // Use build-time generated prompt (production) or fetch at runtime (development)
-    const basePrompt = isGeneratedPromptAvailable
-      ? CHATBOT_SYSTEM_PROMPT
-      : await getFullSystemPrompt();
+      // Rate limit check: always use IP to prevent bypass via client-controlled sessionId
+      const ip = getClientIp(req);
+      const rateLimitResult = await checkGenericRateLimit(RATE_LIMIT_CONFIGS.chat, ip);
+      if (rateLimitResult.limited) {
+        logger.security.rateLimitTriggered(ip, '/api/chat', {
+          retryAfter: rateLimitResult.retryAfter,
+        });
+        return createRateLimitResponse(rateLimitResult);
+      }
 
-    // Reinforce brevity at the system level
-    const brevityPrefix = `CRITICAL: Keep responses SHORT. Default: 2-4 sentences. Simple factual questions: 1-2 sentences. Only use STAR format for behavioral questions. Never volunteer extra context unless asked.\n\n`;
-    const systemPrompt = brevityPrefix + basePrompt;
+      if (!validateMessages(messages)) {
+        logger.debug('request.validation_failed', {
+          endpoint: '/api/chat',
+          reason: 'Invalid messages format or content too long',
+        });
+        return Response.json(
+          { error: 'Invalid messages format or content too long.' },
+          { status: 400 }
+        );
+      }
 
-    // Auto-compact conversation if approaching limits
-    const { messages: processedMessages, wasCompacted, originalCount } = await compactConversation(
-      messages,
-      client,
-      COMPACTION_THRESHOLD
-    );
+      // Use build-time generated prompt (production) or fetch at runtime (development)
+      const basePrompt = isGeneratedPromptAvailable
+        ? CHATBOT_SYSTEM_PROMPT
+        : await getFullSystemPrompt();
 
-    if (wasCompacted) {
-      console.log(`[chat] Compacted ${originalCount} -> ${processedMessages.length} messages`);
-    }
+      // Reinforce brevity at the system level
+      const brevityPrefix = `CRITICAL: Keep responses SHORT. Default: 2-4 sentences. Simple factual questions: 1-2 sentences. Only use STAR format for behavioral questions. Never volunteer extra context unless asked.\n\n`;
+      const systemPrompt = brevityPrefix + basePrompt;
 
-    console.log('[chat] Starting stream, messages:', processedMessages.length);
+      // Auto-compact conversation if approaching limits
+      const {
+        messages: processedMessages,
+        wasCompacted,
+        originalCount,
+      } = await compactConversation(messages, client, COMPACTION_THRESHOLD);
 
-    // Use Anthropic SDK streaming
-    // Wrap user messages in XML tags for prompt injection mitigation
-    // Enable prompt caching for the system prompt (90% cost reduction on cache hits)
-    const stream = client.messages.stream({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 512, // Reduced to encourage brevity
-      system: [
-        {
-          type: 'text',
-          text: systemPrompt,
-          cache_control: { type: 'ephemeral' },
-        },
-      ],
-      messages: processedMessages.map((m) => ({
-        role: m.role,
-        content:
-          m.role === 'user'
-            ? `<user_message>${escapeXml(m.content)}</user_message>`
-            : m.content,
-      })),
-    });
+      if (wasCompacted) {
+        logger.info('chat.compacted', {
+          originalCount,
+          newCount: processedMessages.length,
+        });
+      }
 
-    // Convert to ReadableStream for the response
-    const encoder = new TextEncoder();
-    const readable = new ReadableStream({
-      async start(controller) {
-        let fullResponse = '';
-        try {
-          for await (const event of stream) {
-            if (
-              event.type === 'content_block_delta' &&
-              event.delta.type === 'text_delta'
-            ) {
-              fullResponse += event.delta.text;
-              controller.enqueue(encoder.encode(event.delta.text));
-            }
-          }
-          controller.close();
-          console.log('[chat] Stream completed');
+      logger.stream.started('/api/chat', { messageCount: processedMessages.length });
 
-          // Save to Blob after stream completes (fire-and-forget)
-          if (isValidSessionId && isValidSessionStartedAt) {
-            const fullConversation = [
-              ...messages,
-              { role: 'assistant' as const, content: fullResponse },
-            ];
-            saveConversationToBlob(sessionId, sessionStartedAt, fullConversation).catch(
-              (err) => console.warn('[chat] Failed to save conversation:', err)
-            );
-          }
-          // Log usage metrics for cost tracking (fire-and-forget)
+      // Use Anthropic SDK streaming
+      // Wrap user messages in XML tags for prompt injection mitigation
+      // Enable prompt caching for the system prompt (90% cost reduction on cache hits)
+      const stream = client.messages.stream({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 512, // Reduced to encourage brevity
+        system: [
+          {
+            type: 'text',
+            text: systemPrompt,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        messages: processedMessages.map((m) => ({
+          role: m.role,
+          content:
+            m.role === 'user' ? `<user_message>${escapeXml(m.content)}</user_message>` : m.content,
+        })),
+      });
+
+      // Capture context for fire-and-forget operations
+      const capturedCtx = captureContext();
+      let firstByteLogged = false;
+
+      // Convert to ReadableStream for the response
+      const encoder = new TextEncoder();
+      const readable = new ReadableStream({
+        async start(controller) {
+          let fullResponse = '';
           try {
-            const finalMessage = await stream.finalMessage();
-            const usage = finalMessage.usage;
-            console.log(JSON.stringify({
-              type: 'api_usage',
-              timestamp: new Date().toISOString(),
-              sessionId: isValidSessionId ? `sess_${sessionId.slice(0, 8)}` : 'anon',
-              endpoint: 'chat',
-              model: 'claude-sonnet-4-20250514',
-              inputTokens: usage.input_tokens,
-              outputTokens: usage.output_tokens,
-              cacheCreation: usage.cache_creation_input_tokens ?? 0,
-              cacheRead: usage.cache_read_input_tokens ?? 0,
-            }));
+            for await (const event of stream) {
+              if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+                // Log time to first byte
+                if (!firstByteLogged) {
+                  logger.stream.firstByte(ctx.startTime);
+                  firstByteLogged = true;
+                }
+                fullResponse += event.delta.text;
+                controller.enqueue(encoder.encode(event.delta.text));
+              }
 
-            // Log to Vercel Blob for usage dashboard (fire-and-forget)
-            logUsage(isValidSessionId ? sessionId : 'anonymous', {
-              endpoint: 'chat',
-              model: 'claude-sonnet-4-20250514',
-              inputTokens: usage.input_tokens,
-              outputTokens: usage.output_tokens,
-              cacheCreation: usage.cache_creation_input_tokens ?? 0,
-              cacheRead: usage.cache_read_input_tokens ?? 0,
-              durationMs: Date.now() - startTime,
-            }).catch((err) => console.warn('[chat] Failed to log usage to blob:', err));
-          } catch (usageError) {
-            console.warn('[chat] Failed to log usage:', usageError);
+              // Check for approaching timeout
+              checkTimeoutWarning(ctx.startTime, '/api/chat');
+            }
+            controller.close();
+
+            const streamDuration = Date.now() - ctx.startTime;
+
+            // Save to Blob after stream completes (fire-and-forget)
+            if (isValidSessionId && isValidSessionStartedAt) {
+              const fullConversation = [
+                ...messages,
+                { role: 'assistant' as const, content: fullResponse },
+              ];
+              saveConversationToBlob(sessionId, sessionStartedAt, fullConversation).catch((err) =>
+                logger.warn('blob.save_failed', {
+                  requestId: capturedCtx?.requestId,
+                  error: err instanceof Error ? err.message : String(err),
+                })
+              );
+            }
+
+            // Log usage metrics for cost tracking
+            try {
+              const finalMessage = await stream.finalMessage();
+              const usage = finalMessage.usage;
+
+              const cacheHitRate =
+                usage.input_tokens > 0
+                  ? (usage.cache_read_input_tokens ?? 0) / usage.input_tokens
+                  : 0;
+
+              logger.stream.completed(ctx.startTime, {
+                inputTokens: usage.input_tokens,
+                outputTokens: usage.output_tokens,
+                cacheCreation: usage.cache_creation_input_tokens ?? 0,
+                cacheRead: usage.cache_read_input_tokens ?? 0,
+                cacheHitRate: Math.round(cacheHitRate * 100) / 100,
+              });
+
+              // Log to Vercel Blob for usage dashboard (fire-and-forget)
+              logUsage(isValidSessionId ? sessionId : 'anonymous', {
+                endpoint: 'chat',
+                model: 'claude-sonnet-4-20250514',
+                inputTokens: usage.input_tokens,
+                outputTokens: usage.output_tokens,
+                cacheCreation: usage.cache_creation_input_tokens ?? 0,
+                cacheRead: usage.cache_read_input_tokens ?? 0,
+                durationMs: streamDuration,
+              }).catch((err) =>
+                logger.error('usage.log_failed', {
+                  requestId: capturedCtx?.requestId,
+                  error: err instanceof Error ? err.message : String(err),
+                })
+              );
+            } catch (usageError) {
+              logger.warn('usage.retrieval_failed', {
+                error: usageError instanceof Error ? usageError.message : String(usageError),
+              });
+            }
+          } catch (error) {
+            // Handle Anthropic API errors with appropriate levels
+            if (error instanceof Anthropic.APIError) {
+              if (error.status === 429) {
+                logger.anthropic.rateLimited(error.headers?.['retry-after'] as string | undefined);
+              } else if (error.status >= 500) {
+                logger.anthropic.serverError(error.status, error.message);
+              } else {
+                logger.anthropic.apiError(error.status, error.message);
+              }
+            } else {
+              logger.stream.error(ctx.startTime, error);
+            }
+            controller.error(error);
           }
-        } catch (error) {
-          console.error('[chat] Stream error:', error);
-          // Log error for anomaly detection
-          console.log(JSON.stringify({
-            type: 'api_usage_error',
-            timestamp: new Date().toISOString(),
-            sessionId: isValidSessionId ? `sess_${sessionId.slice(0, 8)}` : 'anon',
-            endpoint: 'chat',
-            error: error instanceof Error ? error.message : 'Unknown',
-          }));
-          controller.error(error);
-        }
-      },
-    });
+        },
+      });
 
-    return new Response(readable, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Transfer-Encoding': 'chunked',
-      },
-    });
-  } catch (error) {
-    console.error('[chat] Error:', error);
-    return Response.json(
-      { error: 'Chat service error.' },
-      { status: 500 }
-    );
-  }
+      return new Response(readable, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Transfer-Encoding': 'chunked',
+        },
+      });
+    } catch (error) {
+      logger.request.failed('/api/chat', ctx.startTime, error);
+      return Response.json({ error: 'Chat service error.' }, { status: 500 });
+    }
+  });
 }

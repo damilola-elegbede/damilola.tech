@@ -3,6 +3,8 @@ import { list } from '@vercel/blob';
 import { verifyToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
 import { getMTDayBounds } from '@/lib/timezone';
 import type { AuditEvent, TrafficSource } from '@/lib/types';
+import { logger, logColdStartIfNeeded } from '@/lib/logger';
+import { withRequestContext, createRequestContext } from '@/lib/request-context';
 
 export const runtime = 'nodejs';
 
@@ -49,14 +51,20 @@ interface TrafficStats {
 }
 
 export async function GET(req: Request) {
-  // Verify authentication
-  const cookieStore = await cookies();
-  const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
-  if (!token || !(await verifyToken(token))) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const ctx = createRequestContext(req, '/api/admin/traffic');
 
-  try {
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/admin/traffic', { method: 'GET' });
+
+    // Verify authentication
+    const cookieStore = await cookies();
+    const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
+    if (!token || !(await verifyToken(token))) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
     const { searchParams } = new URL(req.url);
     const environment = searchParams.get('env') || process.env.VERCEL_ENV || 'production';
 
@@ -240,23 +248,29 @@ export async function GET(req: Request) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10); // Top 10 landing pages
 
-    const stats: TrafficStats = {
-      totalSessions: sessionsSeen.size,
-      bySource,
-      byMedium,
-      byCampaign,
-      topLandingPages,
-      rawEvents,
-      environment,
-      dateRange: {
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-      },
-    };
+      const stats: TrafficStats = {
+        totalSessions: sessionsSeen.size,
+        bySource,
+        byMedium,
+        byCampaign,
+        topLandingPages,
+        rawEvents,
+        environment,
+        dateRange: {
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+        },
+      };
 
-    return Response.json(stats);
-  } catch (error) {
-    console.error('[admin/traffic] Error getting traffic stats:', error);
-    return Response.json({ error: 'Failed to get traffic stats' }, { status: 500 });
-  }
+      logger.request.completed('/api/admin/traffic', ctx.startTime, {
+        totalSessions: sessionsSeen.size,
+        eventCount: rawEvents.length,
+      });
+
+      return Response.json(stats);
+    } catch (error) {
+      logger.request.failed('/api/admin/traffic', ctx.startTime, error);
+      return Response.json({ error: 'Failed to get traffic stats' }, { status: 500 });
+    }
+  });
 }

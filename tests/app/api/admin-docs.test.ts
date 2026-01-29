@@ -279,12 +279,6 @@ describe('admin docs [slug] API route', () => {
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to read document');
 
-      // Verify error was logged
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Failed to read README.md:',
-        expect.any(Error)
-      );
-
       consoleSpy.mockRestore();
     });
 

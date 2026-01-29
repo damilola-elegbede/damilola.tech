@@ -566,12 +566,6 @@ describe('admin usage API route', () => {
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to get usage stats');
 
-      // Verify error was logged
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/usage] Error getting usage stats:',
-        expect.any(Error)
-      );
-
       consoleSpy.mockRestore();
     });
 

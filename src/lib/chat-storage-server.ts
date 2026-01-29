@@ -6,6 +6,7 @@
  */
 
 import { put } from '@vercel/blob';
+import { logger } from './logger';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -37,6 +38,7 @@ export async function saveConversationToBlob(
   sessionStartedAt: string,
   messages: ChatMessage[]
 ): Promise<void> {
+  const startTime = Date.now();
   const environment = process.env.VERCEL_ENV || 'development';
   const path = `damilola.tech/chats/${environment}/${sessionId}.json`;
 
@@ -50,9 +52,18 @@ export async function saveConversationToBlob(
     messages,
   };
 
-  await put(path, JSON.stringify(payload), {
-    access: 'public',
-    addRandomSuffix: false,
-    contentType: 'application/json',
-  });
+  try {
+    await put(path, JSON.stringify(payload), {
+      access: 'public',
+      addRandomSuffix: false,
+      contentType: 'application/json',
+    });
+
+    const durationMs = Date.now() - startTime;
+    logger.blob.writeSuccess(path, durationMs);
+  } catch (error) {
+    // Blob write failures are logged as errors - this is data loss
+    logger.blob.writeFailure(path, error);
+    throw error;
+  }
 }

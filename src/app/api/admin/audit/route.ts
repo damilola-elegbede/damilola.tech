@@ -3,6 +3,8 @@ import { list, ListBlobResult } from '@vercel/blob';
 import { logAdminEvent } from '@/lib/audit-server';
 import { getClientIp } from '@/lib/rate-limit';
 import { verifyToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
+import { logger, logColdStartIfNeeded } from '@/lib/logger';
+import { withRequestContext, createRequestContext } from '@/lib/request-context';
 
 export const runtime = 'nodejs';
 
@@ -56,79 +58,91 @@ function parseBlob(
 }
 
 export async function GET(req: Request) {
-  const ip = getClientIp(req);
+  const ctx = createRequestContext(req, '/api/admin/audit');
 
-  // Verify authentication
-  const cookieStore = await cookies();
-  const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
-  if (!token || !(await verifyToken(token))) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/admin/audit', { method: 'GET' });
 
-  try {
-    const { searchParams } = new URL(req.url);
-    const environment = searchParams.get('env') || process.env.VERCEL_ENV || 'development';
-    const date = searchParams.get('date'); // YYYY-MM-DD format
-    const eventType = searchParams.get('eventType');
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100);
+    const ip = getClientIp(req);
 
-    // Build prefix
-    const basePrefix = `${AUDIT_PREFIX}${environment}/`;
-    let prefix = basePrefix;
-    if (date) {
-      prefix += `${date}/`;
+    // Verify authentication
+    const cookieStore = await cookies();
+    const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
+    if (!token || !(await verifyToken(token))) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch ALL blobs with flat prefix (same approach as stats API)
-    const allBlobs: ListBlobResult['blobs'] = [];
-    let cursor: string | undefined;
-    do {
-      const result = await list({
-        prefix,
-        cursor,
-        limit: 1000,
+    try {
+      const { searchParams } = new URL(req.url);
+      const environment = searchParams.get('env') || process.env.VERCEL_ENV || 'development';
+      const date = searchParams.get('date'); // YYYY-MM-DD format
+      const eventType = searchParams.get('eventType');
+      const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+      const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100);
+
+      // Build prefix
+      const basePrefix = `${AUDIT_PREFIX}${environment}/`;
+      let prefix = basePrefix;
+      if (date) {
+        prefix += `${date}/`;
+      }
+
+      // Fetch ALL blobs with flat prefix (same approach as stats API)
+      const allBlobs: ListBlobResult['blobs'] = [];
+      let cursor: string | undefined;
+      do {
+        const result = await list({
+          prefix,
+          cursor,
+          limit: 1000,
+        });
+        allBlobs.push(...result.blobs);
+        cursor = result.cursor ?? undefined;
+      } while (cursor);
+
+      // Parse all blobs to events
+      let allEvents: AuditSummaryWithSort[] = allBlobs
+        .map((blob) => parseBlob(blob, environment))
+        .filter((e) => e.eventType); // Filter out invalid entries
+
+      // Sort by timestamp descending (latest first)
+      allEvents.sort((a, b) => b._sortKey - a._sortKey);
+
+      // Apply event type filter if specified
+      if (eventType) {
+        allEvents = allEvents.filter((e) => e.eventType === eventType);
+      }
+
+      // Calculate pagination
+      const totalCount = allEvents.length;
+      const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+      const offset = (page - 1) * limit;
+
+      // Get page of events and remove sort key
+      const events: AuditSummary[] = allEvents
+        .slice(offset, offset + limit)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .map(({ _sortKey, ...rest }) => rest);
+
+      // Log audit access (non-blocking)
+      logAdminEvent('admin_audit_accessed', { environment, date, eventType, page }, ip);
+
+      logger.request.completed('/api/admin/audit', ctx.startTime, {
+        eventCount: events.length,
+        totalCount,
       });
-      allBlobs.push(...result.blobs);
-      cursor = result.cursor ?? undefined;
-    } while (cursor);
 
-    // Parse all blobs to events
-    let allEvents: AuditSummaryWithSort[] = allBlobs
-      .map((blob) => parseBlob(blob, environment))
-      .filter((e) => e.eventType); // Filter out invalid entries
-
-    // Sort by timestamp descending (latest first)
-    allEvents.sort((a, b) => b._sortKey - a._sortKey);
-
-    // Apply event type filter if specified
-    if (eventType) {
-      allEvents = allEvents.filter((e) => e.eventType === eventType);
+      return Response.json({
+        events,
+        totalCount,
+        totalPages,
+        page,
+        hasMore: page < totalPages,
+      });
+    } catch (error) {
+      logger.request.failed('/api/admin/audit', ctx.startTime, error);
+      return Response.json({ error: 'Failed to list events' }, { status: 500 });
     }
-
-    // Calculate pagination
-    const totalCount = allEvents.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / limit));
-    const offset = (page - 1) * limit;
-
-    // Get page of events and remove sort key
-    const events: AuditSummary[] = allEvents
-      .slice(offset, offset + limit)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      .map(({ _sortKey, ...rest }) => rest);
-
-    // Log audit access (non-blocking)
-    logAdminEvent('admin_audit_accessed', { environment, date, eventType, page }, ip);
-
-    return Response.json({
-      events,
-      totalCount,
-      totalPages,
-      page,
-      hasMore: page < totalPages,
-    });
-  } catch (error) {
-    console.error('[admin/audit] Error listing events:', error);
-    return Response.json({ error: 'Failed to list events' }, { status: 500 });
-  }
+  });
 }

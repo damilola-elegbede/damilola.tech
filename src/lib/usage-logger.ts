@@ -1,5 +1,6 @@
 import { put, list, head } from '@vercel/blob';
 import { getMTDayBounds } from './timezone';
+import { logger } from './logger';
 
 /**
  * API Usage Logger
@@ -36,17 +37,20 @@ export interface UsageSession {
 }
 
 // Claude Sonnet 4 pricing (per million tokens)
-const PRICING: Record<string, {
-  inputPerMillion: number;
-  outputPerMillion: number;
-  cacheWritePerMillion: number;
-  cacheReadPerMillion: number;
-}> = {
+const PRICING: Record<
+  string,
+  {
+    inputPerMillion: number;
+    outputPerMillion: number;
+    cacheWritePerMillion: number;
+    cacheReadPerMillion: number;
+  }
+> = {
   'claude-sonnet-4-20250514': {
-    inputPerMillion: 3.0,       // $3/M input tokens
-    outputPerMillion: 15.0,     // $15/M output tokens
+    inputPerMillion: 3.0, // $3/M input tokens
+    outputPerMillion: 15.0, // $15/M output tokens
     cacheWritePerMillion: 3.75, // $3.75/M cache write
-    cacheReadPerMillion: 0.3,   // $0.30/M cache read (90% discount)
+    cacheReadPerMillion: 0.3, // $0.30/M cache read (90% discount)
   },
 };
 
@@ -76,7 +80,7 @@ function calculateCostWithPricing(
     cacheCreation: number;
     cacheRead: number;
   },
-  pricing: typeof PRICING[string]
+  pricing: (typeof PRICING)[string]
 ): number {
   // Input tokens that weren't read from cache (clamp to 0 to avoid negative values)
   const uncachedInput = Math.max(0, request.inputTokens - request.cacheRead);
@@ -94,10 +98,7 @@ function calculateCostWithPricing(
 /**
  * Calculate cost savings from cache hits vs full input pricing.
  */
-export function calculateCostSavings(request: {
-  model: string;
-  cacheRead: number;
-}): number {
+export function calculateCostSavings(request: { model: string; cacheRead: number }): number {
   const pricing = PRICING[request.model] || PRICING['claude-sonnet-4-20250514'];
   const fullCost = (request.cacheRead / 1_000_000) * pricing.inputPerMillion;
   const cachedCost = (request.cacheRead / 1_000_000) * pricing.cacheReadPerMillion;
@@ -132,7 +133,10 @@ export async function getSession(sessionId: string): Promise<UsageSession | null
     return (await response.json()) as UsageSession;
   } catch (error) {
     // Blob doesn't exist or fetch failed
-    console.warn('[usage-logger] Failed to fetch session:', error);
+    logger.debug('usage.session_fetch_failed', {
+      sessionId: sessionId.slice(0, 8),
+      error: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
@@ -185,14 +189,21 @@ export async function logUsage(
       addRandomSuffix: false,
     });
 
-    console.log(`[usage-logger] Logged usage for session ${sessionId.slice(0, 8)}:`, {
+    logger.info('usage.logged', {
+      sessionId: sessionId.slice(0, 8),
       endpoint: request.endpoint,
       tokens: request.inputTokens + request.outputTokens,
-      cost: `$${costUsd.toFixed(6)}`,
+      costUsd,
     });
   } catch (error) {
-    // Fire-and-forget: log errors but don't fail the request
-    console.warn('[usage-logger] Failed to log usage:', error);
+    // Usage logging failures are ERROR level - this is data loss
+    logger.error('usage.log_failed', {
+      sessionId: sessionId.slice(0, 8),
+      endpoint: request.endpoint,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    // Re-throw to allow caller to handle if needed
+    throw error;
   }
 }
 
@@ -207,8 +218,7 @@ function calculateTotals(requests: UsageRequest[]): UsageSession['totals'] {
       outputTokens: acc.outputTokens + req.outputTokens,
       cacheCreationTokens: acc.cacheCreationTokens + req.cacheCreation,
       cacheReadTokens: acc.cacheReadTokens + req.cacheRead,
-      estimatedCostUsd:
-        Math.round((acc.estimatedCostUsd + req.costUsd) * 1_000_000) / 1_000_000,
+      estimatedCostUsd: Math.round((acc.estimatedCostUsd + req.costUsd) * 1_000_000) / 1_000_000,
     }),
     {
       requestCount: 0,
@@ -299,7 +309,9 @@ export async function listSessions(options?: ListSessionsOptions): Promise<Usage
 
     return filteredSessions.slice(0, limit);
   } catch (error) {
-    console.warn('[usage-logger] Failed to list sessions:', error);
+    logger.warn('usage.list_sessions_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return [];
   }
 }
@@ -323,12 +335,15 @@ export async function getAggregatedStats(options?: AggregateOptions): Promise<{
   totalCostUsd: number;
   cacheHitRate: number;
   costSavingsUsd: number;
-  byEndpoint: Record<string, {
-    requestCount: number;
-    inputTokens: number;
-    outputTokens: number;
-    costUsd: number;
-  }>;
+  byEndpoint: Record<
+    string,
+    {
+      requestCount: number;
+      inputTokens: number;
+      outputTokens: number;
+      costUsd: number;
+    }
+  >;
   recentSessions: Array<{
     sessionId: string;
     lastUpdatedAt: string;
@@ -342,12 +357,15 @@ export async function getAggregatedStats(options?: AggregateOptions): Promise<{
     endDate: options?.endDate,
   });
 
-  const byEndpoint: Record<string, {
-    requestCount: number;
-    inputTokens: number;
-    outputTokens: number;
-    costUsd: number;
-  }> = {};
+  const byEndpoint: Record<
+    string,
+    {
+      requestCount: number;
+      inputTokens: number;
+      outputTokens: number;
+      costUsd: number;
+    }
+  > = {};
 
   let totalRequests = 0;
   let totalInputTokens = 0;
@@ -383,8 +401,7 @@ export async function getAggregatedStats(options?: AggregateOptions): Promise<{
 
   // Round endpoint costs
   for (const endpoint of Object.keys(byEndpoint)) {
-    byEndpoint[endpoint].costUsd =
-      Math.round(byEndpoint[endpoint].costUsd * 1_000_000) / 1_000_000;
+    byEndpoint[endpoint].costUsd = Math.round(byEndpoint[endpoint].costUsd * 1_000_000) / 1_000_000;
   }
 
   // Calculate cache hit rate: cached tokens / total input context

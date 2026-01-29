@@ -159,10 +159,6 @@ describe('admin resume-generation detail API route', () => {
       expect(response.status).toBe(400);
       expect(data.error).toBe('Invalid blob URL');
       expect(global.fetch).not.toHaveBeenCalled();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/resume-generations/[id]] Invalid blob URL rejected:',
-        invalidUrl
-      );
 
       consoleSpy.mockRestore();
     });
@@ -229,10 +225,6 @@ describe('admin resume-generation detail API route', () => {
       expect(response.status).toBe(200);
       expect(data).toEqual(mockV2LogData);
       expect(global.fetch).toHaveBeenCalledWith(validBlobUrl);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/resume-generations/[id]] GET request for:',
-        validBlobUrl
-      );
 
       consoleSpy.mockRestore();
     });
@@ -316,10 +308,6 @@ describe('admin resume-generation detail API route', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to fetch generation');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/resume-generations/[id]] Error:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });
@@ -526,11 +514,6 @@ describe('admin resume-generation detail API route', () => {
         }
       );
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/resume-generations/[id]] Saving updated data to:',
-        'damilola.tech/resume-generations/production/job1.json'
-      );
-
       consoleSpy.mockRestore();
     });
 
@@ -733,10 +716,6 @@ describe('admin resume-generation detail API route', () => {
       expect(response.status).toBe(400);
       expect(data.error).toBe('Invalid blob path');
       expect(mockPut).not.toHaveBeenCalled();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/resume-generations/[id]] Invalid blob path rejected:',
-        'malicious/path/data.json'
-      );
 
       consoleSpy.mockRestore();
     });
@@ -785,10 +764,6 @@ describe('admin resume-generation detail API route', () => {
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to update generation');
       expect(mockPut).not.toHaveBeenCalled();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/resume-generations/[id]] Error:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });

@@ -1,5 +1,7 @@
 import { put } from '@vercel/blob';
 import type { FitAssessmentLog } from '@/lib/types/fit-assessment-log';
+import { logger, logColdStartIfNeeded } from '@/lib/logger';
+import { withRequestContext, createRequestContext } from '@/lib/request-context';
 
 export const runtime = 'nodejs';
 
@@ -87,58 +89,72 @@ function getShortId(uuid: string): string {
 }
 
 export async function POST(req: Request) {
-  try {
-    const contentLength = req.headers.get('content-length');
-    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
-      return Response.json({ error: 'Request body too large' }, { status: 413 });
-    }
+  const ctx = createRequestContext(req, '/api/fit-assessment/log');
 
-    let body: unknown;
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/fit-assessment/log', { method: 'POST' });
+
     try {
-      body = await req.json();
-    } catch {
-      return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+      const contentLength = req.headers.get('content-length');
+      if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+        logger.request.failed('/api/fit-assessment/log', ctx.startTime, new Error('Request body too large'));
+        return Response.json({ error: 'Request body too large' }, { status: 413 });
+      }
+
+      let body: unknown;
+      try {
+        body = await req.json();
+      } catch (error) {
+        logger.request.failed('/api/fit-assessment/log', ctx.startTime, error);
+        return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+      }
+
+      const validation = validateRequest(body);
+      if (!validation.valid) {
+        logger.request.failed('/api/fit-assessment/log', ctx.startTime, new Error(validation.error));
+        return Response.json({ error: validation.error }, { status: 400 });
+      }
+
+      const data = validation.data;
+      const environment = process.env.VERCEL_ENV || 'development';
+      const now = new Date();
+
+      const log: FitAssessmentLog = {
+        version: 1,
+        assessmentId: data.assessmentId,
+        environment,
+        createdAt: now.toISOString(),
+        inputType: data.inputType,
+        inputLength: data.inputLength,
+        extractedUrl: data.extractedUrl,
+        jobDescriptionSnippet: data.jobDescriptionSnippet,
+        completionLength: data.completionLength,
+        streamDurationMs: data.streamDurationMs,
+        roleTitle: data.roleTitle,
+        downloadedPdf: data.downloadedPdf,
+        downloadedMd: data.downloadedMd,
+        userAgent: data.userAgent,
+      };
+
+      const timestamp = formatTimestamp(now);
+      const shortId = getShortId(data.assessmentId);
+      const pathname = `damilola.tech/fit-assessments/${environment}/${timestamp}-${shortId}.json`;
+
+      await put(pathname, JSON.stringify(log), {
+        access: 'public',
+        addRandomSuffix: true,
+        contentType: 'application/json',
+      });
+
+      logger.request.completed('/api/fit-assessment/log', ctx.startTime, {
+        assessmentId: data.assessmentId,
+        inputType: data.inputType,
+      });
+      return Response.json({ success: true });
+    } catch (error) {
+      logger.request.failed('/api/fit-assessment/log', ctx.startTime, error);
+      return Response.json({ error: 'Failed to log assessment' }, { status: 500 });
     }
-
-    const validation = validateRequest(body);
-    if (!validation.valid) {
-      return Response.json({ error: validation.error }, { status: 400 });
-    }
-
-    const data = validation.data;
-    const environment = process.env.VERCEL_ENV || 'development';
-    const now = new Date();
-
-    const log: FitAssessmentLog = {
-      version: 1,
-      assessmentId: data.assessmentId,
-      environment,
-      createdAt: now.toISOString(),
-      inputType: data.inputType,
-      inputLength: data.inputLength,
-      extractedUrl: data.extractedUrl,
-      jobDescriptionSnippet: data.jobDescriptionSnippet,
-      completionLength: data.completionLength,
-      streamDurationMs: data.streamDurationMs,
-      roleTitle: data.roleTitle,
-      downloadedPdf: data.downloadedPdf,
-      downloadedMd: data.downloadedMd,
-      userAgent: data.userAgent,
-    };
-
-    const timestamp = formatTimestamp(now);
-    const shortId = getShortId(data.assessmentId);
-    const pathname = `damilola.tech/fit-assessments/${environment}/${timestamp}-${shortId}.json`;
-
-    await put(pathname, JSON.stringify(log), {
-      access: 'public',
-      addRandomSuffix: true,
-      contentType: 'application/json',
-    });
-
-    return Response.json({ success: true });
-  } catch (error) {
-    console.error('[fit-assessment/log] Error logging assessment:', error);
-    return Response.json({ error: 'Failed to log assessment' }, { status: 500 });
-  }
+  });
 }

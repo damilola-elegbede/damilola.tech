@@ -8,6 +8,8 @@ import type {
   ResumeGenerationFilters,
   ApplicationStatus,
 } from '@/lib/types/resume-generation';
+import { logger, logColdStartIfNeeded } from '@/lib/logger';
+import { withRequestContext, createRequestContext } from '@/lib/request-context';
 
 // Use Node.js runtime for blob operations
 export const runtime = 'nodejs';
@@ -127,144 +129,150 @@ function computeJobIdForV1(data: ResumeGenerationLog): string {
 }
 
 export async function GET(req: Request) {
-  console.log('[admin/resume-generations] Request received');
+  const ctx = createRequestContext(req, '/api/admin/resume-generations');
 
-  // Verify admin authentication
-  const cookieStore = await cookies();
-  const adminToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
-  if (!adminToken || !(await verifyToken(adminToken))) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/admin/resume-generations', { method: 'GET' });
 
-  try {
-    const url = new URL(req.url);
-    const cursor = url.searchParams.get('cursor') || undefined;
-    const environment = getEnvironment();
-    const filters = parseFilters(url);
-
-    // List blobs in the resume-generations folder for current environment
-    const blobPath = `damilola.tech/resume-generations/${environment}/`;
-
-    console.log('[admin/resume-generations] Listing blobs at:', blobPath);
-
-    const { blobs, cursor: nextCursor } = await list({
-      prefix: blobPath,
-      cursor,
-      limit: 50, // Fetch more to account for filtering
-    });
-
-    console.log('[admin/resume-generations] Found', blobs.length, 'blobs');
-
-    // Fetch and parse each blob to get summary data
-    // Limit concurrency to avoid overwhelming resources
-    const FETCH_CONCURRENCY = 10;
-    const FETCH_TIMEOUT_MS = 10000;
-    const MAX_BLOB_SIZE = 1024 * 1024; // 1MB limit
-
-    const fetchBlobWithTimeout = async (url: string): Promise<Response> => {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-      try {
-        const response = await fetch(url, { signal: controller.signal });
-        // Check Content-Length if available
-        const contentLength = response.headers.get('content-length');
-        if (contentLength && parseInt(contentLength, 10) > MAX_BLOB_SIZE) {
-          throw new Error('Blob too large');
-        }
-        return response;
-      } finally {
-        clearTimeout(timeout);
-      }
-    };
-
-    // Process blobs in batches for concurrency control
-    const allGenerations: ResumeGenerationSummary[] = [];
-    for (let i = 0; i < blobs.length; i += FETCH_CONCURRENCY) {
-      const batch = blobs.slice(i, i + FETCH_CONCURRENCY);
-      const batchResults = await Promise.all(
-        batch.map(async (blob) => {
-          try {
-            const response = await fetchBlobWithTimeout(blob.url);
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}`);
-            }
-            const data: ResumeGenerationLog = await response.json();
-
-          // Compute jobId for all versions
-          const jobId = computeJobIdForV1(data);
-
-          // Calculate generation count
-          const generationCount = data.version === 2
-            ? data.generationHistory.length + 1
-            : 1;
-
-          // Get updatedAt (v2 only, fallback to createdAt for v1)
-          const updatedAt = data.version === 2
-            ? data.updatedAt
-            : data.createdAt;
-
-          return {
-            id: blob.pathname,
-            jobId,
-            generationId: data.generationId,
-            environment: data.environment,
-            timestamp: data.createdAt,
-            updatedAt,
-            companyName: data.companyName,
-            roleTitle: data.roleTitle,
-            scoreBefore: data.estimatedCompatibility.before,
-            scoreAfter: data.estimatedCompatibility.after,
-            applicationStatus: data.applicationStatus,
-            url: blob.url,
-            size: blob.size,
-            generationCount,
-          };
-        } catch (error) {
-          console.error('[admin/resume-generations] Error parsing blob:', blob.pathname, error);
-          // Return a placeholder for failed parses
-          return {
-            id: blob.pathname,
-            jobId: 'unknown',
-            generationId: 'unknown',
-            environment: environment,
-            timestamp: blob.uploadedAt.toISOString(),
-            updatedAt: blob.uploadedAt.toISOString(),
-            companyName: 'Unknown',
-            roleTitle: 'Unknown',
-            scoreBefore: 0,
-            scoreAfter: 0,
-            applicationStatus: 'draft' as const,
-            url: blob.url,
-            size: blob.size,
-            generationCount: 1,
-          };
-          }
-        })
-      );
-      allGenerations.push(...batchResults);
+    // Verify admin authentication
+    const cookieStore = await cookies();
+    const adminToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
+    if (!adminToken || !(await verifyToken(adminToken))) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Apply filters
-    const hasFilters = Object.keys(filters).length > 0;
-    const generations = hasFilters
-      ? allGenerations.filter((g) => matchesFilters(g, filters))
-      : allGenerations;
+    try {
+      const url = new URL(req.url);
+      const cursor = url.searchParams.get('cursor') || undefined;
+      const environment = getEnvironment();
+      const filters = parseFilters(url);
 
-    // Sort by timestamp descending (newest first)
-    generations.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      // List blobs in the resume-generations folder for current environment
+      const blobPath = `damilola.tech/resume-generations/${environment}/`;
 
-    return Response.json({
-      generations,
-      cursor: nextCursor,
-      hasMore: !!nextCursor,
-      totalFetched: allGenerations.length,
-      filtered: hasFilters,
-    });
-  } catch (error) {
-    console.error('[admin/resume-generations] Error:', error);
-    return Response.json(
-      { error: 'Failed to fetch generations' },
-      { status: 500 }
-    );
-  }
+      const { blobs, cursor: nextCursor } = await list({
+        prefix: blobPath,
+        cursor,
+        limit: 50, // Fetch more to account for filtering
+      });
+
+      // Fetch and parse each blob to get summary data
+      // Limit concurrency to avoid overwhelming resources
+      const FETCH_CONCURRENCY = 10;
+      const FETCH_TIMEOUT_MS = 10000;
+      const MAX_BLOB_SIZE = 1024 * 1024; // 1MB limit
+
+      const fetchBlobWithTimeout = async (url: string): Promise<Response> => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          // Check Content-Length if available
+          const contentLength = response.headers.get('content-length');
+          if (contentLength && parseInt(contentLength, 10) > MAX_BLOB_SIZE) {
+            throw new Error('Blob too large');
+          }
+          return response;
+        } finally {
+          clearTimeout(timeout);
+        }
+      };
+
+      // Process blobs in batches for concurrency control
+      const allGenerations: ResumeGenerationSummary[] = [];
+      for (let i = 0; i < blobs.length; i += FETCH_CONCURRENCY) {
+        const batch = blobs.slice(i, i + FETCH_CONCURRENCY);
+        const batchResults = await Promise.all(
+          batch.map(async (blob) => {
+            try {
+              const response = await fetchBlobWithTimeout(blob.url);
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              const data: ResumeGenerationLog = await response.json();
+
+            // Compute jobId for all versions
+            const jobId = computeJobIdForV1(data);
+
+            // Calculate generation count
+            const generationCount = data.version === 2
+              ? data.generationHistory.length + 1
+              : 1;
+
+            // Get updatedAt (v2 only, fallback to createdAt for v1)
+            const updatedAt = data.version === 2
+              ? data.updatedAt
+              : data.createdAt;
+
+            return {
+              id: blob.pathname,
+              jobId,
+              generationId: data.generationId,
+              environment: data.environment,
+              timestamp: data.createdAt,
+              updatedAt,
+              companyName: data.companyName,
+              roleTitle: data.roleTitle,
+              scoreBefore: data.estimatedCompatibility.before,
+              scoreAfter: data.estimatedCompatibility.after,
+              applicationStatus: data.applicationStatus,
+              url: blob.url,
+              size: blob.size,
+              generationCount,
+            };
+          } catch (error) {
+            logger.warn('resume_generation.parse_failed', { pathname: blob.pathname, error });
+            // Return a placeholder for failed parses
+            return {
+              id: blob.pathname,
+              jobId: 'unknown',
+              generationId: 'unknown',
+              environment: environment,
+              timestamp: blob.uploadedAt.toISOString(),
+              updatedAt: blob.uploadedAt.toISOString(),
+              companyName: 'Unknown',
+              roleTitle: 'Unknown',
+              scoreBefore: 0,
+              scoreAfter: 0,
+              applicationStatus: 'draft' as const,
+              url: blob.url,
+              size: blob.size,
+              generationCount: 1,
+            };
+            }
+          })
+        );
+        allGenerations.push(...batchResults);
+      }
+
+      // Apply filters
+      const hasFilters = Object.keys(filters).length > 0;
+      const generations = hasFilters
+        ? allGenerations.filter((g) => matchesFilters(g, filters))
+        : allGenerations;
+
+      // Sort by timestamp descending (newest first)
+      generations.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      logger.request.completed('/api/admin/resume-generations', ctx.startTime, {
+        generationCount: generations.length,
+        totalFetched: allGenerations.length,
+      });
+
+      return Response.json({
+        generations,
+        cursor: nextCursor,
+        hasMore: !!nextCursor,
+        totalFetched: allGenerations.length,
+        filtered: hasFilters,
+      });
+    } catch (error) {
+      logger.request.failed('/api/admin/resume-generations', ctx.startTime, error);
+      return Response.json(
+        { error: 'Failed to fetch generations' },
+        { status: 500 }
+      );
+    }
+  });
 }

@@ -2,6 +2,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
 import { verifyToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
 import type { ModifyChangeRequest, ProposedChange } from '@/lib/types/resume-generation';
+import { logger, logColdStartIfNeeded } from '@/lib/logger';
+import { withRequestContext, createRequestContext } from '@/lib/request-context';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -9,22 +11,30 @@ export const maxDuration = 60;
 const client = new Anthropic();
 
 export async function POST(req: Request) {
-  // Verify admin auth
-  const cookieStore = await cookies();
-  const adminToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
-  if (!adminToken || !(await verifyToken(adminToken))) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const ctx = createRequestContext(req, '/api/resume-generator/modify-change');
 
-  try {
-    const { originalChange, modifyPrompt, jobDescription }: ModifyChangeRequest = await req.json();
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/resume-generator/modify-change', { method: 'POST' });
 
-    if (!originalChange || !modifyPrompt || !jobDescription) {
-      return Response.json(
-        { error: 'Missing required fields: originalChange, modifyPrompt, jobDescription' },
-        { status: 400 }
-      );
+    // Verify admin auth
+    const cookieStore = await cookies();
+    const adminToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
+    if (!adminToken || !(await verifyToken(adminToken))) {
+      logger.request.failed('/api/resume-generator/modify-change', ctx.startTime, new Error('Unauthorized'));
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    try {
+      const { originalChange, modifyPrompt, jobDescription }: ModifyChangeRequest = await req.json();
+
+      if (!originalChange || !modifyPrompt || !jobDescription) {
+        logger.request.failed('/api/resume-generator/modify-change', ctx.startTime, new Error('Missing required fields'));
+        return Response.json(
+          { error: 'Missing required fields: originalChange, modifyPrompt, jobDescription' },
+          { status: 400 }
+        );
+      }
 
     // Wrap user input in XML tags for prompt injection mitigation
     const prompt = `You are revising a single resume change for ATS optimization.
@@ -63,39 +73,45 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
       ],
     });
 
-    // Extract text from response
-    const textBlock = message.content.find((block) => block.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
-      return Response.json({ error: 'No text response from AI' }, { status: 500 });
+      // Extract text from response
+      const textBlock = message.content.find((block) => block.type === 'text');
+      if (!textBlock || textBlock.type !== 'text') {
+        logger.request.failed('/api/resume-generator/modify-change', ctx.startTime, new Error('No text response from AI'));
+        return Response.json({ error: 'No text response from AI' }, { status: 500 });
+      }
+
+      let jsonText = textBlock.text.trim();
+
+      // Clean markdown code blocks if present
+      if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+      }
+
+      const revisedChange: ProposedChange = JSON.parse(jsonText);
+
+      // Validate the response has all required fields
+      if (
+        !revisedChange.section ||
+        !revisedChange.original ||
+        !revisedChange.modified ||
+        !revisedChange.reason ||
+        !Array.isArray(revisedChange.keywordsAdded) ||
+        typeof revisedChange.impactPoints !== 'number'
+      ) {
+        logger.request.failed('/api/resume-generator/modify-change', ctx.startTime, new Error('Invalid response structure from AI'));
+        return Response.json({ error: 'Invalid response structure from AI' }, { status: 500 });
+      }
+
+      logger.request.completed('/api/resume-generator/modify-change', ctx.startTime, {
+        section: revisedChange.section,
+      });
+      return Response.json({ revisedChange });
+    } catch (error) {
+      logger.request.failed('/api/resume-generator/modify-change', ctx.startTime, error);
+      if (error instanceof SyntaxError) {
+        return Response.json({ error: 'Failed to parse AI response as JSON' }, { status: 500 });
+      }
+      return Response.json({ error: 'AI service error' }, { status: 503 });
     }
-
-    let jsonText = textBlock.text.trim();
-
-    // Clean markdown code blocks if present
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-    }
-
-    const revisedChange: ProposedChange = JSON.parse(jsonText);
-
-    // Validate the response has all required fields
-    if (
-      !revisedChange.section ||
-      !revisedChange.original ||
-      !revisedChange.modified ||
-      !revisedChange.reason ||
-      !Array.isArray(revisedChange.keywordsAdded) ||
-      typeof revisedChange.impactPoints !== 'number'
-    ) {
-      return Response.json({ error: 'Invalid response structure from AI' }, { status: 500 });
-    }
-
-    return Response.json({ revisedChange });
-  } catch (error) {
-    console.error('[modify-change] Error:', error);
-    if (error instanceof SyntaxError) {
-      return Response.json({ error: 'Failed to parse AI response as JSON' }, { status: 500 });
-    }
-    return Response.json({ error: 'AI service error' }, { status: 503 });
-  }
+  });
 }

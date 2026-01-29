@@ -1,5 +1,7 @@
 import { list, del } from '@vercel/blob';
 import { timingSafeEqual } from 'crypto';
+import { logger, logColdStartIfNeeded } from '@/lib/logger';
+import { withRequestContext, createRequestContext } from '@/lib/request-context';
 
 export const runtime = 'nodejs';
 
@@ -80,7 +82,7 @@ async function cleanupPrefix(
       const timestamp = parseTimestampFromPathname(blob.pathname);
 
       if (!timestamp) {
-        console.warn(`Could not parse timestamp from: ${blob.pathname}`);
+        logger.warn('Could not parse timestamp from blob pathname', { pathname: blob.pathname });
         skipped++;
         continue;
       }
@@ -105,7 +107,7 @@ async function cleanupPrefix(
       if (result.status === 'fulfilled') {
         deleted++;
       } else {
-        console.error('Failed to delete blob:', result.reason);
+        logger.error('Failed to delete blob', { error: result.reason });
         errors++;
       }
     }
@@ -115,50 +117,65 @@ async function cleanupPrefix(
 }
 
 export async function GET(req: Request) {
-  // Verify CRON_SECRET
-  const authHeader = req.headers.get('Authorization');
-  const expectedToken = process.env.CRON_SECRET;
+  const ctx = createRequestContext(req, '/api/cron/cleanup-chats');
 
-  // Fail fast if CRON_SECRET not configured
-  if (!expectedToken) {
-    console.error('[cron/cleanup-chats] CRON_SECRET not configured');
-    return Response.json({ error: 'Server configuration error' }, { status: 500 });
-  }
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/cron/cleanup-chats', { method: 'GET' });
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+    // Verify CRON_SECRET
+    const authHeader = req.headers.get('Authorization');
+    const expectedToken = process.env.CRON_SECRET;
 
-  const token = authHeader.slice(7); // Remove 'Bearer ' prefix
-  if (!verifyToken(token, expectedToken)) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+    // Fail fast if CRON_SECRET not configured
+    if (!expectedToken) {
+      logger.error('CRON_SECRET not configured');
+      logger.request.failed('/api/cron/cleanup-chats', ctx.startTime, new Error('CRON_SECRET not configured'));
+      return Response.json({ error: 'Server configuration error' }, { status: 500 });
+    }
 
-  try {
-    const now = Date.now();
-    const cutoffDate = now - RETENTION_MS;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      logger.request.failed('/api/cron/cleanup-chats', ctx.startTime, new Error('Missing authorization'));
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    // Clean all prefixes in parallel
-    const [chatsResult, assessmentsResult, auditResult] = await Promise.all([
-      cleanupPrefix(CHATS_PREFIX, cutoffDate),
-      cleanupPrefix(FIT_ASSESSMENTS_PREFIX, cutoffDate),
-      cleanupPrefix(AUDIT_PREFIX, cutoffDate),
-    ]);
+    const token = authHeader.slice(7); // Remove 'Bearer ' prefix
+    if (!verifyToken(token, expectedToken)) {
+      logger.request.failed('/api/cron/cleanup-chats', ctx.startTime, new Error('Invalid token'));
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    return Response.json({
-      success: true,
-      chats: chatsResult,
-      fitAssessments: assessmentsResult,
-      audit: auditResult,
-      totals: {
+    try {
+      const now = Date.now();
+      const cutoffDate = now - RETENTION_MS;
+
+      // Clean all prefixes in parallel
+      const [chatsResult, assessmentsResult, auditResult] = await Promise.all([
+        cleanupPrefix(CHATS_PREFIX, cutoffDate),
+        cleanupPrefix(FIT_ASSESSMENTS_PREFIX, cutoffDate),
+        cleanupPrefix(AUDIT_PREFIX, cutoffDate),
+      ]);
+
+      const totals = {
         deleted: chatsResult.deleted + assessmentsResult.deleted + auditResult.deleted,
         kept: chatsResult.kept + assessmentsResult.kept + auditResult.kept,
         skipped: chatsResult.skipped + assessmentsResult.skipped + auditResult.skipped,
         errors: chatsResult.errors + assessmentsResult.errors + auditResult.errors,
-      },
-    });
-  } catch (error) {
-    console.error('[cron/cleanup] Error during cleanup:', error);
-    return Response.json({ error: 'Failed to run cleanup' }, { status: 500 });
-  }
+      };
+
+      logger.info('Cleanup completed successfully', { totals });
+      logger.request.completed('/api/cron/cleanup-chats', ctx.startTime, { totals });
+
+      return Response.json({
+        success: true,
+        chats: chatsResult,
+        fitAssessments: assessmentsResult,
+        audit: auditResult,
+        totals,
+      });
+    } catch (error) {
+      logger.request.failed('/api/cron/cleanup-chats', ctx.startTime, error);
+      return Response.json({ error: 'Failed to run cleanup' }, { status: 500 });
+    }
+  });
 }

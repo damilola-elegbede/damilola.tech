@@ -297,10 +297,6 @@ describe('admin chats/[id] API route', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to fetch chat');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/chats/[id]] Error fetching chat:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });
@@ -324,10 +320,6 @@ describe('admin chats/[id] API route', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to fetch chat');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/chats/[id]] Error fetching chat:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });

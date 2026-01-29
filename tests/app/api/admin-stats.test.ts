@@ -624,10 +624,6 @@ describe('admin stats API route', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to get stats');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/stats] Error getting stats:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });

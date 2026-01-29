@@ -7,6 +7,7 @@
 
 import { put } from '@vercel/blob';
 import type { AuditEventType } from '@/lib/types/audit-event';
+import { logger } from './logger';
 
 const AUDIT_PREFIX = 'damilola.tech/audit';
 
@@ -61,8 +62,16 @@ export async function logAdminEvent(
       access: 'public',
       addRandomSuffix: true,
     });
+
+    logger.debug('audit.event_logged', {
+      eventType,
+      eventId,
+    });
   } catch (error) {
-    // Log but don't throw - audit logging should not break the main flow
-    console.error('[audit-server] Failed to log event:', error);
+    // Audit logging failures should be logged at error level
+    logger.error('audit.log_failed', {
+      eventType,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }

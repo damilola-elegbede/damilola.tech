@@ -5,6 +5,13 @@ vi.mock('@/lib/blob', () => ({
   fetchFitExamples: vi.fn(),
 }));
 
+// Helper to create a mock Request
+function createMockRequest(): Request {
+  return new Request('http://localhost:3000/api/fit-examples', {
+    method: 'GET',
+  });
+}
+
 describe('fit-examples API route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -24,7 +31,7 @@ describe('fit-examples API route', () => {
 
       const { GET } = await import('@/app/api/fit-examples/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -46,7 +53,7 @@ describe('fit-examples API route', () => {
 
       const { GET } = await import('@/app/api/fit-examples/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -60,24 +67,14 @@ describe('fit-examples API route', () => {
 
       vi.mocked(fetchFitExamples).mockRejectedValue(new Error('Blob storage error'));
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
       const { GET } = await import('@/app/api/fit-examples/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to load examples');
       expect(response.headers.get('Content-Type')).toBe('application/json');
-
-      // Verify error was logged
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Failed to fetch fit examples:',
-        expect.any(Error)
-      );
-
-      consoleSpy.mockRestore();
     });
 
     it('returns 500 when fetchFitExamples throws network error', async () => {
@@ -85,23 +82,13 @@ describe('fit-examples API route', () => {
 
       vi.mocked(fetchFitExamples).mockRejectedValue(new Error('Network timeout'));
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
       const { GET } = await import('@/app/api/fit-examples/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to load examples');
-
-      // Verify the specific error was logged
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Failed to fetch fit examples:',
-        expect.objectContaining({ message: 'Network timeout' })
-      );
-
-      consoleSpy.mockRestore();
     });
 
     it('returns JSON response with correct content type header', async () => {
@@ -116,7 +103,7 @@ describe('fit-examples API route', () => {
 
       const { GET } = await import('@/app/api/fit-examples/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
 
       // Response.json() automatically sets Content-Type to application/json
       expect(response.headers.get('Content-Type')).toContain('application/json');
@@ -151,7 +138,7 @@ This candidate shows *limited* alignment.
 
       const { GET } = await import('@/app/api/fit-examples/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -173,7 +160,7 @@ This candidate shows *limited* alignment.
 
       const { GET } = await import('@/app/api/fit-examples/route');
 
-      const response = await GET();
+      const response = await GET(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(200);

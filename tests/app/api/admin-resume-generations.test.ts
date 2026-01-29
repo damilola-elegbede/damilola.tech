@@ -402,12 +402,6 @@ describe('admin resume-generations API route', () => {
         generationCount: 1,
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/resume-generations] Error parsing blob:',
-        mockBlobV1.pathname,
-        expect.any(Error)
-      );
-
       consoleSpy.mockRestore();
     });
 
@@ -861,10 +855,6 @@ describe('admin resume-generations API route', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to fetch generations');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/resume-generations] Error:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });

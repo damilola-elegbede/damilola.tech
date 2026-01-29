@@ -6,6 +6,7 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { logger } from './logger';
 
 // Admin login configuration
 const MAX_ATTEMPTS = 5; // Failed attempts before lockout
@@ -15,15 +16,15 @@ const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes - cleanup old entries (i
 
 // Generic rate limit configuration
 export interface RateLimitConfig {
-  key: string;              // 'chat', 'fit-assessment', 'resume-generator'
-  limit: number;            // max requests
-  windowSeconds: number;    // time window
+  key: string; // 'chat', 'fit-assessment', 'resume-generator'
+  limit: number; // max requests
+  windowSeconds: number; // time window
 }
 
 // Predefined configs for public endpoints
 export const RATE_LIMIT_CONFIGS = {
-  chat: { key: 'chat', limit: 50, windowSeconds: 300 },               // 50 per 5 min
-  fitAssessment: { key: 'fit-assessment', limit: 10, windowSeconds: 3600 },  // 10 per hour
+  chat: { key: 'chat', limit: 50, windowSeconds: 300 }, // 50 per 5 min
+  fitAssessment: { key: 'fit-assessment', limit: 10, windowSeconds: 3600 }, // 10 per hour
   resumeGenerator: { key: 'resume-generator', limit: 10, windowSeconds: 3600 }, // 10 per hour
 } as const;
 
@@ -153,7 +154,10 @@ async function checkRateLimitRedis(ip: string): Promise<{
 
     return { limited: false, remainingAttempts: MAX_ATTEMPTS - attempts };
   } catch (error) {
-    console.error('[rate-limit] Redis error:', error);
+    logger.error('rate_limit.redis_error', {
+      operation: 'check',
+      error: error instanceof Error ? error.message : String(error),
+    });
     // On Redis error, fail closed to prevent bypass attacks
     return { limited: true, retryAfter: 60 };
   }
@@ -226,10 +230,16 @@ async function recordFailedAttemptRedis(ip: string): Promise<void> {
     if (attempts >= MAX_ATTEMPTS) {
       const lockoutExpiry = Date.now() + LOCKOUT_SECONDS * 1000;
       await client.set(lockoutKey, lockoutExpiry, { ex: LOCKOUT_SECONDS });
-      console.warn(`[rate-limit] IP ${ip} locked out after ${MAX_ATTEMPTS} failed attempts`);
+      logger.security.rateLimitTriggered(ip, 'admin-login', {
+        attempts,
+        lockoutSeconds: LOCKOUT_SECONDS,
+      });
     }
   } catch (error) {
-    console.error('[rate-limit] Redis error recording attempt:', error);
+    logger.error('rate_limit.redis_error', {
+      operation: 'record_attempt',
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -264,7 +274,10 @@ function recordFailedAttemptMemory(ip: string): void {
   // Apply lockout if limit reached
   if (entry.attempts >= MAX_ATTEMPTS) {
     entry.lockedUntil = now + LOCKOUT_SECONDS * 1000;
-    console.warn(`[rate-limit] IP ${ip} locked out after ${MAX_ATTEMPTS} failed attempts`);
+    logger.security.rateLimitTriggered(ip, 'admin-login', {
+      attempts: entry.attempts,
+      lockoutSeconds: LOCKOUT_SECONDS,
+    });
   }
 }
 
@@ -279,7 +292,10 @@ export async function clearRateLimit(ip: string): Promise<void> {
       const lockoutKey = `lockout:admin:${ip}`;
       await Promise.all([client.del(attemptsKey), client.del(lockoutKey)]);
     } catch (error) {
-      console.error('[rate-limit] Redis error clearing limit:', error);
+      logger.error('rate_limit.redis_error', {
+        operation: 'clear',
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   } else {
     memoryStore.delete(ip);
@@ -332,7 +348,7 @@ async function checkGenericRateLimitRedis(
 
   // Circuit breaker: if open, fall back to memory-based rate limiting
   if (now < circuitBreakerOpenUntil) {
-    console.warn('[rate-limit] Circuit breaker open, using memory fallback');
+    logger.circuitBreaker.rejected('redis-rate-limit');
     return checkGenericRateLimitMemory(config, identifier);
   }
 
@@ -347,6 +363,9 @@ async function checkGenericRateLimitRedis(
     }
 
     // Reset circuit breaker on success
+    if (redisErrorCount > 0) {
+      logger.circuitBreaker.closed('redis-rate-limit');
+    }
     redisErrorCount = 0;
 
     if (count > config.limit) {
@@ -364,13 +383,17 @@ async function checkGenericRateLimitRedis(
       remaining: config.limit - count,
     };
   } catch (error) {
-    console.error('[rate-limit] Redis error in generic rate limit:', error);
+    logger.error('rate_limit.redis_error', {
+      operation: 'generic_check',
+      endpoint: config.key,
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     // Circuit breaker: track consecutive errors
     redisErrorCount++;
     if (redisErrorCount >= CIRCUIT_BREAKER_THRESHOLD) {
       circuitBreakerOpenUntil = now + CIRCUIT_BREAKER_RESET_MS;
-      console.warn(`[rate-limit] Circuit breaker opened after ${redisErrorCount} Redis errors`);
+      logger.circuitBreaker.opened('redis-rate-limit', redisErrorCount);
     }
 
     // Fail open to memory-based limiting instead of blocking all requests

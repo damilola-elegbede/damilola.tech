@@ -612,10 +612,6 @@ describe('admin chats API route', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to list chats');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[admin/chats] Error listing chats:',
-        expect.any(Error)
-      );
 
       consoleSpy.mockRestore();
     });

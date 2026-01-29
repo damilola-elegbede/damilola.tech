@@ -1,6 +1,8 @@
 import { put } from '@vercel/blob';
 import type { AuditEvent, AuditEventType } from '@/lib/types';
 import { getClientIp } from '@/lib/rate-limit';
+import { logger, logColdStartIfNeeded } from '@/lib/logger';
+import { withRequestContext, createRequestContext } from '@/lib/request-context';
 
 export const runtime = 'nodejs';
 
@@ -90,82 +92,96 @@ function formatDatePath(date: Date): string {
 }
 
 export async function POST(req: Request) {
-  try {
-    // Rate limit check
-    const ip = getClientIp(req);
-    if (!checkAuditRateLimit(ip)) {
-      return Response.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 });
-    }
+  const ctx = createRequestContext(req, '/api/audit');
 
-    const contentLength = req.headers.get('content-length');
-    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
-      return Response.json({ error: 'Request body too large' }, { status: 413 });
-    }
+  return withRequestContext(ctx, async () => {
+    logColdStartIfNeeded();
+    logger.request.received('/api/audit', { method: 'POST' });
 
-    let body: unknown;
     try {
-      body = await req.json();
-    } catch {
-      return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
-    }
-
-    // Accept single event or array
-    const events = Array.isArray(body) ? body : [body];
-
-    if (events.length === 0) {
-      return Response.json({ error: 'No events provided' }, { status: 400 });
-    }
-
-    if (events.length > MAX_EVENTS_PER_BATCH) {
-      return Response.json({ error: `Maximum ${MAX_EVENTS_PER_BATCH} events per batch` }, { status: 400 });
-    }
-
-    // Validate all events
-    const validatedEvents: EventInput[] = [];
-    for (let i = 0; i < events.length; i++) {
-      const result = validateEvent(events[i], i);
-      if (!result.valid) {
-        return Response.json({ error: result.error }, { status: 400 });
+      // Rate limit check
+      const ip = getClientIp(req);
+      if (!checkAuditRateLimit(ip)) {
+        logger.request.failed('/api/audit', ctx.startTime, new Error('Rate limit exceeded'));
+        return Response.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 });
       }
-      validatedEvents.push(result.data);
-    }
 
-    const environment = process.env.VERCEL_ENV || 'development';
-    const now = new Date();
-    const datePath = formatDatePath(now);
+      const contentLength = req.headers.get('content-length');
+      if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+        logger.request.failed('/api/audit', ctx.startTime, new Error('Request body too large'));
+        return Response.json({ error: 'Request body too large' }, { status: 413 });
+      }
 
-    // Store each event
-    const storePromises = validatedEvents.map(async (event, index) => {
-      const eventId = crypto.randomUUID();
-      const timestamp = formatTimestamp(new Date(now.getTime() + index)); // Offset for uniqueness
+      let body: unknown;
+      try {
+        body = await req.json();
+      } catch (error) {
+        logger.request.failed('/api/audit', ctx.startTime, error);
+        return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+      }
 
-      const auditEvent: AuditEvent = {
-        version: 1,
-        eventId,
-        eventType: event.eventType,
-        environment,
-        timestamp: new Date().toISOString(),
-        sessionId: event.sessionId,
-        path: event.path,
-        section: event.section,
-        metadata: event.metadata || {},
-        userAgent: event.userAgent,
-      };
+      // Accept single event or array
+      const events = Array.isArray(body) ? body : [body];
 
-      const pathname = `damilola.tech/audit/${environment}/${datePath}/${timestamp}-${event.eventType}.json`;
+      if (events.length === 0) {
+        logger.request.failed('/api/audit', ctx.startTime, new Error('No events provided'));
+        return Response.json({ error: 'No events provided' }, { status: 400 });
+      }
 
-      await put(pathname, JSON.stringify(auditEvent), {
-        access: 'public',
-        addRandomSuffix: true,
-        contentType: 'application/json',
+      if (events.length > MAX_EVENTS_PER_BATCH) {
+        logger.request.failed('/api/audit', ctx.startTime, new Error('Batch size exceeded'));
+        return Response.json({ error: `Maximum ${MAX_EVENTS_PER_BATCH} events per batch` }, { status: 400 });
+      }
+
+      // Validate all events
+      const validatedEvents: EventInput[] = [];
+      for (let i = 0; i < events.length; i++) {
+        const result = validateEvent(events[i], i);
+        if (!result.valid) {
+          logger.request.failed('/api/audit', ctx.startTime, new Error(result.error));
+          return Response.json({ error: result.error }, { status: 400 });
+        }
+        validatedEvents.push(result.data);
+      }
+
+      const environment = process.env.VERCEL_ENV || 'development';
+      const now = new Date();
+      const datePath = formatDatePath(now);
+
+      // Store each event
+      const storePromises = validatedEvents.map(async (event, index) => {
+        const eventId = crypto.randomUUID();
+        const timestamp = formatTimestamp(new Date(now.getTime() + index)); // Offset for uniqueness
+
+        const auditEvent: AuditEvent = {
+          version: 1,
+          eventId,
+          eventType: event.eventType,
+          environment,
+          timestamp: new Date().toISOString(),
+          sessionId: event.sessionId,
+          path: event.path,
+          section: event.section,
+          metadata: event.metadata || {},
+          userAgent: event.userAgent,
+        };
+
+        const pathname = `damilola.tech/audit/${environment}/${datePath}/${timestamp}-${event.eventType}.json`;
+
+        await put(pathname, JSON.stringify(auditEvent), {
+          access: 'public',
+          addRandomSuffix: true,
+          contentType: 'application/json',
+        });
       });
-    });
 
-    await Promise.all(storePromises);
+      await Promise.all(storePromises);
 
-    return Response.json({ success: true, count: validatedEvents.length });
-  } catch (error) {
-    console.error('[audit] Error storing events:', error);
-    return Response.json({ error: 'Failed to store events' }, { status: 500 });
-  }
+      logger.request.completed('/api/audit', ctx.startTime, { count: validatedEvents.length });
+      return Response.json({ success: true, count: validatedEvents.length });
+    } catch (error) {
+      logger.request.failed('/api/audit', ctx.startTime, error);
+      return Response.json({ error: 'Failed to store events' }, { status: 500 });
+    }
+  });
 }

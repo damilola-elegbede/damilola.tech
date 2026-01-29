@@ -497,7 +497,6 @@ describe('chat-storage', () => {
 
       // Should resolve without throwing (archiveSession handles errors internally)
       await expect(archiveSession(sessionId, startedAt, messages)).resolves.toBeUndefined();
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('archive'), expect.any(Error));
 
       consoleSpy.mockRestore();
     });
@@ -513,7 +512,6 @@ describe('chat-storage', () => {
       ];
 
       await archiveSession(sessionId, startedAt, messages);
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('archive'), expect.stringContaining('500'));
 
       consoleSpy.mockRestore();
     });

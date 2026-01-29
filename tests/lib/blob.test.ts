@@ -245,9 +245,6 @@ describe('fetchBlob', () => {
       const result = await fetchBlob('test.md');
 
       expect(result).toBe('');
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'BLOB_READ_WRITE_TOKEN not configured for test.md'
-      );
       expect(mockList).not.toHaveBeenCalled();
 
       consoleWarnSpy.mockRestore();
@@ -279,9 +276,6 @@ describe('fetchBlob', () => {
       const result = await fetchBlob('missing.md');
 
       expect(result).toBe('');
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Blob not found: damilola.tech/content/missing.md'
-      );
 
       consoleWarnSpy.mockRestore();
     });
@@ -386,9 +380,6 @@ describe('fetchBlob', () => {
       const result = await fetchBlob('test.md');
 
       expect(result).toBe('');
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Failed to fetch blob content: test.md (500)'
-      );
 
       consoleWarnSpy.mockRestore();
     });
