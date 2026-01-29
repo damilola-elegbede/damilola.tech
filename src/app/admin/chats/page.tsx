@@ -47,13 +47,13 @@ export default function ChatsPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const columns = [
-    { key: 'sessionId', header: 'Session ID', render: (c: ChatSummary) => (
+    { key: 'sessionId', header: 'Session ID', sortable: true, render: (c: ChatSummary) => (
       <span className="font-mono text-xs">{c.sessionId}</span>
     )},
-    { key: 'timestamp', header: 'Date', render: (c: ChatSummary) => (
+    { key: 'timestamp', header: 'Date', sortable: true, render: (c: ChatSummary) => (
       c.timestamp ? new Date(c.timestamp).toLocaleString(undefined, { timeZoneName: 'short' }) : '-'
     )},
-    { key: 'size', header: 'Size', render: (c: ChatSummary) => (
+    { key: 'size', header: 'Size', sortable: true, render: (c: ChatSummary) => (
       `${(c.size / 1024).toFixed(1)} KB`
     )},
   ];
@@ -68,6 +68,7 @@ export default function ChatsPage() {
       <DataTable
         data={chats}
         columns={columns}
+        defaultSort={{ key: 'timestamp', direction: 'desc' }}
         onRowClick={(chat) => router.push(`/admin/chats/${encodeURIComponent(chat.url)}`)}
         isLoading={isLoading && chats.length === 0}
       />

@@ -20,7 +20,7 @@ describe('chat archive API route', () => {
   });
 
   const validSessionData = {
-    sessionId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    sessionId: 'chat-a1b2c3d4-e5f6-7890-abcd-ef1234567890',
     sessionStartedAt: '2025-01-22T10:30:00.000Z',
     messages: [
       { id: '1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
@@ -51,7 +51,7 @@ describe('chat archive API route', () => {
       expect(data.success).toBe(true);
       expect(mockPut).toHaveBeenCalledTimes(1);
 
-      // Verify the blob path format
+      // Verify the blob path format (uses first UUID segment after 'chat-' prefix)
       const [pathname, content, options] = mockPut.mock.calls[0];
       expect(pathname).toMatch(/^damilola\.tech\/chats\/production\/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z-a1b2c3d4\.json$/);
       expect(options).toEqual({ access: 'public', addRandomSuffix: true, contentType: 'application/json' });
@@ -198,6 +198,35 @@ describe('chat archive API route', () => {
 
       expect(response.status).toBe(400);
       expect(data.error).toContain('sessionId');
+    });
+
+    it('rejects plain UUID without chat- prefix', async () => {
+      const { POST } = await import('@/app/api/chat/archive/route');
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const request = new Request('http://localhost/api/chat/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...validSessionData,
+          sessionId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', // Plain UUID without chat- prefix
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('chat-prefixed');
+
+      // Verify validation error was logged
+      expect(consoleSpy).toHaveBeenCalled();
+      const errorCall = consoleSpy.mock.calls.find(call =>
+        call[0] && typeof call[0] === 'string' && call[0].includes('session_validation_error')
+      );
+      expect(errorCall).toBeDefined();
+
+      consoleSpy.mockRestore();
     });
 
     it('rejects request with invalid sessionStartedAt format', async () => {
