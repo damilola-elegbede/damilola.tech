@@ -30,7 +30,37 @@ test.describe('Traffic Source Tracking', () => {
     await context.close();
   });
 
-  test('should not overwrite existing traffic source on subsequent visits', async ({ browser }) => {
+  test('should override cached traffic source when UTM params present', async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    // First visit: direct (no UTM)
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(500);
+
+    let trafficSource = await page.evaluate(() => {
+      const stored = localStorage.getItem('audit_traffic_source');
+      return stored ? JSON.parse(stored) : null;
+    });
+    expect(trafficSource.source).toBe('direct');
+
+    // Second visit: with UTM params (should override)
+    await page.goto('/?utm_source=newsletter&utm_medium=email');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(500);
+
+    trafficSource = await page.evaluate(() => {
+      const stored = localStorage.getItem('audit_traffic_source');
+      return stored ? JSON.parse(stored) : null;
+    });
+    expect(trafficSource.source).toBe('newsletter');
+    expect(trafficSource.medium).toBe('email');
+
+    await context.close();
+  });
+
+  test('should preserve cached source when no UTM params on subsequent visit', async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -39,21 +69,17 @@ test.describe('Traffic Source Tracking', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(500);
 
-    // Get first traffic source
     const firstSource = await page.evaluate(() => {
       const stored = localStorage.getItem('audit_traffic_source');
       return stored ? JSON.parse(stored) : null;
     });
-
-    expect(firstSource).not.toBeNull();
     expect(firstSource.source).toBe('first');
 
-    // Second visit with different UTM params (same page, just re-navigate)
-    await page.goto('/?utm_source=second&utm_medium=different');
+    // Second visit without UTM params (should keep cached)
+    await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(500);
 
-    // Should still have first source (not overwritten)
     const afterSecondVisit = await page.evaluate(() => {
       const stored = localStorage.getItem('audit_traffic_source');
       return stored ? JSON.parse(stored) : null;
@@ -127,6 +153,33 @@ test.describe('Traffic Source Tracking', () => {
 
     expect(trafficSource).not.toBeNull();
     expect(trafficSource.landingPage).toBe('/');
+
+    await context.close();
+  });
+
+  test('should capture UTM parameters from shortlink redirect', async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    // Navigate to shortlink - Playwright follows 307 redirects
+    await page.goto('/test');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Verify final URL contains UTM parameters
+    expect(page.url()).toContain('utm_source=test');
+    expect(page.url()).toContain('utm_medium=e2e');
+
+    await page.waitForTimeout(500);
+
+    // Verify localStorage has correct traffic source
+    const trafficSource = await page.evaluate(() => {
+      const stored = localStorage.getItem('audit_traffic_source');
+      return stored ? JSON.parse(stored) : null;
+    });
+
+    expect(trafficSource).not.toBeNull();
+    expect(trafficSource.source).toBe('test');
+    expect(trafficSource.medium).toBe('e2e');
 
     await context.close();
   });

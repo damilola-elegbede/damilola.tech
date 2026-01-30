@@ -74,13 +74,41 @@ export function classifyReferrer(referrer: string): string {
 }
 
 /**
- * Capture traffic source on first visit
- * Returns existing source if already captured in this session
+ * Capture traffic source on page visit.
+ * UTM parameters always override cached values (supports shortlink redirects).
+ * Returns cached source only when no explicit UTM params present.
  */
 export function captureTrafficSource(): TrafficSource | null {
   if (typeof window === 'undefined') return null;
 
-  // Check if already captured
+  // FIRST: Check for explicit UTM parameters in current URL
+  const utmParams = getUtmParams();
+  const hasExplicitUtm = utmParams.source && utmParams.medium;
+
+  // If explicit UTM params present, always use them (override cached)
+  if (hasExplicitUtm) {
+    const trafficSource: TrafficSource = {
+      source: utmParams.source!,
+      medium: utmParams.medium!,
+      campaign: utmParams.campaign,
+      term: utmParams.term,
+      content: utmParams.content,
+      referrer: document.referrer || undefined,
+      landingPage: window.location.pathname,
+      capturedAt: new Date().toISOString(),
+    };
+
+    // Update localStorage with new UTM source
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(trafficSource));
+    } catch {
+      // localStorage not available
+    }
+
+    return trafficSource;
+  }
+
+  // No explicit UTM: Check for cached value
   try {
     const existing = localStorage.getItem(STORAGE_KEY);
     if (existing) {
@@ -90,27 +118,22 @@ export function captureTrafficSource(): TrafficSource | null {
     // localStorage not available or invalid JSON
   }
 
-  // Capture new traffic source
-  const utmParams = getUtmParams();
+  // No cached value: Capture from referrer/direct
   const referrer = document.referrer;
+  const source = classifyReferrer(referrer);
+  let medium = '';
 
-  // Determine source and medium
-  const source = utmParams.source || classifyReferrer(referrer);
-  let medium = utmParams.medium || '';
-
-  // Auto-classify medium based on source if not provided
-  if (!medium) {
-    if (source === 'direct') {
-      medium = 'none';
-    } else if (['google', 'bing'].includes(source)) {
-      medium = 'organic';
-    } else if (['linkedin', 'twitter', 'facebook', 'github'].includes(source)) {
-      medium = 'social';
-    } else if (referrer) {
-      medium = 'referral';
-    } else {
-      medium = 'none';
-    }
+  // Auto-classify medium based on source
+  if (source === 'direct') {
+    medium = 'none';
+  } else if (['google', 'bing'].includes(source)) {
+    medium = 'organic';
+  } else if (['linkedin', 'twitter', 'facebook', 'github'].includes(source)) {
+    medium = 'social';
+  } else if (referrer) {
+    medium = 'referral';
+  } else {
+    medium = 'none';
   }
 
   const trafficSource: TrafficSource = {
