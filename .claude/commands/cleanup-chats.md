@@ -28,7 +28,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
 ## Retention Policies
 
 | Category | Environment | Retention |
-|----------|-------------|-----------|
+| -------- | ----------- | --------- |
 | Chats | Production | 180 days (6 months) |
 | Chats | Preview | 14 days |
 | Fit Assessments | All | 180 days (6 months) |
@@ -36,6 +36,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
 | Audit Logs | Production | 365 days (1 year) |
 | Audit Logs | Preview | 14 days |
 | Audit Logs | Development | Deleted immediately |
+| Development Artifacts | All | Deleted immediately |
 | Empty Placeholders | All | Deleted immediately |
 | Orphan Sessions | All | Deleted immediately |
 
@@ -43,7 +44,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
 
 These paths are protected regardless of age:
 - `damilola.tech/content/` - System prompts, STAR stories, resume JSON
-- `damilola.tech/resume/` - Base resume PDF and generated PDFs
+- `damilola.tech/resume/` - Base resume PDF (generated resumes under `resume-generations/` follow 365-day retention)
 - `damilola.tech/admin-cache/` - Dashboard cache files
 
 ## What This Cleans Up
