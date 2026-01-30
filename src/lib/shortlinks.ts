@@ -48,6 +48,9 @@ export const SHORTLINKS: ShortlinkConfig[] = [
   { slug: 'text', utm_source: 'sms', utm_medium: 'message', description: 'Text message shares' },
   { slug: 'blog', utm_source: 'blog', utm_medium: 'content', description: 'Mentioned in blog/articles' },
   { slug: 'speaker', utm_source: 'speaker', utm_medium: 'event', description: 'Speaker bio at talks/webinars' },
+
+  // Testing
+  { slug: 'test', utm_source: 'test', utm_medium: 'e2e', description: 'E2E testing shortlink' },
 ];
 
 /**

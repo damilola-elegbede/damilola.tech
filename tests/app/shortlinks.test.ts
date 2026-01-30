@@ -4,8 +4,8 @@ import { getShortlink, SHORTLINKS } from '@/lib/shortlinks';
 // Test the shortlinks configuration module
 describe('shortlinks configuration', () => {
   describe('SHORTLINKS', () => {
-    it('contains all 23 shortlinks', () => {
-      expect(SHORTLINKS).toHaveLength(23);
+    it('contains all 24 shortlinks', () => {
+      expect(SHORTLINKS).toHaveLength(24);
     });
 
     it('has unique slugs', () => {
