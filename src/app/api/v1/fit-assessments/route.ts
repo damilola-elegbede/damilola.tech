@@ -1,6 +1,8 @@
 import { list } from '@vercel/blob';
 import { requireApiKey } from '@/lib/api-key-auth';
+import { logApiAccess } from '@/lib/api-audit';
 import { apiSuccess, Errors } from '@/lib/api-response';
+import { getClientIp } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -22,6 +24,8 @@ export async function GET(req: Request) {
   if (authResult instanceof Response) {
     return authResult;
   }
+
+  const ip = getClientIp(req);
 
   try {
     const { searchParams } = new URL(req.url);
@@ -47,6 +51,13 @@ export async function GET(req: Request) {
         url: blob.url,
       };
     });
+
+    // Log API access audit event
+    logApiAccess('api_fit_assessments_list', authResult.apiKey, {
+      environment,
+      resultCount: assessments.length,
+      hasMore: result.hasMore,
+    }, ip).catch((err) => console.warn('[api/v1/fit-assessments] Failed to log audit:', err));
 
     return apiSuccess(
       { assessments },

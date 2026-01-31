@@ -1,7 +1,9 @@
 import { list } from '@vercel/blob';
 import { requireApiKey } from '@/lib/api-key-auth';
+import { logApiAccess } from '@/lib/api-audit';
 import { apiSuccess, Errors } from '@/lib/api-response';
 import { generateJobId } from '@/lib/job-id';
+import { getClientIp } from '@/lib/rate-limit';
 import type {
   ResumeGenerationSummary,
   ResumeGenerationLog,
@@ -72,6 +74,8 @@ export async function GET(req: Request) {
   if (authResult instanceof Response) {
     return authResult;
   }
+
+  const ip = getClientIp(req);
 
   try {
     const url = new URL(req.url);
@@ -166,6 +170,14 @@ export async function GET(req: Request) {
       : allGenerations;
 
     generations.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    // Log API access audit event
+    logApiAccess('api_resume_generations_list', authResult.apiKey, {
+      environment,
+      resultCount: generations.length,
+      hasFilters,
+      hasMore: !!nextCursor,
+    }, ip).catch((err) => console.warn('[api/v1/resume-generations] Failed to log audit:', err));
 
     return apiSuccess(
       { generations },

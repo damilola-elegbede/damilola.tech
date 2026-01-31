@@ -25,6 +25,10 @@ export interface UsageSession {
   sessionId: string;
   createdAt: string;
   lastUpdatedAt: string;
+  /** API key ID if this session was created via external API */
+  apiKeyId?: string;
+  /** API key name if this session was created via external API */
+  apiKeyName?: string;
   requests: UsageRequest[];
   totals: {
     requestCount: number;
@@ -138,13 +142,21 @@ export async function getSession(sessionId: string): Promise<UsageSession | null
   }
 }
 
+export interface LogUsageOptions {
+  /** API key ID for attribution (optional) */
+  apiKeyId?: string;
+  /** API key name for attribution (optional) */
+  apiKeyName?: string;
+}
+
 /**
  * Log a usage request for a session.
  * Uses read-modify-write pattern with single session file.
  */
 export async function logUsage(
   sessionId: string,
-  request: Omit<UsageRequest, 'timestamp' | 'costUsd'>
+  request: Omit<UsageRequest, 'timestamp' | 'costUsd'>,
+  options?: LogUsageOptions
 ): Promise<void> {
   try {
     const timestamp = new Date().toISOString();
@@ -163,6 +175,8 @@ export async function logUsage(
       sessionId,
       createdAt: timestamp,
       lastUpdatedAt: timestamp,
+      ...(options?.apiKeyId && { apiKeyId: options.apiKeyId }),
+      ...(options?.apiKeyName && { apiKeyName: options.apiKeyName }),
       requests: [],
       totals: {
         requestCount: 0,

@@ -15,6 +15,17 @@ vi.mock('@/lib/api-key-auth', () => ({
   requireApiKey: (req: Request) => mockRequireApiKey(req),
 }));
 
+// Mock api-audit
+const mockLogApiAccess = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/lib/api-audit', () => ({
+  logApiAccess: (...args: unknown[]) => mockLogApiAccess(...args),
+}));
+
+// Mock rate-limit
+vi.mock('@/lib/rate-limit', () => ({
+  getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
+}));
+
 describe('v1/fit-assessments API route', () => {
   const originalEnv = { ...process.env };
 
@@ -204,6 +215,40 @@ describe('v1/fit-assessments API route', () => {
         expect.objectContaining({
           limit: 50,
         })
+      );
+    });
+
+    it('logs api_fit_assessments_list audit event with correct parameters', async () => {
+      mockList.mockResolvedValue({
+        blobs: [
+          {
+            pathname: 'damilola.tech/fit-assessments/production/2026-01-28T10-30-00Z-abc12345.json',
+            size: 5000,
+            url: 'https://blob.url/assessment1',
+          },
+          {
+            pathname: 'damilola.tech/fit-assessments/production/2026-01-29T11-00-00Z-def67890.json',
+            size: 6000,
+            url: 'https://blob.url/assessment2',
+          },
+        ],
+        cursor: 'next-cursor',
+        hasMore: true,
+      });
+
+      const { GET } = await import('@/app/api/v1/fit-assessments/route');
+      const request = new Request('http://localhost/api/v1/fit-assessments');
+      await GET(request);
+
+      expect(mockLogApiAccess).toHaveBeenCalledWith(
+        'api_fit_assessments_list',
+        mockValidApiKey.apiKey,
+        expect.objectContaining({
+          environment: 'production',
+          resultCount: 2,
+          hasMore: true,
+        }),
+        '127.0.0.1'
       );
     });
   });

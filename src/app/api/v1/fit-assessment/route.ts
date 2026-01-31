@@ -1,8 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { isIP } from 'node:net';
 import { requireApiKey } from '@/lib/api-key-auth';
+import { logApiAccess } from '@/lib/api-audit';
 import { apiSuccess, Errors } from '@/lib/api-response';
 import { FIT_ASSESSMENT_PROMPT } from '@/lib/generated/system-prompt';
+import { getClientIp } from '@/lib/rate-limit';
 import { getFitAssessmentPrompt } from '@/lib/system-prompt';
 import { logUsage } from '@/lib/usage-logger';
 
@@ -204,6 +206,8 @@ export async function POST(req: Request) {
     return authResult;
   }
 
+  const ip = getClientIp(req);
+
   try {
     const contentLength = req.headers.get('content-length');
     if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
@@ -307,7 +311,18 @@ export async function POST(req: Request) {
       cacheRead: usage.cache_read_input_tokens ?? 0,
       durationMs: Date.now() - startTime,
       cacheTtl: '1h',
+    }, {
+      apiKeyId: authResult.apiKey.id,
+      apiKeyName: authResult.apiKey.name,
     }).catch((err) => console.warn('[api/v1/fit-assessment] Failed to log usage:', err));
+
+    // Log API access audit event
+    logApiAccess('api_fit_assessment', authResult.apiKey, {
+      sessionId: fitSessionId,
+      inputTokens: usage.input_tokens,
+      outputTokens: usage.output_tokens,
+      durationMs: Date.now() - startTime,
+    }, ip).catch((err) => console.warn('[api/v1/fit-assessment] Failed to log audit:', err));
 
     // Extract text content from response
     const textContent = message.content.find((block) => block.type === 'text');
