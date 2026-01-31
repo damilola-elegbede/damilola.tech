@@ -234,7 +234,7 @@ export async function POST(req: Request) {
 
         if (textContent.length < MIN_EXTRACTED_CONTENT_LENGTH) {
           return Errors.badRequest(
-            'Could not extract job description from that URL. Please provide the job description text directly.'
+            `Content too short (${textContent.length} chars, minimum ${MIN_EXTRACTED_CONTENT_LENGTH} required). Please provide the job description text directly.`
           );
         }
 

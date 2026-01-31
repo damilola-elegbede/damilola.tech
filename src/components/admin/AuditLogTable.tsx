@@ -490,23 +490,25 @@ export function AuditLogTable({ events, isLoading }: AuditLogTableProps) {
 
   if (isLoading) {
     return (
-      <div className="flex h-32 items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+      <div className="flex h-32 items-center justify-center" role="status" aria-live="polite">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" aria-hidden="true" />
+        <span className="sr-only">Loading audit events...</span>
       </div>
     );
   }
 
   if (events.length === 0) {
     return (
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-8 text-center text-[var(--color-text-muted)]">
+      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-8 text-center text-[var(--color-text-muted)]" role="status" aria-live="polite">
         No events found
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
-      <table className="w-full">
+    <div className="overflow-hidden rounded-lg border border-[var(--color-border)]" role="region" aria-label="Audit log events" aria-busy={isLoading}>
+      <table className="w-full" aria-describedby="audit-table-caption">
+        <caption id="audit-table-caption" className="sr-only">Audit log events sorted by {sortConfig.key} in {sortConfig.direction === 'asc' ? 'ascending' : 'descending'} order</caption>
         <thead className="sticky top-0 bg-[var(--color-card)]">
           <tr>
             <SortableHeader label="Event Type" sortKey="eventType" currentSort={sortConfig} onSort={handleSort} />

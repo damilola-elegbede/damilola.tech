@@ -30,24 +30,28 @@ export function AdminNav() {
       <div className="p-6">
         <h2 className="text-lg font-semibold text-[var(--color-text)]">Admin Portal</h2>
       </div>
-      <div className="flex-1 px-4">
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-              pathname === item.href || pathname.startsWith(item.href + '/')
-                ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
-                : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-text)]'
-            )}
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
-            </svg>
-            {item.label}
-          </Link>
-        ))}
+      <div className="flex-1 px-4" role="navigation" aria-label="Admin navigation">
+        {navItems.map((item) => {
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive ? 'page' : undefined}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                isActive
+                  ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+                  : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg-alt)] hover:text-[var(--color-text)]'
+              )}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
+              </svg>
+              {item.label}
+            </Link>
+          );
+        })}
       </div>
       <div className="border-t border-[var(--color-border)] p-4">
         <button

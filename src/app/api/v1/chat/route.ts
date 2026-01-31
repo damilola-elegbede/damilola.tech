@@ -26,6 +26,7 @@ interface ChatMessage {
 
 function validateMessages(messages: unknown): messages is ChatMessage[] {
   if (!Array.isArray(messages)) return false;
+  if (messages.length === 0) return false; // Empty array is invalid
   if (messages.length > MAX_MESSAGES) return false;
 
   return messages.every(

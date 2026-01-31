@@ -38,7 +38,7 @@ export default function ApiKeysPage() {
       const res = await fetch('/api/admin/api-keys');
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to fetch API keys');
+        throw new Error(data.error?.message || 'Failed to fetch API keys');
       }
       const data = await res.json();
       setKeys(data.keys);
@@ -70,7 +70,7 @@ export default function ApiKeysPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to create API key');
+        throw new Error(data.error?.message || 'Failed to create API key');
       }
 
       const data: CreateKeyResponse = await res.json();
@@ -104,7 +104,7 @@ export default function ApiKeysPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to update API key');
+        throw new Error(data.error?.message || 'Failed to update API key');
       }
 
       fetchKeys();
@@ -123,7 +123,7 @@ export default function ApiKeysPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to revoke API key');
+        throw new Error(data.error?.message || 'Failed to revoke API key');
       }
 
       setConfirmRevoke(null);
@@ -187,7 +187,7 @@ export default function ApiKeysPage() {
 
       {/* Active Keys */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-[var(--color-text)]">Active Keys</h2>
+        <h2 id="active-keys-heading" className="text-lg font-semibold text-[var(--color-text)]">Active Keys</h2>
         {isLoading ? (
           <div className="text-[var(--color-text-muted)]">Loading...</div>
         ) : activeKeys.length === 0 ? (
@@ -195,16 +195,16 @@ export default function ApiKeysPage() {
             <p className="text-[var(--color-text-muted)]">No API keys created yet.</p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
-            <table className="w-full">
+          <div className="overflow-hidden rounded-lg border border-[var(--color-border)]" role="region" aria-label="Active API keys">
+            <table className="w-full" aria-describedby="active-keys-heading">
               <thead className="bg-[var(--color-card)]">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Name</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Key Prefix</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Created</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Last Used</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-[var(--color-text-muted)]">Actions</th>
+                  <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Name</th>
+                  <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Key Prefix</th>
+                  <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Status</th>
+                  <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Created</th>
+                  <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-[var(--color-text-muted)]">Last Used</th>
+                  <th scope="col" className="px-4 py-3 text-right text-sm font-medium text-[var(--color-text-muted)]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border)]">
@@ -241,6 +241,7 @@ export default function ApiKeysPage() {
                         <button
                           onClick={() => handleToggle(key)}
                           disabled={togglingKey === key.id}
+                          aria-label={key.enabled ? `Disable API key ${key.name}` : `Enable API key ${key.name}`}
                           className="rounded px-2 py-1 text-sm text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-card)] hover:text-[var(--color-text)] disabled:opacity-50"
                         >
                           {key.enabled ? 'Disable' : 'Enable'}
@@ -263,6 +264,7 @@ export default function ApiKeysPage() {
                         ) : (
                           <button
                             onClick={() => setConfirmRevoke(key.id)}
+                            aria-label={`Revoke API key ${key.name}`}
                             className="rounded px-2 py-1 text-sm text-red-400 transition-colors hover:bg-red-500/10"
                           >
                             Revoke

@@ -98,12 +98,7 @@ describe('v1/chat API route', () => {
       expect(data.error.code).toBe('VALIDATION_ERROR');
     });
 
-    it('returns error for empty messages array', async () => {
-      // Note: Empty arrays pass validation (Array.every returns true for []),
-      // so this results in an API error when Anthropic rejects empty messages.
-      // Ideally validation should check for empty arrays and return 400.
-      mockCreate.mockRejectedValue(new Error('messages: at least 1 message is required'));
-
+    it('returns 400 for empty messages array', async () => {
       const { POST } = await import('@/app/api/v1/chat/route');
       const request = new Request('http://localhost/api/v1/chat', {
         method: 'POST',
@@ -111,8 +106,8 @@ describe('v1/chat API route', () => {
       });
       const response = await POST(request);
 
-      // Returns 500 because empty array passes validation and Anthropic rejects it
-      expect(response.status).toBe(500);
+      // Empty array is now properly validated and returns 400
+      expect(response.status).toBe(400);
     });
 
     it('returns 400 for invalid message format', async () => {

@@ -320,7 +320,7 @@ describe('v1/fit-assessment API route', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error.message).toContain('Could not extract');
+      expect(data.error.message).toContain('Content too short');
     });
   });
 });

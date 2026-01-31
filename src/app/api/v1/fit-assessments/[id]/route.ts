@@ -33,7 +33,14 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const blobUrl = decodeURIComponent(id);
+
+    // Handle malformed percent-encoding in URL
+    let blobUrl: string;
+    try {
+      blobUrl = decodeURIComponent(id);
+    } catch {
+      return Errors.badRequest('Invalid assessment URL encoding');
+    }
 
     // Validate URL to prevent SSRF attacks
     if (!isValidBlobUrl(blobUrl)) {

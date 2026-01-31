@@ -27,7 +27,8 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const environment = searchParams.get('env') || process.env.VERCEL_ENV || 'production';
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
+    const parsedLimit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = Math.min(Number.isNaN(parsedLimit) ? 50 : parsedLimit, 100);
     const cursor = searchParams.get('cursor') || undefined;
 
     const prefix = `${CHATS_PREFIX}${environment}/`;

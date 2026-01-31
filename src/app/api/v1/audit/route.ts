@@ -103,8 +103,8 @@ export async function GET(req: Request) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       .map(({ _sortKey, ...rest }) => rest);
 
-    // Log audit access with API context
-    logAdminEvent('admin_audit_accessed', { environment, date, eventType, page }, ip, {
+    // Log audit access with API context (await to ensure it completes)
+    await logAdminEvent('admin_audit_accessed', { environment, date, eventType, page }, ip, {
       accessType: 'api',
       apiKeyId: authResult.apiKey.id,
       apiKeyName: authResult.apiKey.name,
