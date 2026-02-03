@@ -1,16 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import type { ProposedChange, Gap, ReviewedChange } from '@/lib/types/resume-generation';
+import type { ProposedChange, Gap, ReviewedChange, ScoreCeiling } from '@/lib/types/resume-generation';
 
 interface ChangePreviewPanelProps {
   changes: ProposedChange[];
   gaps: Gap[];
+  scoreCeiling?: ScoreCeiling;
   reviewedChanges: Map<number, ReviewedChange>;
   onAcceptChange: (index: number, editedText?: string) => void;
   onRejectChange: (index: number, feedback?: string) => void;
   onRevertChange: (index: number) => void;
   onModifyChange?: (index: number, prompt: string) => Promise<void>;
+  /** Function to calculate adjusted impact for edited changes */
+  calculateEditedImpact?: (change: ProposedChange, editedText: string) => number;
 }
 
 type CardMode = 'view' | 'edit' | 'reject' | 'modify';
@@ -23,6 +26,7 @@ function ChangeCard({
   onReject,
   onRevert,
   onModify,
+  calculateEditedImpact,
 }: {
   change: ProposedChange;
   index: number;
@@ -31,6 +35,7 @@ function ChangeCard({
   onReject: (feedback?: string) => void;
   onRevert: () => void;
   onModify?: (prompt: string) => Promise<void>;
+  calculateEditedImpact?: (change: ProposedChange, editedText: string) => number;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [mode, setMode] = useState<CardMode>('view');
@@ -45,6 +50,13 @@ function ChangeCard({
   const isRejected = status === 'rejected';
   const isPending = status === 'pending';
   const wasEdited = review?.editedText !== undefined;
+
+  // Calculate adjusted impact if change was edited
+  const editedText = review?.editedText;
+  const adjustedImpact = wasEdited && calculateEditedImpact && editedText !== undefined
+    ? calculateEditedImpact(change, editedText)
+    : change.impactPoints;
+  const hasReducedImpact = wasEdited && adjustedImpact < change.impactPoints;
 
   const handleEditClick = () => {
     setEditText(change.modified);
@@ -127,7 +139,15 @@ function ChangeCard({
             {change.section}
           </span>
           <span className="text-sm text-[var(--color-text)]">
-            +{change.impactPoints} pts
+            {hasReducedImpact ? (
+              <>
+                <span className="text-[var(--color-text-muted)] line-through">+{change.impactPoints}</span>
+                {' '}
+                <span className="text-blue-400">+{adjustedImpact} pts</span>
+              </>
+            ) : (
+              `+${change.impactPoints} pts`
+            )}
           </span>
           {isAccepted && (
             <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-green-400">
@@ -426,11 +446,13 @@ function GapCard({ gap }: { gap: Gap }) {
 export function ChangePreviewPanel({
   changes,
   gaps,
+  scoreCeiling,
   reviewedChanges,
   onAcceptChange,
   onRejectChange,
   onRevertChange,
   onModifyChange,
+  calculateEditedImpact,
 }: ChangePreviewPanelProps) {
   const pendingCount = changes.filter(
     (_, i) => !reviewedChanges.has(i) || reviewedChanges.get(i)?.status === 'pending'
@@ -514,17 +536,34 @@ export function ChangePreviewPanel({
               onReject={(feedback) => onRejectChange(index, feedback)}
               onRevert={() => onRevertChange(index)}
               onModify={onModifyChange ? (prompt) => onModifyChange(index, prompt) : undefined}
+              calculateEditedImpact={calculateEditedImpact}
             />
           ))}
         </div>
       </div>
 
       {/* Gaps Section */}
-      {gaps.length > 0 && (
+      {(gaps.length > 0 || scoreCeiling) && (
         <div>
           <h3 className="mb-4 text-lg font-semibold text-[var(--color-text)]">
             Gaps Identified ({gaps.length})
           </h3>
+
+          {/* Score Ceiling (when 90+ not achievable) */}
+          {scoreCeiling && (
+            <div className="mb-4 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
+              <h4 className="text-sm font-medium text-yellow-400">
+                Score Ceiling: {scoreCeiling.maximum}
+              </h4>
+              <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+                <strong>Blockers:</strong> {scoreCeiling.blockers.join(', ')}
+              </p>
+              <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                <strong>To reach 90+:</strong> {scoreCeiling.toReach90}
+              </p>
+            </div>
+          )}
+
           <div className="space-y-3">
             {gaps.map((gap, index) => (
               <GapCard key={index} gap={gap} />
