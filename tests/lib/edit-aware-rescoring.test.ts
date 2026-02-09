@@ -399,13 +399,13 @@ function makeResult(
     },
     currentScore: {
       total: currentTotal,
-      breakdown: { keywordRelevance: 20, skillsQuality: 15, experienceAlignment: 10, formatParseability: 15 },
+      breakdown: { keywordRelevance: 20, skillsQuality: 15, experienceAlignment: 10, contentQuality: 8 },
       assessment: 'Test',
     },
     proposedChanges: changes,
     optimizedScore: {
       total: optimizedTotal,
-      breakdown: { keywordRelevance: 30, skillsQuality: 20, experienceAlignment: 15, formatParseability: 15 },
+      breakdown: { keywordRelevance: 30, skillsQuality: 20, experienceAlignment: 15, contentQuality: 8 },
       assessment: 'Test',
     },
     gaps: [],

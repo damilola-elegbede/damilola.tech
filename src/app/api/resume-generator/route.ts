@@ -352,10 +352,10 @@ Use this score as your "currentScore" in the response. DO NOT recalculate it.
 ### Current Score: ${atsScore.total}/100
 
 ### Breakdown:
-- Keyword Relevance: ${breakdown.keywordRelevance}/40
+- Keyword Relevance: ${breakdown.keywordRelevance}/45
 - Skills Quality: ${breakdown.skillsQuality}/25
 - Experience Alignment: ${breakdown.experienceAlignment}/20
-- Format Parseability: ${breakdown.formatParseability}/15
+- Content Quality: ${breakdown.contentQuality}/10
 
 ### Keyword Analysis:
 - Match Rate: ${details.matchRate}%
@@ -564,15 +564,15 @@ export async function POST(req: Request) {
         company: e.company,
         highlights: e.highlights,
       })),
+      education: resumeData.education.map(e => ({
+        degree: e.degree,
+        institution: e.institution,
+      })),
     };
     const resumeText = resumeDataToText({
       ...atsResumeData,
       name: resumeData.name,
       summary: resumeData.brandingStatement,
-      education: resumeData.education.map(e => ({
-        degree: e.degree,
-        institution: e.institution,
-      })),
     });
     const atsScore = calculateATSScore({
       jobDescription: jobDescriptionText,

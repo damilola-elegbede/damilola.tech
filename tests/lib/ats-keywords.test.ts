@@ -4,12 +4,14 @@ import {
   SKILL_SYNONYMS,
   TECH_KEYWORDS,
   ACTION_VERBS,
+  NICE_TO_HAVE_MARKERS,
   stemWord,
   extractKeywords,
   wordCount,
   matchKeywords,
   calculateMatchRate,
   calculateKeywordDensity,
+  calculateActualKeywordDensity,
 } from '@/lib/ats-keywords';
 
 describe('ATS Keywords - Data Structures', () => {
@@ -1017,6 +1019,222 @@ describe('ATS Keywords - Integration Tests', () => {
       results.push(matchRate);
     }
 
+    expect(new Set(results).size).toBe(1);
+  });
+});
+
+describe('ATS Keywords - NICE_TO_HAVE_MARKERS', () => {
+  it('contains common nice-to-have markers', () => {
+    expect(NICE_TO_HAVE_MARKERS).toContain('nice to have');
+    expect(NICE_TO_HAVE_MARKERS).toContain('preferred');
+    expect(NICE_TO_HAVE_MARKERS).toContain('bonus');
+  });
+
+  it('is an array of lowercase strings', () => {
+    expect(Array.isArray(NICE_TO_HAVE_MARKERS)).toBe(true);
+    for (const marker of NICE_TO_HAVE_MARKERS) {
+      expect(marker).toBe(marker.toLowerCase());
+    }
+  });
+});
+
+describe('ATS Keywords - extractKeywords with nice-to-have', () => {
+  it('extracts fromNiceToHave keywords from nice-to-have section', () => {
+    const jd = `
+      Engineering Manager
+      Requirements:
+      - 8+ years software engineering experience
+      - Cloud infrastructure (AWS, GCP)
+      - Team leadership
+
+      Nice to have:
+      - Healthcare industry experience
+      - Startup background
+      - Machine learning knowledge
+    `;
+
+    const keywords = extractKeywords(jd, 25);
+
+    expect(keywords.fromNiceToHave).toBeDefined();
+    expect(Array.isArray(keywords.fromNiceToHave)).toBe(true);
+    // Should extract at least some keywords from nice-to-have section
+    expect(keywords.fromNiceToHave.length).toBeGreaterThan(0);
+  });
+
+  it('returns empty fromNiceToHave when no nice-to-have section exists', () => {
+    const jd = `
+      Engineering Manager
+      Requirements:
+      - 8+ years experience
+      - Cloud infrastructure
+    `;
+
+    const keywords = extractKeywords(jd, 20);
+
+    expect(keywords.fromNiceToHave).toBeDefined();
+    expect(Array.isArray(keywords.fromNiceToHave)).toBe(true);
+  });
+
+  it('assigns keywordPriorities to all extracted keywords', () => {
+    const jd = `
+      Senior Platform Engineer
+      Requirements:
+      - Python, AWS experience
+      - CI/CD pipeline development
+
+      Nice to have:
+      - Go programming experience
+      - Kubernetes certification
+    `;
+
+    const keywords = extractKeywords(jd, 25);
+
+    expect(keywords.keywordPriorities).toBeDefined();
+    expect(typeof keywords.keywordPriorities).toBe('object');
+
+    // All keywords in the `all` array should have a priority
+    for (const keyword of keywords.all) {
+      expect(keywords.keywordPriorities[keyword]).toBeDefined();
+      expect(['title', 'required', 'niceToHave', 'general']).toContain(
+        keywords.keywordPriorities[keyword]
+      );
+    }
+  });
+
+  it('assigns title priority to title-derived keywords', () => {
+    const jd = `
+      Senior Platform Engineer
+      Requirements:
+      - Python experience
+    `;
+
+    const keywords = extractKeywords(jd, 20);
+
+    // Title keywords should have 'title' priority
+    for (const titleKw of keywords.fromTitle) {
+      if (keywords.keywordPriorities[titleKw]) {
+        expect(keywords.keywordPriorities[titleKw]).toBe('title');
+      }
+    }
+  });
+
+  it('assigns niceToHave priority to nice-to-have keywords', () => {
+    const jd = `
+      Engineering Manager
+      Requirements:
+      - Team leadership
+
+      Preferred:
+      - Healthcare domain expertise
+      - Machine learning background
+    `;
+
+    const keywords = extractKeywords(jd, 25);
+
+    for (const nthKw of keywords.fromNiceToHave) {
+      if (keywords.keywordPriorities[nthKw]) {
+        expect(keywords.keywordPriorities[nthKw]).toBe('niceToHave');
+      }
+    }
+  });
+
+  it('is deterministic for nice-to-have extraction', () => {
+    const jd = `
+      Engineering Manager
+      Requirements:
+      - Cloud infrastructure
+      Nice to have:
+      - Healthcare experience
+    `;
+
+    const results: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const keywords = extractKeywords(jd, 20);
+      results.push(JSON.stringify({
+        all: keywords.all,
+        fromNiceToHave: keywords.fromNiceToHave,
+        priorities: keywords.keywordPriorities,
+      }));
+    }
+    expect(new Set(results).size).toBe(1);
+  });
+});
+
+describe('ATS Keywords - calculateActualKeywordDensity', () => {
+  it('returns density result with expected fields', () => {
+    const result = calculateActualKeywordDensity(
+      'We use kubernetes and docker. Our kubernetes cluster runs on AWS with docker containers.',
+      ['kubernetes', 'docker', 'aws']
+    );
+
+    expect(result).toBeDefined();
+    expect(typeof result.overallDensity).toBe('number');
+    expect(typeof result.totalOccurrences).toBe('number');
+    expect(Array.isArray(result.stuffedKeywords)).toBe(true);
+  });
+
+  it('counts total keyword occurrences', () => {
+    const result = calculateActualKeywordDensity(
+      'kubernetes is great. We deploy on kubernetes. Our kubernetes cluster is reliable.',
+      ['kubernetes']
+    );
+
+    expect(result.totalOccurrences).toBe(3);
+  });
+
+  it('flags keywords appearing 5+ times', () => {
+    const result = calculateActualKeywordDensity(
+      'kubernetes kubernetes kubernetes kubernetes kubernetes kubernetes',
+      ['kubernetes']
+    );
+
+    expect(result.stuffedKeywords).toContain('kubernetes');
+    expect(result.totalOccurrences).toBeGreaterThanOrEqual(5);
+  });
+
+  it('does not flag keywords appearing less than 5 times', () => {
+    const result = calculateActualKeywordDensity(
+      'We use kubernetes and docker. Docker containers run on kubernetes.',
+      ['kubernetes', 'docker']
+    );
+
+    expect(result.stuffedKeywords).not.toContain('kubernetes');
+    expect(result.stuffedKeywords).not.toContain('docker');
+  });
+
+  it('handles empty keywords array', () => {
+    const result = calculateActualKeywordDensity('Some resume text here.', []);
+
+    expect(result.overallDensity).toBe(0);
+    expect(result.totalOccurrences).toBe(0);
+    expect(result.stuffedKeywords).toHaveLength(0);
+  });
+
+  it('handles empty text', () => {
+    const result = calculateActualKeywordDensity('', ['kubernetes']);
+
+    expect(result.overallDensity).toBe(0);
+    expect(result.totalOccurrences).toBe(0);
+    expect(result.stuffedKeywords).toHaveLength(0);
+  });
+
+  it('is case insensitive', () => {
+    const result = calculateActualKeywordDensity(
+      'Kubernetes KUBERNETES kubernetes',
+      ['kubernetes']
+    );
+
+    expect(result.totalOccurrences).toBe(3);
+  });
+
+  it('is deterministic', () => {
+    const keywords = ['kubernetes', 'docker', 'aws'];
+    const text = 'We use kubernetes and docker on AWS. Docker containers are great.';
+
+    const results: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      results.push(JSON.stringify(calculateActualKeywordDensity(text, keywords)));
+    }
     expect(new Set(results).size).toBe(1);
   });
 });

@@ -182,14 +182,16 @@ const REQUIRED_SECTION_MARKERS = [
 
 /**
  * Section headers that indicate nice-to-have skills in JDs.
- * Reserved for future use in nice-to-have vs required differentiation.
  */
-const _NICE_TO_HAVE_MARKERS = [
+export const NICE_TO_HAVE_MARKERS = [
   'nice to have', 'preferred', 'bonus', 'plus', 'ideal', 'desired',
   'additionally', 'preferred qualifications',
 ];
-// Export for future use
-export { _NICE_TO_HAVE_MARKERS as NICE_TO_HAVE_MARKERS };
+
+/**
+ * Priority level for a keyword based on its JD section.
+ */
+export type KeywordPriority = 'title' | 'required' | 'niceToHave' | 'general';
 
 /**
  * Result of keyword matching operation.
@@ -217,10 +219,14 @@ export interface ExtractedKeywords {
   fromTitle: string[];
   /** Keywords from required sections */
   fromRequired: string[];
+  /** Keywords from nice-to-have sections */
+  fromNiceToHave: string[];
   /** Technology keywords identified */
   technologies: string[];
   /** Action verbs identified */
   actionVerbs: string[];
+  /** Priority mapping for each keyword (keyword → priority level) */
+  keywordPriorities: Record<string, KeywordPriority>;
 }
 
 /**
@@ -339,9 +345,10 @@ function extractSection(jd: string, markers: string[]): string {
  * Algorithm (deterministic order):
  * 1. Extract job title keywords (highest priority)
  * 2. Extract from required/must-have sections
- * 3. Identify technology keywords
- * 4. Identify action verbs
- * 5. Deduplicate and return top N
+ * 3. Extract from nice-to-have sections
+ * 4. Identify technology keywords
+ * 5. Identify action verbs
+ * 6. Deduplicate and return top N
  *
  * @param jd - Job description text
  * @param count - Maximum number of keywords to return (default 20)
@@ -351,16 +358,22 @@ export function extractKeywords(jd: string, count: number = 20): ExtractedKeywor
   const keywords: string[] = [];
   const fromTitle: string[] = [];
   const fromRequired: string[] = [];
+  const fromNiceToHave: string[] = [];
   const technologies: string[] = [];
   const actionVerbs: string[] = [];
+  const keywordPriorities: Record<string, KeywordPriority> = {};
   const seen = new Set<string>();
 
-  const addKeyword = (word: string, category: string[]): boolean => {
+  const addKeyword = (word: string, category: string[], priority?: KeywordPriority): boolean => {
     const lower = word.toLowerCase();
     if (!seen.has(lower) && !STOPWORDS.has(lower) && lower.length > 2) {
       seen.add(lower);
       keywords.push(lower);
       category.push(lower);
+      // Set priority (first assignment wins — higher priority sections are processed first)
+      if (priority && !keywordPriorities[lower]) {
+        keywordPriorities[lower] = priority;
+      }
       return true;
     }
     return false;
@@ -371,7 +384,7 @@ export function extractKeywords(jd: string, count: number = 20): ExtractedKeywor
   if (title) {
     const titleWords = tokenize(title);
     for (const word of titleWords) {
-      addKeyword(word, fromTitle);
+      addKeyword(word, fromTitle, 'title');
     }
   }
 
@@ -381,29 +394,41 @@ export function extractKeywords(jd: string, count: number = 20): ExtractedKeywor
   for (const word of requiredWords) {
     // Prioritize technology keywords
     if (TECH_KEYWORDS.has(word)) {
-      addKeyword(word, technologies);
-      addKeyword(word, fromRequired);
+      addKeyword(word, technologies, 'required');
+      addKeyword(word, fromRequired, 'required');
     } else if (!STOPWORDS.has(word)) {
-      addKeyword(word, fromRequired);
+      addKeyword(word, fromRequired, 'required');
     }
   }
 
-  // 3. Identify technology keywords from full JD
+  // 3. Extract from nice-to-have sections
+  const niceToHaveContent = extractSection(jd, NICE_TO_HAVE_MARKERS);
+  const niceToHaveWords = tokenize(niceToHaveContent);
+  for (const word of niceToHaveWords) {
+    if (TECH_KEYWORDS.has(word)) {
+      addKeyword(word, technologies, 'niceToHave');
+      addKeyword(word, fromNiceToHave, 'niceToHave');
+    } else if (!STOPWORDS.has(word)) {
+      addKeyword(word, fromNiceToHave, 'niceToHave');
+    }
+  }
+
+  // 4. Identify technology keywords from full JD
   const allWords = tokenize(jd);
   for (const word of allWords) {
     if (TECH_KEYWORDS.has(word)) {
-      addKeyword(word, technologies);
+      addKeyword(word, technologies, 'general');
     }
   }
 
-  // 4. Identify action verbs
+  // 5. Identify action verbs
   for (const word of allWords) {
     if (ACTION_VERBS.has(word)) {
-      addKeyword(word, actionVerbs);
+      addKeyword(word, actionVerbs, 'general');
     }
   }
 
-  // 5. Fill remaining slots with other meaningful words
+  // 6. Fill remaining slots with other meaningful words
   const wordFreq = new Map<string, number>();
   for (const word of allWords) {
     if (!STOPWORDS.has(word) && !seen.has(word) && word.length > 2) {
@@ -418,15 +443,24 @@ export function extractKeywords(jd: string, count: number = 20): ExtractedKeywor
 
   for (const word of sortedByFreq) {
     if (keywords.length >= count) break;
-    addKeyword(word, []);
+    addKeyword(word, [], 'general');
+  }
+
+  // Ensure all keywords have a priority (fallback to 'general')
+  for (const kw of keywords) {
+    if (!keywordPriorities[kw]) {
+      keywordPriorities[kw] = 'general';
+    }
   }
 
   return {
     all: keywords.slice(0, count),
     fromTitle,
     fromRequired,
+    fromNiceToHave,
     technologies,
     actionVerbs,
+    keywordPriorities,
   };
 }
 
@@ -516,9 +550,68 @@ export function calculateMatchRate(matched: number, total: number): number {
 }
 
 /**
- * Calculate keyword density percentage.
+ * Calculate keyword density percentage (simple unique count).
  */
 export function calculateKeywordDensity(matchedCount: number, totalWords: number): number {
   if (totalWords === 0) return 0;
   return Math.round((matchedCount / totalWords) * 1000) / 10; // One decimal place
+}
+
+/**
+ * Result of actual keyword density analysis.
+ */
+export interface ActualKeywordDensity {
+  /** Overall density as percentage (total keyword occurrences / total words * 100) */
+  overallDensity: number;
+  /** Keywords that appear 5+ times (potential stuffing) */
+  stuffedKeywords: string[];
+  /** Total occurrences of all matched keywords */
+  totalOccurrences: number;
+}
+
+/**
+ * Calculate actual keyword density by counting occurrences (not just unique matches).
+ * Detects keyword stuffing by flagging individual keywords that appear too frequently.
+ *
+ * @param resumeText - Full resume text
+ * @param matchedKeywords - Keywords that were matched in the resume
+ * @returns Density analysis with stuffing detection
+ */
+export function calculateActualKeywordDensity(
+  resumeText: string,
+  matchedKeywords: string[]
+): ActualKeywordDensity {
+  if (!resumeText || matchedKeywords.length === 0) {
+    return { overallDensity: 0, stuffedKeywords: [], totalOccurrences: 0 };
+  }
+
+  const resumeLower = resumeText.toLowerCase();
+  const totalWords = wordCount(resumeText);
+  if (totalWords === 0) {
+    return { overallDensity: 0, stuffedKeywords: [], totalOccurrences: 0 };
+  }
+
+  let totalOccurrences = 0;
+  const stuffedKeywords: string[] = [];
+
+  for (const keyword of matchedKeywords) {
+    const keywordLower = keyword.toLowerCase();
+    // Count occurrences using non-overlapping search
+    let count = 0;
+    let pos = 0;
+    while (pos < resumeLower.length) {
+      const idx = resumeLower.indexOf(keywordLower, pos);
+      if (idx === -1) break;
+      count++;
+      pos = idx + keywordLower.length;
+    }
+    totalOccurrences += count;
+    if (count >= 5) {
+      stuffedKeywords.push(keyword);
+    }
+  }
+
+  const overallDensity = Math.round((totalOccurrences / totalWords) * 1000) / 10;
+
+  return { overallDensity, stuffedKeywords, totalOccurrences };
 }

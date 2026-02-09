@@ -102,8 +102,8 @@ export function CompatibilityScoreCard({
         <ScoreBar
           label="Keyword Relevance"
           value={breakdown.keywordRelevance}
-          maxValue={40}
-          description="Matching JD keywords in resume (40 pts max)"
+          maxValue={45}
+          description="Matching JD keywords in resume (45 pts max)"
         />
         <ScoreBar
           label="Skills Quality"
@@ -115,13 +115,13 @@ export function CompatibilityScoreCard({
           label="Experience Alignment"
           value={breakdown.experienceAlignment}
           maxValue={20}
-          description="Years, scope, and title match (20 pts max)"
+          description="Years, scope, title, and education match (20 pts max)"
         />
         <ScoreBar
-          label="Format Parseability"
-          value={breakdown.formatParseability}
-          maxValue={15}
-          description="ATS-friendly format compliance (15 pts max)"
+          label="Content Quality"
+          value={breakdown.contentQuality}
+          maxValue={10}
+          description="Metrics, action verbs, and bullet structure (10 pts max)"
         />
       </div>
     </div>

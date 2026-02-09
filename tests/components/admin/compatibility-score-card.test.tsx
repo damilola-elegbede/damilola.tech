@@ -7,7 +7,7 @@ const mockBreakdown: ScoreBreakdown = {
   keywordRelevance: 28,
   skillsQuality: 18,
   experienceAlignment: 16,
-  formatParseability: 10,
+  contentQuality: 8,
 };
 
 describe('CompatibilityScoreCard', () => {
@@ -135,7 +135,7 @@ describe('CompatibilityScoreCard', () => {
     expect(screen.getByText('Keyword Relevance')).toBeInTheDocument();
     expect(screen.getByText('Skills Quality')).toBeInTheDocument();
     expect(screen.getByText('Experience Alignment')).toBeInTheDocument();
-    expect(screen.getByText('Format Parseability')).toBeInTheDocument();
+    expect(screen.getByText('Content Quality')).toBeInTheDocument();
   });
 
   it('displays breakdown values with max values', () => {
@@ -148,10 +148,10 @@ describe('CompatibilityScoreCard', () => {
       />
     );
 
-    expect(screen.getByText('28/40')).toBeInTheDocument();
+    expect(screen.getByText('28/45')).toBeInTheDocument();
     expect(screen.getByText('18/25')).toBeInTheDocument();
     expect(screen.getByText('16/20')).toBeInTheDocument();
-    expect(screen.getByText('10/15')).toBeInTheDocument();
+    expect(screen.getByText('8/10')).toBeInTheDocument();
   });
 
   it('handles edge case of 0 score', () => {
@@ -159,7 +159,7 @@ describe('CompatibilityScoreCard', () => {
       keywordRelevance: 0,
       skillsQuality: 0,
       experienceAlignment: 0,
-      formatParseability: 0,
+      contentQuality: 0,
     };
 
     render(
@@ -177,10 +177,10 @@ describe('CompatibilityScoreCard', () => {
 
   it('handles edge case of 100 score', () => {
     const perfectBreakdown: ScoreBreakdown = {
-      keywordRelevance: 40,
+      keywordRelevance: 45,
       skillsQuality: 25,
       experienceAlignment: 20,
-      formatParseability: 15,
+      contentQuality: 10,
     };
 
     render(

@@ -21,31 +21,31 @@ describe('Resume Generation Types', () => {
         keywordRelevance: 28,
         skillsQuality: 18,
         experienceAlignment: 16,
-        formatParseability: 10,
+        contentQuality: 8,
       };
 
       expect(breakdown.keywordRelevance).toBe(28);
       expect(breakdown.skillsQuality).toBe(18);
       expect(breakdown.experienceAlignment).toBe(16);
-      expect(breakdown.formatParseability).toBe(10);
+      expect(breakdown.contentQuality).toBe(8);
 
       // Total should be 0-100
       const total = breakdown.keywordRelevance + breakdown.skillsQuality +
-                   breakdown.experienceAlignment + breakdown.formatParseability;
+                   breakdown.experienceAlignment + breakdown.contentQuality;
       expect(total).toBeLessThanOrEqual(100);
     });
 
     it('should enforce max values per component', () => {
       const maxBreakdown: ScoreBreakdown = {
-        keywordRelevance: 40,
+        keywordRelevance: 45,
         skillsQuality: 25,
         experienceAlignment: 20,
-        formatParseability: 15,
+        contentQuality: 10,
       };
 
       // Max possible score is 100
       const total = maxBreakdown.keywordRelevance + maxBreakdown.skillsQuality +
-                   maxBreakdown.experienceAlignment + maxBreakdown.formatParseability;
+                   maxBreakdown.experienceAlignment + maxBreakdown.contentQuality;
       expect(total).toBe(100);
     });
   });
@@ -59,7 +59,7 @@ describe('Resume Generation Types', () => {
           keywordRelevance: 36,
           skillsQuality: 22,
           experienceAlignment: 18,
-          formatParseability: 10,
+          contentQuality: 8,
         },
       };
 
@@ -129,7 +129,7 @@ describe('Resume Generation Types', () => {
             keywordRelevance: 36,
             skillsQuality: 22,
             experienceAlignment: 18,
-            formatParseability: 10,
+            contentQuality: 8,
           },
         },
         changesAccepted: [],
@@ -163,7 +163,7 @@ describe('Resume Generation Types', () => {
             keywordRelevance: 36,
             skillsQuality: 22,
             experienceAlignment: 18,
-            formatParseability: 10,
+            contentQuality: 8,
           },
         },
         changesAccepted: [],

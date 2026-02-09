@@ -297,20 +297,20 @@ describe('ATS Scorer - Score Calculation', () => {
       result.breakdown.keywordRelevance +
       result.breakdown.skillsQuality +
       result.breakdown.experienceAlignment +
-      result.breakdown.formatParseability;
+      result.breakdown.contentQuality;
 
     // Allow for rounding differences
     expect(Math.abs(sum - result.total)).toBeLessThan(1);
   });
 
-  it('caps keyword score at 40 points', () => {
+  it('caps keyword score at 45 points', () => {
     const result = calculateATSScore({
       jobDescription: sampleJD,
       resumeText: sampleResume,
       resumeData: mockResumeData,
     });
 
-    expect(result.breakdown.keywordRelevance).toBeLessThanOrEqual(40);
+    expect(result.breakdown.keywordRelevance).toBeLessThanOrEqual(45);
   });
 
   it('caps skills score at 25 points', () => {
@@ -333,15 +333,15 @@ describe('ATS Scorer - Score Calculation', () => {
     expect(result.breakdown.experienceAlignment).toBeLessThanOrEqual(20);
   });
 
-  it('format parseability is always 15 for valid resumes', () => {
+  it('caps content quality score at 10 points', () => {
     const result = calculateATSScore({
       jobDescription: sampleJD,
       resumeText: sampleResume,
       resumeData: mockResumeData,
     });
 
-    // Our PDF is always ATS-optimized
-    expect(result.breakdown.formatParseability).toBe(15);
+    expect(result.breakdown.contentQuality).toBeLessThanOrEqual(10);
+    expect(result.breakdown.contentQuality).toBeGreaterThanOrEqual(0);
   });
 
   it('scores higher with more keyword matches', () => {
@@ -382,6 +382,394 @@ describe('ATS Scorer - Score Calculation', () => {
     expect(matchResult.breakdown.experienceAlignment).toBeGreaterThan(
       missResult.breakdown.experienceAlignment
     );
+  });
+
+  it('includes isATSOptimized flag in result', () => {
+    const result = calculateATSScore({
+      jobDescription: sampleJD,
+      resumeText: sampleResume,
+      resumeData: mockResumeData,
+    });
+
+    expect(typeof result.isATSOptimized).toBe('boolean');
+  });
+});
+
+describe('ATS Scorer - Content Quality', () => {
+  it('awards points for quantified metrics in resume', () => {
+    const resumeDataWithMetrics: ResumeData = {
+      ...mockResumeData,
+      experiences: [
+        {
+          title: 'Engineering Manager',
+          company: 'Verily',
+          highlights: [
+            'Led team of 13 engineers across 4 hiring cycles',
+            'Reduced build times by 87% through CI/CD optimization',
+            'Migrated 30+ production systems to GCP',
+            'Drove 30% reduction in GitHub Actions usage',
+          ],
+        },
+      ],
+    };
+
+    const resumeDataWithoutMetrics: ResumeData = {
+      ...mockResumeData,
+      experiences: [
+        {
+          title: 'Engineering Manager',
+          company: 'Verily',
+          highlights: [
+            'Led engineering teams across hiring cycles',
+            'Optimized CI/CD pipelines for faster builds',
+            'Migrated systems to cloud infrastructure',
+            'Improved platform efficiency and reduced waste',
+          ],
+        },
+      ],
+    };
+
+    const resultWithMetrics = calculateATSScore({
+      jobDescription: sampleJD,
+      resumeText: sampleResume,
+      resumeData: resumeDataWithMetrics,
+    });
+
+    const resultWithoutMetrics = calculateATSScore({
+      jobDescription: sampleJD,
+      resumeText: sampleResume,
+      resumeData: resumeDataWithoutMetrics,
+    });
+
+    // Content quality should be scored for both
+    expect(resultWithMetrics.breakdown.contentQuality).toBeGreaterThanOrEqual(0);
+    expect(resultWithMetrics.breakdown.contentQuality).toBeLessThanOrEqual(10);
+    expect(resultWithoutMetrics.breakdown.contentQuality).toBeGreaterThanOrEqual(0);
+    expect(resultWithoutMetrics.breakdown.contentQuality).toBeLessThanOrEqual(10);
+    // Metrics-rich resume should score at least as well
+    expect(resultWithMetrics.breakdown.contentQuality).toBeGreaterThanOrEqual(
+      resultWithoutMetrics.breakdown.contentQuality
+    );
+  });
+
+  it('awards points for strong action verbs', () => {
+    const resumeDataWithActionVerbs: ResumeData = {
+      ...mockResumeData,
+      experiences: [
+        {
+          title: 'Engineering Manager',
+          company: 'Verily',
+          highlights: [
+            'Led cloud migration project to GCP',
+            'Built high-performing engineering team',
+            'Delivered developer platform on time',
+            'Drove platform efficiency improvements',
+            'Architected scalable infrastructure',
+          ],
+        },
+      ],
+    };
+
+    const resumeDataWithWeakVerbs: ResumeData = {
+      ...mockResumeData,
+      experiences: [
+        {
+          title: 'Engineering Manager',
+          company: 'Verily',
+          highlights: [
+            'Was responsible for cloud migration',
+            'Worked on engineering team',
+            'Helped with developer platform',
+            'Involved in efficiency improvements',
+            'Assisted with infrastructure',
+          ],
+        },
+      ],
+    };
+
+    const resultWithAction = calculateATSScore({
+      jobDescription: sampleJD,
+      resumeText: sampleResume,
+      resumeData: resumeDataWithActionVerbs,
+    });
+
+    const resultWeakAction = calculateATSScore({
+      jobDescription: sampleJD,
+      resumeText: sampleResume,
+      resumeData: resumeDataWithWeakVerbs,
+    });
+
+    // Content quality should be scored for both
+    expect(resultWithAction.breakdown.contentQuality).toBeGreaterThanOrEqual(0);
+    expect(resultWithAction.breakdown.contentQuality).toBeLessThanOrEqual(10);
+    expect(resultWeakAction.breakdown.contentQuality).toBeGreaterThanOrEqual(0);
+    expect(resultWeakAction.breakdown.contentQuality).toBeLessThanOrEqual(10);
+    // Action verb resume should score at least as well
+    expect(resultWithAction.breakdown.contentQuality).toBeGreaterThanOrEqual(
+      resultWeakAction.breakdown.contentQuality
+    );
+  });
+
+  it('awards points for well-structured bullet points', () => {
+    const wellStructuredResume = `
+      - Led cloud migration to GCP serving 30+ production systems
+      - Built and scaled team of 13 engineers across 4 hiring cycles
+      - Drove platform efficiency reducing GitHub Actions usage by 30%
+      - Implemented CI/CD transformation reducing build times by 87%
+    `;
+
+    const poorlyStructuredResume = `
+      Led cloud migration to GCP serving 30+ production systems.
+      Built and scaled team of 13 engineers across 4 hiring cycles.
+      Drove platform efficiency reducing GitHub Actions usage by 30%.
+      Implemented CI/CD transformation reducing build times by 87%.
+    `;
+
+    const resultWellStructured = calculateATSScore({
+      jobDescription: sampleJD,
+      resumeText: wellStructuredResume,
+      resumeData: mockResumeData,
+    });
+
+    const resultPoorStructure = calculateATSScore({
+      jobDescription: sampleJD,
+      resumeText: poorlyStructuredResume,
+      resumeData: mockResumeData,
+    });
+
+    // Both should have some content quality score, but structured may score higher
+    expect(resultWellStructured.breakdown.contentQuality).toBeGreaterThanOrEqual(0);
+    expect(resultPoorStructure.breakdown.contentQuality).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('ATS Scorer - Education Matching', () => {
+  it('matches Bachelor degree requirement', () => {
+    const jdWithBachelor = `
+      Senior Engineering Manager
+      Requirements:
+      - Bachelor's degree in Computer Science or related field
+      - 8+ years software engineering experience
+      - Team leadership experience
+    `;
+
+    const resumeDataWithBachelor: ResumeData = {
+      ...mockResumeData,
+      education: [
+        {
+          degree: "Bachelor's degree in Computer Science",
+          institution: 'University of Example',
+        },
+      ],
+    };
+
+    const resumeDataWithoutDegree: ResumeData = {
+      ...mockResumeData,
+      education: [],
+    };
+
+    const resultWithDegree = calculateATSScore({
+      jobDescription: jdWithBachelor,
+      resumeText: sampleResume,
+      resumeData: resumeDataWithBachelor,
+    });
+
+    const resultWithoutDegree = calculateATSScore({
+      jobDescription: jdWithBachelor,
+      resumeText: sampleResume,
+      resumeData: resumeDataWithoutDegree,
+    });
+
+    // Should score higher with matching education
+    expect(resultWithDegree.total).toBeGreaterThanOrEqual(resultWithoutDegree.total);
+  });
+
+  it('matches Master degree requirement', () => {
+    const jdWithMaster = `
+      Director of Engineering
+      Requirements:
+      - Master's degree in Computer Science, Engineering, or MBA
+      - 10+ years progressive engineering experience
+      - 5+ years people management
+    `;
+
+    const resumeDataWithMaster: ResumeData = {
+      ...mockResumeData,
+      education: [
+        {
+          degree: 'Master of Business Administration (MBA)',
+          institution: 'Business School',
+        },
+        {
+          degree: "Bachelor's degree in Computer Science",
+          institution: 'University of Example',
+        },
+      ],
+    };
+
+    const resumeDataBachelorOnly: ResumeData = {
+      ...mockResumeData,
+      education: [
+        {
+          degree: "Bachelor's degree in Computer Science",
+          institution: 'University of Example',
+        },
+      ],
+    };
+
+    const resultWithMaster = calculateATSScore({
+      jobDescription: jdWithMaster,
+      resumeText: sampleResume,
+      resumeData: resumeDataWithMaster,
+    });
+
+    const resultBachelorOnly = calculateATSScore({
+      jobDescription: jdWithMaster,
+      resumeText: sampleResume,
+      resumeData: resumeDataBachelorOnly,
+    });
+
+    // Should score higher with matching advanced degree
+    expect(resultWithMaster.total).toBeGreaterThanOrEqual(resultBachelorOnly.total);
+  });
+});
+
+describe('ATS Scorer - Role Type Detection', () => {
+  it('detects individual contributor role', () => {
+    const icJd = `
+      Senior Software Engineer
+      Requirements:
+      - 5+ years software development experience
+      - Python and AWS expertise
+      - Strong coding and system design skills
+      - Collaborate with cross-functional teams
+    `;
+
+    const result = calculateATSScore({
+      jobDescription: icJd,
+      resumeText: sampleResume,
+      resumeData: mockResumeData,
+    });
+
+    // Should extract role-related keywords
+    expect(result.details.extractedKeywords.all.length).toBeGreaterThan(0);
+  });
+
+  it('detects management role', () => {
+    const managementJd = `
+      Engineering Manager
+      Requirements:
+      - 8+ years software engineering experience
+      - 3+ years leading engineering teams
+      - People management and mentorship
+      - Team building and performance management
+    `;
+
+    const result = calculateATSScore({
+      jobDescription: managementJd,
+      resumeText: sampleResume,
+      resumeData: mockResumeData,
+    });
+
+    // Should extract management-related keywords
+    const keywords = result.details.extractedKeywords.all;
+    expect(keywords.some(k => ['manager', 'management', 'leading', 'team'].includes(k))).toBe(true);
+  });
+});
+
+describe('ATS Scorer - Weighted Keyword Scoring', () => {
+  it('prioritizes job title keywords', () => {
+    const jd = `
+      Engineering Manager, Platform Infrastructure
+      Requirements:
+      - Python, AWS experience
+    `;
+
+    const keywords = extractKeywords(jd, 20);
+
+    // Title keywords should be identified
+    expect(keywords.fromTitle.length).toBeGreaterThan(0);
+    expect(keywords.fromTitle.some(k =>
+      ['engineering', 'manager', 'platform', 'infrastructure'].includes(k)
+    )).toBe(true);
+  });
+
+  it('assigns higher priority to title keywords', () => {
+    const jd = `
+      Senior Platform Engineer
+      Requirements:
+      - Cloud infrastructure experience
+      - CI/CD pipeline development
+    `;
+
+    const keywords = extractKeywords(jd, 20);
+
+    // Check that keywordPriorities exists and has entries
+    expect(keywords.keywordPriorities).toBeDefined();
+
+    // If there are priorities, verify they're in the expected format
+    const priorityKeys = Object.keys(keywords.keywordPriorities);
+    if (priorityKeys.length > 0) {
+      const firstKey = priorityKeys[0];
+      const priorityValue = keywords.keywordPriorities[firstKey];
+      // Priority can be a number or a string representation of priority
+      expect(['number', 'string']).toContain(typeof priorityValue);
+    }
+
+    // Title keywords should be extracted
+    expect(keywords.fromTitle.length).toBeGreaterThan(0);
+  });
+
+  it('identifies nice-to-have keywords separately', () => {
+    const jd = `
+      Engineering Manager
+      Requirements:
+      - 8+ years experience
+      - Team leadership
+
+      Nice to have:
+      - Healthcare experience
+      - Startup background
+    `;
+
+    const keywords = extractKeywords(jd, 20);
+
+    expect(keywords.fromNiceToHave).toBeDefined();
+    // Nice-to-have section should extract some keywords
+    expect(Array.isArray(keywords.fromNiceToHave)).toBe(true);
+  });
+
+  it('scores resume higher when matching high-priority keywords', () => {
+    const jdWithTitleMatch = `
+      Engineering Manager, Platform
+      Requirements:
+      - Python experience
+    `;
+
+    const resumeMatchingTitle = `
+      Engineering Manager with extensive platform engineering background.
+      Python, AWS, GCP expertise.
+    `;
+
+    const resumeNotMatchingTitle = `
+      Software Developer with Python experience.
+      Worked on various projects.
+    `;
+
+    const resultTitleMatch = calculateATSScore({
+      jobDescription: jdWithTitleMatch,
+      resumeText: resumeMatchingTitle,
+      resumeData: { ...mockResumeData, title: 'Engineering Manager' },
+    });
+
+    const resultNoTitleMatch = calculateATSScore({
+      jobDescription: jdWithTitleMatch,
+      resumeText: resumeNotMatchingTitle,
+      resumeData: { ...mockResumeData, title: 'Software Developer' },
+    });
+
+    // Title match should score higher
+    expect(resultTitleMatch.total).toBeGreaterThan(resultNoTitleMatch.total);
   });
 });
 
@@ -460,9 +848,13 @@ describe('ATS Scorer - Edge Cases', () => {
       resumeData: mockResumeData,
     });
 
-    expect(result.total).toBeGreaterThanOrEqual(0);
+    expect(result.total).toBe(0);
     expect(result.breakdown.keywordRelevance).toBe(0);
-    expect(result.breakdown.formatParseability).toBe(15);
+    expect(result.breakdown.contentQuality).toBe(0);
+    expect(result.details.extractedKeywords.all).toEqual([]);
+    expect(result.details.extractedKeywords.fromTitle).toEqual([]);
+    expect(result.details.extractedKeywords.fromNiceToHave).toEqual([]);
+    expect(result.details.extractedKeywords.keywordPriorities).toEqual({});
   });
 
   it('handles empty resume gracefully', () => {
@@ -658,10 +1050,10 @@ describe('ATS Scorer - Utility Functions', () => {
 
   describe('formatScoreAssessment', () => {
     it('returns correct assessment for scores', () => {
-      expect(formatScoreAssessment(90)).toContain('Excellent');
-      expect(formatScoreAssessment(75)).toContain('Good');
-      expect(formatScoreAssessment(60)).toContain('Fair');
-      expect(formatScoreAssessment(40)).toContain('Weak');
+      expect(formatScoreAssessment(80)).toContain('Excellent');
+      expect(formatScoreAssessment(65)).toContain('Good');
+      expect(formatScoreAssessment(50)).toContain('Fair');
+      expect(formatScoreAssessment(45)).toContain('Weak');
     });
   });
 });

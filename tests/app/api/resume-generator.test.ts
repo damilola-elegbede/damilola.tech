@@ -34,7 +34,7 @@ vi.mock('@/lib/ats-scorer', () => ({
       keywordRelevance: 30,
       skillsQuality: 20,
       experienceAlignment: 15,
-      formatParseability: 10,
+      contentQuality: 8,
     },
     details: {
       matchRate: 60,
