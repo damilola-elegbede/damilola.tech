@@ -59,7 +59,7 @@ describe('resume-generator log API route', () => {
         keywordRelevance: 32,
         skillsQuality: 20,
         experienceAlignment: 18,
-        formatParseability: 15,
+        contentQuality: 8,
       },
     },
     changesAccepted: [
@@ -265,7 +265,7 @@ describe('resume-generator log API route', () => {
           keywordRelevance: 0,
           skillsQuality: 0,
           experienceAlignment: 0,
-          formatParseability: 0,
+          contentQuality: 0,
         },
       });
       expect(parsedContent.changesAccepted).toEqual([]);
@@ -297,7 +297,7 @@ describe('resume-generator log API route', () => {
             keywordRelevance: 30,
             skillsQuality: 18,
             experienceAlignment: 17,
-            formatParseability: 15,
+            contentQuality: 8,
           },
         },
         changesAccepted: [],
@@ -387,7 +387,7 @@ describe('resume-generator log API route', () => {
             keywordRelevance: 28,
             skillsQuality: 16,
             experienceAlignment: 16,
-            formatParseability: 15,
+            contentQuality: 8,
           },
         },
         changesAccepted: [

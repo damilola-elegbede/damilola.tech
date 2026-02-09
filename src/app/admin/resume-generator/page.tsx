@@ -8,6 +8,7 @@ import { FloatingScoreIndicator } from '@/components/admin/FloatingScoreIndicato
 import { ChangePreviewPanel } from '@/components/admin/ChangePreviewPanel';
 import { trackEvent } from '@/lib/audit-client';
 import { generateJobId, extractDatePosted } from '@/lib/job-id';
+import { calculateEditedImpact, normalizeImpactPoints } from '@/lib/resume-scoring';
 import type { ResumeAnalysisResult, ReviewedChange, ProposedChange, LoggedChange, ScoreBreakdown } from '@/lib/types/resume-generation';
 import type { ResumeData } from '@/lib/resume-pdf';
 
@@ -86,31 +87,6 @@ function calculateDynamicBreakdown(
   }
 
   return result;
-}
-
-/**
- * Calculate the adjusted impact when a user edits a proposed change.
- * Uses impactPerKeyword if available, otherwise falls back to proportional calculation.
- * @param change - The original proposed change
- * @param editedText - The user's edited version of the text
- * @returns The adjusted impact points based on retained keywords
- */
-function calculateEditedImpact(change: ProposedChange, editedText: string): number {
-  if (change.keywordsAdded.length === 0) {
-    return change.impactPoints;
-  }
-
-  // Count how many keywords are retained in the edited text
-  const editedLower = editedText.toLowerCase();
-  const retainedKeywords = change.keywordsAdded.filter((keyword) =>
-    editedLower.includes(keyword.toLowerCase())
-  );
-
-  // Use impactPerKeyword if available, otherwise calculate from impactPoints
-  const impactPerKeyword = change.impactPerKeyword
-    ?? change.impactPoints / change.keywordsAdded.length;
-
-  return Math.round(retainedKeywords.length * impactPerKeyword);
 }
 
 type Phase = 'input' | 'analyzing' | 'preview' | 'generating' | 'complete';
@@ -253,7 +229,7 @@ export default function ResumeGeneratorPage() {
         }));
       }
 
-      setAnalysisResult(result);
+      setAnalysisResult(normalizeImpactPoints(result));
       // Initialize all changes as pending (not auto-accepted)
       setReviewedChanges(new Map());
       setStreamingText('');
@@ -324,12 +300,12 @@ export default function ResumeGeneratorPage() {
 
     const { revisedChange } = await response.json();
 
-    // Update the analysis result with revised change
+    // Update the analysis result with revised change and re-normalize
     setAnalysisResult((prev) => {
       if (!prev) return prev;
       const newChanges = [...prev.proposedChanges];
       newChanges[index] = revisedChange;
-      return { ...prev, proposedChanges: newChanges };
+      return normalizeImpactPoints({ ...prev, proposedChanges: newChanges });
     });
   }, [analysisResult, jobDescription]);
 
@@ -403,7 +379,7 @@ export default function ResumeGeneratorPage() {
       // Calculate optimized score based on accepted changes
       const acceptedPoints = acceptedLoggedChanges.reduce((sum, c) => sum + c.impactPoints, 0);
       const optimizedScore = Math.min(
-        100,
+        analysisResult.scoreCeiling?.maximum ?? 100,
         analysisResult.currentScore.total + acceptedPoints
       );
 
@@ -503,7 +479,7 @@ export default function ResumeGeneratorPage() {
       }
     }
 
-    return Math.min(100, score);
+    return Math.min(analysisResult.scoreCeiling?.maximum ?? 100, score);
   }, [analysisResult, acceptedIndices, reviewedChanges]);
 
   // Calculate dynamic breakdown based on accepted changes (with edit-aware rescoring)
@@ -521,7 +497,7 @@ export default function ResumeGeneratorPage() {
   const maximumScore = useMemo(() => {
     if (!analysisResult) return 0;
     return Math.min(
-      100,
+      analysisResult.scoreCeiling?.maximum ?? 100,
       analysisResult.currentScore.total +
         analysisResult.proposedChanges.reduce((sum, c) => sum + c.impactPoints, 0)
     );

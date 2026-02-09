@@ -2,24 +2,24 @@
  * Types for the ATS Resume Generator feature.
  *
  * Scoring methodology is research-backed:
- * - Keyword Relevance (40%): 99.7% of recruiters use keyword filters (Jobscan)
+ * - Keyword Relevance (45%): 99.7% of recruiters use keyword filters (Jobscan)
  * - Skills Quality (25%): 76.4% of recruiters start with skills (Jobscan)
- * - Experience Alignment (20%): Years, scope, title matching
- * - Format Parseability (15%): Single-column 93% parse rate (Enhancv 2026)
+ * - Experience Alignment (20%): Years, scope, title, education matching
+ * - Content Quality (10%): Metrics, action verbs, bullet structure
  */
 
 // Re-export job ID types for convenience
 export type { JobId, JobIdentifier } from '@/lib/job-id';
 
 export interface ScoreBreakdown {
-  /** Keyword matching score (0-40) */
+  /** Keyword matching score (0-45) */
   keywordRelevance: number;
   /** Skills section quality (0-25) */
   skillsQuality: number;
   /** Experience alignment (0-20) */
   experienceAlignment: number;
-  /** Format parseability (0-15) */
-  formatParseability: number;
+  /** Content quality score (0-10) */
+  contentQuality: number;
 }
 
 export interface EstimatedCompatibility {

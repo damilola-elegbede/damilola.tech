@@ -29,6 +29,7 @@ export function FitAssessment() {
   const resultRef = useRef<HTMLDivElement>(null);
   const [, setAssessmentId] = useState<string | null>(null);  // assessmentId not used
   const streamStartRef = useRef<number>(0);
+  const mountedRef = useRef(true);
 
   // Check if input is URL
   const isUrl = (text: string): boolean => {
@@ -282,9 +283,13 @@ export function FitAssessment() {
       if (err instanceof Error && err.name === 'AbortError') {
         return; // Silently handle abort
       }
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      if (mountedRef.current) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      }
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [jobDescription]);
 
@@ -312,6 +317,7 @@ export function FitAssessment() {
 
   useEffect(() => {
     return () => {
+      mountedRef.current = false;
       abortControllerRef.current?.abort();
     };
   }, []);
