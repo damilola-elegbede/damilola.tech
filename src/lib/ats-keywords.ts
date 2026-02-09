@@ -596,15 +596,11 @@ export function calculateActualKeywordDensity(
 
   for (const keyword of matchedKeywords) {
     const keywordLower = keyword.toLowerCase();
-    // Count occurrences using non-overlapping search
-    let count = 0;
-    let pos = 0;
-    while (pos < resumeLower.length) {
-      const idx = resumeLower.indexOf(keywordLower, pos);
-      if (idx === -1) break;
-      count++;
-      pos = idx + keywordLower.length;
-    }
+    // Count occurrences using word-boundary-aware matching
+    const escaped = keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const phrase = escaped.trim().split(/\s+/).join('\\s+');
+    const pattern = new RegExp(`\\b${phrase}\\b`, 'g');
+    const count = (resumeLower.match(pattern) || []).length;
     totalOccurrences += count;
     if (count >= 5) {
       stuffedKeywords.push(keyword);

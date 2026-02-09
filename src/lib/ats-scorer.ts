@@ -368,7 +368,8 @@ function extractEducationFromJd(jd: string): { level: EducationLevel; field: str
   }
 
   // Check for field requirements
-  if (/\b(computer science|cs|software engineering|information technology|it)\b/.test(lower)) {
+  // Match "IT" only as uppercase in original text to avoid matching the pronoun "it"
+  if (/\b(computer science|cs|software engineering|information technology)\b/.test(lower) || /\bI\.?T\.?\b/.test(jd)) {
     field = 'cs';
   } else if (/\b(engineering|technical)\b/.test(lower) && level) {
     field = 'engineering';

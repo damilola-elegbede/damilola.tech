@@ -564,10 +564,10 @@ export async function POST(req: Request) {
         company: e.company,
         highlights: e.highlights,
       })),
-      education: resumeData.education.map(e => ({
+      education: resumeData.education?.map(e => ({
         degree: e.degree,
         institution: e.institution,
-      })),
+      })) ?? [],
     };
     const resumeText = resumeDataToText({
       ...atsResumeData,
