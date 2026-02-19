@@ -195,12 +195,21 @@ function calculateKeywordScore(
     points *= multiplier;
 
     // Placement bonus: check if keyword appears in resume title/summary/first bullet
+    // Use word-boundary regex for short keywords to avoid substring false-positives
     const kwLower = detail.keyword.toLowerCase();
-    if (resumeTitle.includes(kwLower)) {
+    const isShortKw = kwLower.length <= 3 && !kwLower.includes(' ');
+    const kwMatch = (text: string) => {
+      if (isShortKw) {
+        const escaped = kwLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`\\b${escaped}\\b`).test(text);
+      }
+      return text.includes(kwLower);
+    };
+    if (kwMatch(resumeTitle)) {
       points += 1.5;
-    } else if (summaryText.includes(kwLower)) {
+    } else if (kwMatch(summaryText)) {
       points += 1.0;
-    } else if (firstBulletsText.includes(kwLower)) {
+    } else if (kwMatch(firstBulletsText)) {
       points += 0.5;
     }
 

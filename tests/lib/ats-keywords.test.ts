@@ -1265,7 +1265,7 @@ describe('ATS Keywords - SYNONYM_REVERSE_INDEX', () => {
   });
 
   it('includes all synonym values from SKILL_SYNONYMS', () => {
-    for (const [canonical, synonyms] of Object.entries(SKILL_SYNONYMS)) {
+    for (const [, synonyms] of Object.entries(SKILL_SYNONYMS)) {
       for (const syn of synonyms) {
         const entries = SYNONYM_REVERSE_INDEX.get(syn.toLowerCase());
         expect(entries).toBeDefined();
@@ -1342,7 +1342,7 @@ describe('ATS Keywords - KNOWN_PHRASES', () => {
 
 describe('ATS Keywords - extractPhrases', () => {
   it('extracts known phrases from text', () => {
-    const { phrases, remainder } = extractPhrases(
+    const { phrases } = extractPhrases(
       'Experience with machine learning and system design'
     );
     expect(phrases).toContain('machine learning');

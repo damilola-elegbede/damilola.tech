@@ -635,12 +635,14 @@ function fallbackSectionParsing(jd: string): ParsedSection[] {
 
     // Check for inline signal words that suggest section type
     let detectedType: ParsedSection['type'] | null = null;
-    for (const marker of REQUIRED_SECTION_MARKERS) {
-      if (lower.includes(marker)) { detectedType = 'required'; break; }
+    // Check niceToHave before required (matches classifySection order)
+    // to avoid "preferred qualifications" matching "qualifications" as required
+    for (const marker of NICE_TO_HAVE_MARKERS) {
+      if (lower.includes(marker)) { detectedType = 'niceToHave'; break; }
     }
     if (!detectedType) {
-      for (const marker of NICE_TO_HAVE_MARKERS) {
-        if (lower.includes(marker)) { detectedType = 'niceToHave'; break; }
+      for (const marker of REQUIRED_SECTION_MARKERS) {
+        if (lower.includes(marker)) { detectedType = 'required'; break; }
       }
     }
     if (!detectedType) {
@@ -781,17 +783,22 @@ export function extractKeywords(jd: string, count: number = 20): ExtractedKeywor
     const lower = word.toLowerCase();
     // Allow multi-word phrases (they may be <= 2 chars per word but meaningful as phrase)
     const isPhrase = lower.includes(' ');
-    if (!seen.has(lower) && !STOPWORDS.has(lower) && (isPhrase || lower.length > 2)) {
+    if (STOPWORDS.has(lower) || (!isPhrase && lower.length <= 2)) {
+      return false;
+    }
+    if (!seen.has(lower)) {
       seen.add(lower);
       keywords.push(lower);
-      category.push(lower);
       // Set priority (first assignment wins — higher priority sections are processed first)
       if (priority && !keywordPriorities[lower]) {
         keywordPriorities[lower] = priority;
       }
-      return true;
     }
-    return false;
+    // Always push to category (tech keywords need to appear in both technologies AND section arrays)
+    if (!category.includes(lower)) {
+      category.push(lower);
+    }
+    return true;
   };
 
   // Compute word/phrase frequency across entire JD
