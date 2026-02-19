@@ -78,14 +78,20 @@ export class ApiClient {
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
 
-    const json = (await response.json()) as
-      | { success: true; data: T }
-      | { success: false; error: { code: string; message: string } };
-
-    if (!json.success) {
-      throw new Error(json.error.message);
+    if (!response.ok) {
+      // Try to parse JSON error envelope; fall back to status text for non-JSON responses (e.g. proxy 502, HTML 429)
+      let message: string;
+      try {
+        const json = await response.json();
+        message = json?.error?.message || `HTTP ${response.status}`;
+      } catch {
+        const text = await response.text().catch(() => '');
+        message = `HTTP ${response.status}: ${text.slice(0, 200)}`;
+      }
+      throw new Error(message);
     }
 
+    const json = (await response.json()) as { success: true; data: T };
     return json.data;
   }
 

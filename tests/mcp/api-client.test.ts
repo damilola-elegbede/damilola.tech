@@ -6,12 +6,15 @@ vi.stubGlobal('fetch', mockFetch);
 
 function makeSuccessResponse(data: unknown) {
   return Promise.resolve({
+    ok: true,
     json: () => Promise.resolve({ success: true, data }),
   });
 }
 
 function makeErrorResponse(message: string, code = 'ERROR') {
   return Promise.resolve({
+    ok: false,
+    status: 400,
     json: () => Promise.resolve({ success: false, error: { code, message } }),
   });
 }
@@ -35,9 +38,29 @@ describe('ApiClient', () => {
   });
 
   describe('error handling', () => {
-    it('throws with error message on failure response', async () => {
+    it('throws with error message on JSON failure response', async () => {
       mockFetch.mockReturnValueOnce(makeErrorResponse('Not found', 'NOT_FOUND'));
       await expect(client.listFitAssessments()).rejects.toThrow('Not found');
+    });
+
+    it('throws with status text on non-JSON error response (e.g. proxy 502)', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        json: () => Promise.reject(new SyntaxError('Unexpected token')),
+        text: () => Promise.resolve('Bad Gateway'),
+      });
+      await expect(client.listFitAssessments()).rejects.toThrow('HTTP 502: Bad Gateway');
+    });
+
+    it('handles non-JSON error when text() also fails', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: () => Promise.reject(new SyntaxError('Unexpected token')),
+        text: () => Promise.reject(new Error('stream error')),
+      });
+      await expect(client.listFitAssessments()).rejects.toThrow('HTTP 500: ');
     });
   });
 
