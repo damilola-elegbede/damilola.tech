@@ -101,6 +101,10 @@ const eventTypeColors: Record<string, string> = {
   api_key_disabled: 'bg-yellow-500/10 text-yellow-400',
   api_key_enabled: 'bg-green-500/10 text-green-400',
   api_key_revoked: 'bg-red-500/10 text-red-400',
+  api_score_resume: 'bg-cyan-500/10 text-cyan-400',
+  api_resume_generation: 'bg-lime-500/10 text-lime-400',
+  api_resume_generation_status_updated: 'bg-sky-500/10 text-sky-400',
+  api_resume_data_accessed: 'bg-indigo-500/10 text-indigo-400',
 };
 
 // Human-readable failure reason messages

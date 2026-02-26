@@ -6,6 +6,10 @@ import { registerAssessFit } from './tools/assess-fit.js';
 import { registerFitAssessments } from './tools/fit-assessments.js';
 import { registerResumeGenerations } from './tools/resume-generations.js';
 import { registerGetStats } from './tools/get-stats.js';
+import { registerScoreResume } from './tools/score-resume.js';
+import { registerGenerateResume } from './tools/generate-resume.js';
+import { registerUpdateApplicationStatus } from './tools/update-application-status.js';
+import { registerGetResumeData } from './tools/get-resume-data.js';
 
 validateConfig();
 
@@ -23,6 +27,10 @@ registerAssessFit(server, client);
 registerFitAssessments(server, client);
 registerResumeGenerations(server, client);
 registerGetStats(server, client);
+registerScoreResume(server, client);
+registerGenerateResume(server, client);
+registerUpdateApplicationStatus(server, client);
+registerGetResumeData(server, client);
 
 const transport = new StdioServerTransport();
 server.connect(transport).then(() => {

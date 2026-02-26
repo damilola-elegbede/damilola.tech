@@ -324,7 +324,7 @@ describe('v1/fit-assessment API route', () => {
       const { POST } = await import('@/app/api/v1/fit-assessment/route');
       const request = new Request('http://localhost/api/v1/fit-assessment', {
         method: 'POST',
-        body: JSON.stringify({ input: 'https://example.com/short-page' }),
+        body: JSON.stringify({ input: 'https://8.8.8.8/short-page' }),
       });
       const response = await POST(request);
       const data = await response.json();

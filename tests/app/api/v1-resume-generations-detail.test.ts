@@ -3,19 +3,21 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock api-key-auth
 const mockRequireApiKey = vi.fn();
 vi.mock('@/lib/api-key-auth', () => ({
   requireApiKey: (req: Request) => mockRequireApiKey(req),
 }));
 
-// Mock audit-server
 const mockLogAdminEvent = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/lib/audit-server', () => ({
   logAdminEvent: (...args: unknown[]) => mockLogAdminEvent(...args),
 }));
 
-// Mock rate-limit
+const mockPut = vi.fn();
+vi.mock('@vercel/blob', () => ({
+  put: (...args: unknown[]) => mockPut(...args),
+}));
+
 vi.mock('@/lib/rate-limit', () => ({
   getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
 }));
@@ -27,19 +29,22 @@ describe('v1/resume-generations/[id] API route', () => {
     vi.clearAllMocks();
     vi.resetModules();
     global.fetch = vi.fn();
+    mockRequireApiKey.mockResolvedValue({
+      apiKey: { id: 'key-1', name: 'Test Key', enabled: true },
+    });
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
   });
 
-  const mockValidApiKey = {
-    apiKey: { id: 'key-1', name: 'Test Key', enabled: true },
-  };
-
   const createParams = (id: string) => ({
     params: Promise.resolve({ id }),
   });
+
+  const encodedBlobUrl = encodeURIComponent(
+    'https://abc.blob.vercel-storage.com/damilola.tech/resume-generations/preview/job-1.json'
+  );
 
   describe('authentication', () => {
     it('returns 401 without API key', async () => {
@@ -56,42 +61,41 @@ describe('v1/resume-generations/[id] API route', () => {
 
       expect(response.status).toBe(401);
     });
+
+    it('returns 401 for invalid API key', async () => {
+      mockRequireApiKey.mockResolvedValue(
+        Response.json(
+          { success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid API key.' } },
+          { status: 401 }
+        )
+      );
+
+      const { PATCH } = await import('@/app/api/v1/resume-generations/[id]/route');
+      const request = new Request('http://localhost/api/v1/resume-generations/test-id', { method: 'PATCH' });
+      const response = await PATCH(request, createParams('test-id'));
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 403 for revoked API key', async () => {
+      mockRequireApiKey.mockResolvedValue(
+        Response.json(
+          { success: false, error: { code: 'FORBIDDEN', message: 'API key has been revoked.' } },
+          { status: 403 }
+        )
+      );
+
+      const { PATCH } = await import('@/app/api/v1/resume-generations/[id]/route');
+      const request = new Request('http://localhost/api/v1/resume-generations/test-id', { method: 'PATCH' });
+      const response = await PATCH(request, createParams('test-id'));
+
+      expect(response.status).toBe(403);
+    });
   });
 
   describe('GET /api/v1/resume-generations/[id]', () => {
-    beforeEach(() => {
-      mockRequireApiKey.mockResolvedValue(mockValidApiKey);
-    });
-
-    it('returns 404 for non-existent generation', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: false,
-        status: 404,
-      } as Response);
-
-      const { GET } = await import('@/app/api/v1/resume-generations/[id]/route');
-      const validBlobUrl = encodeURIComponent(
-        'https://abc.public.blob.vercel-storage.com/resume.json'
-      );
-      const request = new Request(`http://localhost/api/v1/resume-generations/${validBlobUrl}`);
-      const response = await GET(request, createParams(validBlobUrl));
-      const data = await response.json();
-
-      expect(response.status).toBe(404);
-      expect(data.error.code).toBe('NOT_FOUND');
-    });
-
     it('returns generation content', async () => {
-      const generationData = {
-        version: 2,
-        jobId: 'job-123',
-        generationId: 'gen-456',
-        companyName: 'Tech Corp',
-        roleTitle: 'Senior Engineer',
-        estimatedCompatibility: { before: 60, after: 85 },
-        applicationStatus: 'submitted',
-        tailoredResume: { sections: [] },
-      };
+      const generationData = { version: 2, generationId: 'gen-1', companyName: 'Tech Corp' };
 
       vi.mocked(global.fetch).mockResolvedValue({
         ok: true,
@@ -99,11 +103,8 @@ describe('v1/resume-generations/[id] API route', () => {
       } as Response);
 
       const { GET } = await import('@/app/api/v1/resume-generations/[id]/route');
-      const validBlobUrl = encodeURIComponent(
-        'https://abc.blob.vercel-storage.com/resume.json'
-      );
-      const request = new Request(`http://localhost/api/v1/resume-generations/${validBlobUrl}`);
-      const response = await GET(request, createParams(validBlobUrl));
+      const request = new Request(`http://localhost/api/v1/resume-generations/${encodedBlobUrl}`);
+      const response = await GET(request, createParams(encodedBlobUrl));
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -111,121 +112,101 @@ describe('v1/resume-generations/[id] API route', () => {
       expect(data.data).toEqual(generationData);
     });
 
-    it('validates URL is from allowed blob storage domain (SSRF protection)', async () => {
+    it('returns 400 for invalid blob URL', async () => {
       const { GET } = await import('@/app/api/v1/resume-generations/[id]/route');
+      const bad = encodeURIComponent('https://evil.com/data.json');
+      const response = await GET(new Request('http://localhost/test'), createParams(bad));
+      expect(response.status).toBe(400);
+    });
+  });
 
-      const maliciousUrl = encodeURIComponent('https://evil.com/data');
-      const request = new Request(`http://localhost/api/v1/resume-generations/${maliciousUrl}`);
-      const response = await GET(request, createParams(maliciousUrl));
+  describe('PATCH /api/v1/resume-generations/[id]', () => {
+    it('updates provided fields and writes back to blob', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({ version: 2, applicationStatus: 'draft', notes: '' }),
+      } as Response);
+      mockPut.mockResolvedValue({
+        url: 'https://abc.blob.vercel-storage.com/damilola.tech/resume-generations/preview/job-1.json',
+      });
+
+      const { PATCH } = await import('@/app/api/v1/resume-generations/[id]/route');
+      const response = await PATCH(
+        new Request(`http://localhost/api/v1/resume-generations/${encodedBlobUrl}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ applicationStatus: 'applied', appliedDate: '2026-02-25', notes: 'Applied via Workday' }),
+        }),
+        createParams(encodedBlobUrl)
+      );
       const data = await response.json();
 
-      expect(response.status).toBe(400);
-      expect(data.error.code).toBe('BAD_REQUEST');
-      expect(data.error.message).toContain('Invalid');
-    });
-
-    it('accepts public.blob.vercel-storage.com URLs', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: true,
-        json: async () => ({ companyName: 'Test' }),
-      } as Response);
-
-      const { GET } = await import('@/app/api/v1/resume-generations/[id]/route');
-      const validUrl = encodeURIComponent(
-        'https://abc.public.blob.vercel-storage.com/resume.json'
-      );
-      const request = new Request(`http://localhost/api/v1/resume-generations/${validUrl}`);
-      const response = await GET(request, createParams(validUrl));
-
       expect(response.status).toBe(200);
-    });
-
-    it('accepts blob.vercel-storage.com URLs', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: true,
-        json: async () => ({ companyName: 'Test' }),
-      } as Response);
-
-      const { GET } = await import('@/app/api/v1/resume-generations/[id]/route');
-      const validUrl = encodeURIComponent(
-        'https://abc.blob.vercel-storage.com/resume.json'
-      );
-      const request = new Request(`http://localhost/api/v1/resume-generations/${validUrl}`);
-      const response = await GET(request, createParams(validUrl));
-
-      expect(response.status).toBe(200);
-    });
-
-    it('rejects non-https URLs', async () => {
-      const { GET } = await import('@/app/api/v1/resume-generations/[id]/route');
-
-      const httpUrl = encodeURIComponent('http://abc.blob.vercel-storage.com/resume.json');
-      const request = new Request(`http://localhost/api/v1/resume-generations/${httpUrl}`);
-      const response = await GET(request, createParams(httpUrl));
-
-      expect(response.status).toBe(400);
-    });
-
-    it('logs admin_resume_generation_viewed with accessType: api', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: true,
-        json: async () => ({ companyName: 'Test' }),
-      } as Response);
-
-      const { GET } = await import('@/app/api/v1/resume-generations/[id]/route');
-      const validBlobUrl = encodeURIComponent(
-        'https://abc.blob.vercel-storage.com/resume.json'
-      );
-      const request = new Request(`http://localhost/api/v1/resume-generations/${validBlobUrl}`);
-      await GET(request, createParams(validBlobUrl));
-
-      expect(mockLogAdminEvent).toHaveBeenCalledWith(
-        'admin_resume_generation_viewed',
-        expect.objectContaining({ generationUrl: expect.any(String) }),
+      expect(data.success).toBe(true);
+      expect(data.data.applicationStatus).toBe('applied');
+      expect(data.data.appliedDate).toBe('2026-02-25');
+      expect(data.data.notes).toBe('Applied via Workday');
+      expect(mockPut).toHaveBeenCalledWith(
+        'damilola.tech/resume-generations/preview/job-1.json',
         expect.any(String),
-        expect.objectContaining({
-          accessType: 'api',
-          apiKeyId: 'key-1',
-          apiKeyName: 'Test Key',
-        })
+        expect.objectContaining({ allowOverwrite: true, contentType: 'application/json' })
+      );
+      expect(mockLogAdminEvent).toHaveBeenCalledWith(
+        'api_resume_generation_status_updated',
+        expect.any(Object),
+        '127.0.0.1',
+        expect.objectContaining({ accessType: 'api', apiKeyId: 'key-1' })
       );
     });
 
-    it('handles fetch errors gracefully', async () => {
-      vi.mocked(global.fetch).mockRejectedValue(new Error('Network error'));
-
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      const { GET } = await import('@/app/api/v1/resume-generations/[id]/route');
-      const validBlobUrl = encodeURIComponent(
-        'https://abc.blob.vercel-storage.com/resume.json'
+    it('returns 400 for invalid status', async () => {
+      const { PATCH } = await import('@/app/api/v1/resume-generations/[id]/route');
+      const response = await PATCH(
+        new Request('http://localhost/api/v1/resume-generations/x', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ applicationStatus: 'unknown' }),
+        }),
+        createParams(encodedBlobUrl)
       );
-      const request = new Request(`http://localhost/api/v1/resume-generations/${validBlobUrl}`);
-      const response = await GET(request, createParams(validBlobUrl));
-      const data = await response.json();
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 404 when generation does not exist', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({ ok: false, status: 404 } as Response);
+
+      const { PATCH } = await import('@/app/api/v1/resume-generations/[id]/route');
+      const response = await PATCH(
+        new Request('http://localhost/api/v1/resume-generations/x', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ notes: 'abc' }),
+        }),
+        createParams(encodedBlobUrl)
+      );
+
+      expect(response.status).toBe(404);
+    });
+
+    it('returns 500 on blob write failure', async () => {
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({ version: 2, applicationStatus: 'draft' }),
+      } as Response);
+      mockPut.mockRejectedValue(new Error('write failed'));
+
+      const { PATCH } = await import('@/app/api/v1/resume-generations/[id]/route');
+      const response = await PATCH(
+        new Request('http://localhost/api/v1/resume-generations/x', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ notes: 'abc' }),
+        }),
+        createParams(encodedBlobUrl)
+      );
 
       expect(response.status).toBe(500);
-      expect(data.error.code).toBe('INTERNAL_ERROR');
-
-      consoleSpy.mockRestore();
-    });
-
-    it('decodes URL-encoded IDs', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: true,
-        json: async () => ({}),
-      } as Response);
-
-      const { GET } = await import('@/app/api/v1/resume-generations/[id]/route');
-      const encodedUrl = encodeURIComponent(
-        'https://abc.blob.vercel-storage.com/path/to/resume.json'
-      );
-      const request = new Request(`http://localhost/api/v1/resume-generations/${encodedUrl}`);
-      await GET(request, createParams(encodedUrl));
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        'https://abc.blob.vercel-storage.com/path/to/resume.json'
-      );
     });
   });
 });

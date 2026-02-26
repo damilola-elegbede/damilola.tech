@@ -39,6 +39,25 @@ interface ListResumeGenerationsResponse {
   generations: ResumeGenerationSummary[];
 }
 
+interface ScoreResumeResponse {
+  currentScore: {
+    total: number;
+    breakdown: {
+      keywordRelevance: number;
+      skillsQuality: number;
+      experienceAlignment: number;
+      contentQuality: number;
+    };
+    matchedKeywords: string[];
+    missingKeywords: string[];
+    matchRate: number;
+    keywordDensity: number;
+  };
+  maxPossibleScore: number;
+  gapAnalysis: string;
+  recommendation: 'full_generation_recommended' | 'marginal_improvement' | 'strong_fit';
+}
+
 interface ApiClientConfig {
   apiKey: string;
   baseUrl: string;
@@ -139,6 +158,41 @@ export class ApiClient {
     return this._request<unknown>(
       `/api/v1/resume-generations/${encodeURIComponent(id)}`
     );
+  }
+
+  async scoreResume(input: string): Promise<ScoreResumeResponse> {
+    return this._request<ScoreResumeResponse>('/api/v1/score-resume', {
+      method: 'POST',
+      body: { input },
+    });
+  }
+
+  async generateResume(input: string): Promise<unknown> {
+    return this._request<unknown>('/api/v1/resume-generator', {
+      method: 'POST',
+      body: { input },
+    });
+  }
+
+  async updateApplicationStatus(
+    id: string,
+    updates: {
+      applicationStatus?: string;
+      appliedDate?: string;
+      notes?: string;
+    }
+  ): Promise<unknown> {
+    return this._request<unknown>(
+      `/api/v1/resume-generations/${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        body: updates,
+      }
+    );
+  }
+
+  async getResumeData(): Promise<unknown> {
+    return this._request<unknown>('/api/v1/resume-data');
   }
 
   async getUsageStats(params?: {
