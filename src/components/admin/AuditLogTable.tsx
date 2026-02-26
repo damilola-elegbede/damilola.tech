@@ -105,6 +105,7 @@ const eventTypeColors: Record<string, string> = {
   api_resume_generation: 'bg-lime-500/10 text-lime-400',
   api_resume_generation_status_updated: 'bg-sky-500/10 text-sky-400',
   api_resume_data_accessed: 'bg-indigo-500/10 text-indigo-400',
+  api_mcp_request: 'bg-purple-500/10 text-purple-400',
 };
 
 // Human-readable failure reason messages

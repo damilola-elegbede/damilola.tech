@@ -38,7 +38,8 @@ export type AuditEventType =
   | 'api_usage_accessed'
   | 'api_traffic_accessed'
   | 'api_chats_detail'
-  | 'api_audit_accessed';
+  | 'api_audit_accessed'
+  | 'api_mcp_request';
 
 export interface TrafficSource {
   source: string;
