@@ -5,8 +5,10 @@ import type {
   ResumeGenerationLogV2,
   GenerationHistoryEntry,
   ResumeGenerationLog,
+  EstimatedCompatibility,
 } from '@/lib/types/resume-generation';
 import type { JobIdentifier } from '@/lib/job-id';
+import { sanitizeScoreValue } from '@/lib/score-utils';
 
 // Use Node.js runtime for blob operations
 export const runtime = 'nodejs';
@@ -54,6 +56,32 @@ async function fetchExistingRecord(
   }
 }
 
+function normalizeEstimatedCompatibility(input: unknown): EstimatedCompatibility {
+  const value = input && typeof input === 'object'
+    ? input as Record<string, unknown>
+    : {};
+
+  const breakdown = value.breakdown && typeof value.breakdown === 'object'
+    ? value.breakdown as Record<string, unknown>
+    : {};
+
+  const before = sanitizeScoreValue(value.before, 0, 100);
+  const after = sanitizeScoreValue(value.after, 0, 100);
+  const possibleMax = sanitizeScoreValue(value.possibleMax, after, 100);
+
+  return {
+    before,
+    after,
+    possibleMax,
+    breakdown: {
+      keywordRelevance: sanitizeScoreValue(breakdown.keywordRelevance, 0, 45),
+      skillsQuality: sanitizeScoreValue(breakdown.skillsQuality, 0, 25),
+      experienceAlignment: sanitizeScoreValue(breakdown.experienceAlignment, 0, 20),
+      contentQuality: sanitizeScoreValue(breakdown.contentQuality, 0, 10),
+    },
+  };
+}
+
 export async function POST(req: Request) {
   console.log('[resume-generator/log] Request received');
 
@@ -96,6 +124,7 @@ export async function POST(req: Request) {
 
     const environment = getEnvironment();
     const now = new Date().toISOString();
+    const normalizedEstimatedCompatibility = normalizeEstimatedCompatibility(estimatedCompatibility);
 
     // Check for existing record
     const existing = await fetchExistingRecord(environment, jobId);
@@ -152,17 +181,7 @@ export async function POST(req: Request) {
         roleTitle,
         jobDescriptionFull,
         datePosted,
-        estimatedCompatibility: estimatedCompatibility || {
-          before: 0,
-          after: 0,
-          possibleMax: 0,
-          breakdown: {
-            keywordRelevance: 0,
-            skillsQuality: 0,
-            experienceAlignment: 0,
-            contentQuality: 0,
-          },
-        },
+        estimatedCompatibility: normalizedEstimatedCompatibility,
         changesAccepted: changesAccepted || [],
         changesRejected: changesRejected || [],
         gapsIdentified: gapsIdentified || [],
@@ -191,17 +210,7 @@ export async function POST(req: Request) {
         roleTitle,
         jobDescriptionFull,
         datePosted,
-        estimatedCompatibility: estimatedCompatibility || {
-          before: 0,
-          after: 0,
-          possibleMax: 0,
-          breakdown: {
-            keywordRelevance: 0,
-            skillsQuality: 0,
-            experienceAlignment: 0,
-            contentQuality: 0,
-          },
-        },
+        estimatedCompatibility: normalizedEstimatedCompatibility,
         changesAccepted: changesAccepted || [],
         changesRejected: changesRejected || [],
         gapsIdentified: gapsIdentified || [],

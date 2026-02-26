@@ -198,6 +198,23 @@ describe('calculateEditedImpact', () => {
       expect(impact).toBe(0);
     });
 
+    it('handles punctuation-heavy keywords without substring false positives', () => {
+      const change: ProposedChange = {
+        section: 'skills',
+        original: 'Skills',
+        modified: 'C++, Python',
+        reason: 'Added language keyword',
+        keywordsAdded: ['c++'],
+        impactPoints: 2,
+        impactPerKeyword: 2,
+      };
+
+      const editedText = 'Experienced in C+ migration projects';
+      const impact = calculateEditedImpact(change, editedText);
+
+      expect(impact).toBe(0);
+    });
+
     it('handles single keyword change', () => {
       const change: ProposedChange = {
         section: 'experience.verily.bullet1',

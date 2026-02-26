@@ -5,18 +5,18 @@ function keywordInText(text: string, keyword: string): boolean {
   const normalizedKeyword = keyword.toLowerCase().trim();
   if (!normalizedKeyword) return false;
 
-  // For single-token keywords, use word boundaries to avoid substring false positives.
+  // For single-token keywords, use non-word lookarounds to support tokens like C++ and .NET.
   if (!normalizedKeyword.includes(' ')) {
     const escaped = normalizedKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`\\b${escaped}\\b`, 'i').test(normalizedText);
+    return new RegExp(`(?<!\\w)${escaped}(?!\\w)`, 'i').test(normalizedText);
   }
 
   // For multi-word phrases, allow flexible whitespace and punctuation boundaries.
   const phrasePattern = normalizedKeyword
     .split(/\s+/)
     .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-    .join('[\\s\\-/,]+');
-  return new RegExp(`\\b${phrasePattern}\\b`, 'i').test(normalizedText);
+    .join('[\\s\\-/,._+]+');
+  return new RegExp(`(?<!\\w)${phrasePattern}(?!\\w)`, 'i').test(normalizedText);
 }
 
 /**

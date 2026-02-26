@@ -26,6 +26,7 @@ import {
   type MatchResult,
   type KeywordPriority,
 } from './ats-keywords';
+import { sanitizeScoreValue } from './score-utils';
 
 /**
  * Score breakdown by category.
@@ -784,16 +785,11 @@ export function calculateATSScore(input: ScoringInput): ATSScore {
   // 6. Calculate total and create result
   const total = Math.round((keywordRelevance + skillsQuality + experienceAlignment + contentQuality) * 10) / 10;
 
-  const sanitizeComponent = (value: number, max: number): number => {
-    if (!Number.isFinite(value)) return 0;
-    return Math.max(0, Math.min(max, value));
-  };
-
   const sanitizedBreakdown = {
-    keywordRelevance: sanitizeComponent(keywordRelevance, 45),
-    skillsQuality: sanitizeComponent(skillsQuality, 25),
-    experienceAlignment: sanitizeComponent(experienceAlignment, 20),
-    contentQuality: sanitizeComponent(contentQuality, 10),
+    keywordRelevance: sanitizeScoreValue(keywordRelevance, 0, 45),
+    skillsQuality: sanitizeScoreValue(skillsQuality, 0, 25),
+    experienceAlignment: sanitizeScoreValue(experienceAlignment, 0, 20),
+    contentQuality: sanitizeScoreValue(contentQuality, 0, 10),
   };
 
   const sanitizedTotal = Math.max(

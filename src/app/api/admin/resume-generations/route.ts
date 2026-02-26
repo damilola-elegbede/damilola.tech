@@ -202,6 +202,7 @@ export async function GET(req: Request) {
           const updatedAt = data.version === 2
             ? data.updatedAt
             : data.createdAt;
+          const possibleMax = data.estimatedCompatibility.possibleMax ?? data.estimatedCompatibility.after;
 
           return {
             id: blob.pathname,
@@ -214,9 +215,10 @@ export async function GET(req: Request) {
             roleTitle: data.roleTitle,
             scoreBefore: data.estimatedCompatibility.before,
             scoreAfter: data.estimatedCompatibility.after,
-            scorePossibleMax: data.estimatedCompatibility.possibleMax ?? data.estimatedCompatibility.after,
+            // Keep both names for compatibility across existing consumers.
+            scorePossibleMax: possibleMax,
             currentScore: data.estimatedCompatibility.before,
-            possibleMaxScore: data.estimatedCompatibility.possibleMax ?? data.estimatedCompatibility.after,
+            possibleMaxScore: possibleMax,
             applicationStatus: data.applicationStatus,
             url: blob.url,
             size: blob.size,

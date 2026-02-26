@@ -513,7 +513,8 @@ export default function ResumeGeneratorPage() {
   const projectedScore = useMemo(() => {
     if (!analysisResult) return 0;
 
-    let score = analysisResult.currentScore.total;
+    const baseScore = analysisResult.currentScore.total;
+    let delta = 0;
 
     for (const [index, change] of analysisResult.proposedChanges.entries()) {
       if (!acceptedIndices.has(index)) continue;
@@ -521,14 +522,14 @@ export default function ResumeGeneratorPage() {
       const review = reviewedChanges.get(index);
       if (review?.editedText !== undefined) {
         // User edited: recalculate based on retained keywords
-        score += calculateEditedImpact(change, review.editedText);
+        delta += calculateEditedImpact(change, review.editedText);
       } else {
         // User accepted as-is: use full impact
-        score += change.impactPoints;
+        delta += change.impactPoints;
       }
     }
 
-    return computeCappedScore(score, 0, analysisResult.scoreCeiling);
+    return computeCappedScore(baseScore, delta, analysisResult.scoreCeiling);
   }, [analysisResult, acceptedIndices, reviewedChanges]);
 
   // Calculate dynamic breakdown based on accepted changes (with edit-aware rescoring)
