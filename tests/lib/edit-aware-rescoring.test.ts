@@ -181,7 +181,7 @@ describe('calculateEditedImpact', () => {
       expect(impact).toBe(0); // Neither keyword fully matches
     });
 
-    it('uses word boundaries for single-token keywords', () => {
+    it('uses non-word token boundaries for single-token keywords', () => {
       const change: ProposedChange = {
         section: 'skills',
         original: 'Skills',
@@ -213,6 +213,23 @@ describe('calculateEditedImpact', () => {
       const impact = calculateEditedImpact(change, editedText);
 
       expect(impact).toBe(0);
+    });
+
+    it('retains punctuation-heavy keywords when exact token is present', () => {
+      const change: ProposedChange = {
+        section: 'skills',
+        original: 'Skills',
+        modified: 'C++, Python',
+        reason: 'Added language keyword',
+        keywordsAdded: ['c++'],
+        impactPoints: 2,
+        impactPerKeyword: 2,
+      };
+
+      const editedText = 'Experienced in C++ projects';
+      const impact = calculateEditedImpact(change, editedText);
+
+      expect(impact).toBe(2);
     });
 
     it('handles single keyword change', () => {

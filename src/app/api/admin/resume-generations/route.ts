@@ -217,6 +217,7 @@ export async function GET(req: Request) {
             scoreAfter: data.estimatedCompatibility.after,
             // Keep both names for compatibility across existing consumers.
             scorePossibleMax: possibleMax,
+            // currentScore represents the pre-optimization baseline score.
             currentScore: data.estimatedCompatibility.before,
             possibleMaxScore: possibleMax,
             applicationStatus: data.applicationStatus,

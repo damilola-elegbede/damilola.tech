@@ -8,7 +8,8 @@ import type {
   EstimatedCompatibility,
 } from '@/lib/types/resume-generation';
 import type { JobIdentifier } from '@/lib/job-id';
-import { sanitizeScoreValue } from '@/lib/score-utils';
+import type { ScoreBreakdown } from '@/lib/types/resume-generation';
+import { sanitizeScoreValue, sanitizeBreakdown } from '@/lib/score-utils';
 
 // Use Node.js runtime for blob operations
 export const runtime = 'nodejs';
@@ -62,7 +63,7 @@ function normalizeEstimatedCompatibility(input: unknown): EstimatedCompatibility
     : {};
 
   const breakdown = value.breakdown && typeof value.breakdown === 'object'
-    ? value.breakdown as Record<string, unknown>
+    ? value.breakdown as Partial<ScoreBreakdown>
     : {};
 
   const before = sanitizeScoreValue(value.before, 0, 100);
@@ -73,12 +74,12 @@ function normalizeEstimatedCompatibility(input: unknown): EstimatedCompatibility
     before,
     after,
     possibleMax,
-    breakdown: {
-      keywordRelevance: sanitizeScoreValue(breakdown.keywordRelevance, 0, 45),
-      skillsQuality: sanitizeScoreValue(breakdown.skillsQuality, 0, 25),
-      experienceAlignment: sanitizeScoreValue(breakdown.experienceAlignment, 0, 20),
-      contentQuality: sanitizeScoreValue(breakdown.contentQuality, 0, 10),
-    },
+    breakdown: sanitizeBreakdown({
+      keywordRelevance: breakdown.keywordRelevance ?? 0,
+      skillsQuality: breakdown.skillsQuality ?? 0,
+      experienceAlignment: breakdown.experienceAlignment ?? 0,
+      contentQuality: breakdown.contentQuality ?? 0,
+    }),
   };
 }
 
