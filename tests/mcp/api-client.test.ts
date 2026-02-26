@@ -176,4 +176,124 @@ describe('ApiClient', () => {
       expect(result).toEqual(data);
     });
   });
+
+  describe('modifyChange', () => {
+    it('calls POST /api/v1/resume-generator/modify-change', async () => {
+      const data = { revisedChange: { section: 'summary' } };
+      mockFetch.mockReturnValueOnce(makeSuccessResponse(data));
+
+      const result = await client.modifyChange({
+        originalChange: {
+          section: 'summary',
+          original: 'A',
+          modified: 'B',
+          reason: 'C',
+          keywordsAdded: ['k'],
+          impactPoints: 3,
+        },
+        modifyPrompt: 'Make concise',
+        jobDescription: 'JD',
+      });
+
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toContain('/api/v1/resume-generator/modify-change');
+      expect(options.method).toBe('POST');
+      expect(result).toEqual(data);
+    });
+  });
+
+  describe('uploadResumePdf', () => {
+    it('calls POST /api/v1/resume-generator/upload-pdf with form data', async () => {
+      const data = { url: 'https://blob', filename: 'resume.pdf' };
+      mockFetch.mockReturnValueOnce(makeSuccessResponse(data));
+
+      const result = await client.uploadResumePdf({
+        pdfBase64: Buffer.from('%PDF-sample').toString('base64'),
+        companyName: 'Acme',
+        roleTitle: 'Engineer',
+      });
+
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toContain('/api/v1/resume-generator/upload-pdf');
+      expect(options.method).toBe('POST');
+      expect(options.headers['Authorization']).toBe('Bearer test-key');
+      expect(options.headers['Content-Type']).toBeUndefined();
+      expect(options.body).toBeInstanceOf(FormData);
+      expect(result).toEqual(data);
+    });
+  });
+
+  describe('logGeneration', () => {
+    it('calls POST /api/v1/resume-generator/log', async () => {
+      const data = { generationId: 'gen-1' };
+      mockFetch.mockReturnValueOnce(makeSuccessResponse(data));
+
+      const result = await client.logGeneration({
+        generationId: 'gen-1',
+        jobId: 'job-1',
+        jobIdentifier: { type: 'manual' },
+        companyName: 'Acme',
+        roleTitle: 'Engineer',
+        jobDescriptionFull: 'desc',
+      });
+
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toContain('/api/v1/resume-generator/log');
+      expect(options.method).toBe('POST');
+      expect(result).toEqual(data);
+    });
+  });
+
+  describe('new GET helpers', () => {
+    it('calls getStatsOnly endpoint', async () => {
+      const data = { chats: { total: 1 } };
+      mockFetch.mockReturnValueOnce(makeSuccessResponse(data));
+
+      const result = await client.getStatsOnly({ env: 'production' });
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toContain('/api/v1/stats');
+      expect(url).toContain('env=production');
+      expect(result).toEqual(data);
+    });
+
+    it('calls listChats endpoint', async () => {
+      const data = { chats: [] };
+      mockFetch.mockReturnValueOnce(makeSuccessResponse(data));
+
+      const result = await client.listChats({ env: 'production', limit: 20, cursor: 'x' });
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toContain('/api/v1/chats');
+      expect(url).toContain('limit=20');
+      expect(result).toEqual(data);
+    });
+
+    it('URL-encodes getChat id', async () => {
+      mockFetch.mockReturnValueOnce(makeSuccessResponse({ id: 'a/b' }));
+      await client.getChat('a/b');
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toContain('/api/v1/chats/a%2Fb');
+    });
+
+    it('calls getAuditLog endpoint', async () => {
+      const data = { events: [] };
+      mockFetch.mockReturnValueOnce(makeSuccessResponse(data));
+
+      const result = await client.getAuditLog({ eventType: 'page_view', limit: 10 });
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toContain('/api/v1/audit');
+      expect(url).toContain('eventType=page_view');
+      expect(result).toEqual(data);
+    });
+
+    it('calls getTraffic endpoint', async () => {
+      const data = { totalSessions: 10 };
+      mockFetch.mockReturnValueOnce(makeSuccessResponse(data));
+
+      const result = await client.getTraffic({ startDate: '2026-01-01', endDate: '2026-01-31' });
+      const [url] = mockFetch.mock.calls[0];
+      expect(url).toContain('/api/v1/traffic');
+      expect(url).toContain('startDate=2026-01-01');
+      expect(result).toEqual(data);
+    });
+  });
 });
