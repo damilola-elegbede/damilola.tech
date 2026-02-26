@@ -27,6 +27,8 @@ export interface EstimatedCompatibility {
   before: number;
   /** Total score after optimization (0-100) */
   after: number;
+  /** Maximum score if all proposed changes were accepted (0-100) */
+  possibleMax?: number;
   /** Detailed breakdown of score components */
   breakdown: ScoreBreakdown;
 }
@@ -390,6 +392,12 @@ export interface ResumeGenerationSummary {
   scoreBefore: number;
   /** Score after optimization (most recent) */
   scoreAfter: number;
+  /** Maximum possible score if all proposed changes are accepted */
+  scorePossibleMax?: number;
+  /** Canonical current score for ATS calculations */
+  currentScore?: number;
+  /** Canonical possible max score for ATS calculations */
+  possibleMaxScore?: number;
   /** Application status */
   applicationStatus: ApplicationStatus;
   /** Blob URL (only in detail responses, not list) */

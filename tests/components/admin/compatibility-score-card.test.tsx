@@ -216,6 +216,29 @@ describe('CompatibilityScoreCard', () => {
     expect(screen.getByText('0/10')).toBeInTheDocument();
   });
 
+  it('renders non-finite breakdown values as 0', () => {
+    const nonFiniteBreakdown = {
+      keywordRelevance: Number.NaN,
+      skillsQuality: Number.POSITIVE_INFINITY,
+      experienceAlignment: Number.NEGATIVE_INFINITY,
+      contentQuality: Number.NaN,
+    } as unknown as ScoreBreakdown;
+
+    render(
+      <CompatibilityScoreCard
+        title="Test"
+        score={72}
+        breakdown={nonFiniteBreakdown}
+        assessment="Test"
+      />
+    );
+
+    expect(screen.getByText('0/45')).toBeInTheDocument();
+    expect(screen.getByText('0/25')).toBeInTheDocument();
+    expect(screen.getByText('0/20')).toBeInTheDocument();
+    expect(screen.getByText('0/10')).toBeInTheDocument();
+  });
+
   it('rounds floating point scores to one decimal place', () => {
     render(
       <CompatibilityScoreCard

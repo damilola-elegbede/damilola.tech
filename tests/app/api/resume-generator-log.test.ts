@@ -261,6 +261,7 @@ describe('resume-generator log API route', () => {
       expect(parsedContent.estimatedCompatibility).toEqual({
         before: 0,
         after: 0,
+        possibleMax: 0,
         breakdown: {
           keywordRelevance: 0,
           skillsQuality: 0,
@@ -273,6 +274,49 @@ describe('resume-generator log API route', () => {
       expect(parsedContent.gapsIdentified).toEqual([]);
       expect(parsedContent.pdfUrl).toBe('');
       expect(parsedContent.optimizedResumeJson).toEqual({});
+    });
+
+    it('normalizes partial estimatedCompatibility payloads', async () => {
+      mockPut.mockResolvedValue({ url: 'https://test', pathname: 'test' });
+
+      const { POST } = await import('@/app/api/resume-generator/log/route');
+
+      const partialData = {
+        ...validLogData,
+        estimatedCompatibility: {
+          before: 'not-a-number',
+          after: 80,
+          breakdown: {
+            keywordRelevance: 20,
+            skillsQuality: undefined,
+            experienceAlignment: Number.NaN,
+            contentQuality: 30,
+          },
+        },
+      };
+
+      const request = new Request('http://localhost/api/resume-generator/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(partialData),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      const [, content] = mockPut.mock.calls[0];
+      const parsedContent = JSON.parse(content);
+      expect(parsedContent.estimatedCompatibility).toEqual({
+        before: 0,
+        after: 80,
+        possibleMax: 80,
+        breakdown: {
+          keywordRelevance: 20,
+          skillsQuality: 0,
+          experienceAlignment: 0,
+          contentQuality: 10,
+        },
+      });
     });
   });
 

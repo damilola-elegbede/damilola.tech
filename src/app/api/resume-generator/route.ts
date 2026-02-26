@@ -16,6 +16,7 @@ import {
   type ResumeData as ATSResumeData,
 } from '@/lib/ats-scorer';
 import { resumeData } from '@/lib/resume-data';
+import { sanitizeBreakdown } from '@/lib/score-utils';
 // ResumeAnalysisResult parsing happens client-side for streaming support
 
 // Dynamic import for DNS to allow testing without mocking
@@ -355,7 +356,7 @@ Use this score as your "currentScore" in the response. DO NOT recalculate it.
 - Keyword Relevance: ${breakdown.keywordRelevance}/45
 - Skills Quality: ${breakdown.skillsQuality}/25
 - Experience Alignment: ${breakdown.experienceAlignment}/20
-- Content Quality: ${breakdown.contentQuality}/10
+- Match Quality: ${breakdown.contentQuality}/10
 
 ### Keyword Analysis:
 - Match Rate: ${details.matchRate}%
@@ -622,9 +623,10 @@ export async function POST(req: Request) {
     const metadataHeader = JSON.stringify({
       wasUrl,
       extractedUrl,
+      ...(wasUrl ? { resolvedJobDescription: jobDescriptionText } : {}),
       deterministicScore: {
         total: atsScore.total,
-        breakdown: atsScore.breakdown,
+        breakdown: sanitizeBreakdown(atsScore.breakdown),
         matchedKeywords: atsScore.details.matchedKeywords,
         missingKeywords: atsScore.details.missingKeywords,
         matchRate: atsScore.details.matchRate,

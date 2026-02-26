@@ -123,6 +123,7 @@ export async function GET(req: Request) {
             const jobId = computeJobIdForV1(data);
             const generationCount = data.version === 2 ? data.generationHistory.length + 1 : 1;
             const updatedAt = data.version === 2 ? data.updatedAt : data.createdAt;
+            const possibleMax = data.estimatedCompatibility.possibleMax ?? data.estimatedCompatibility.after;
 
             return {
               id: blob.pathname,
@@ -135,6 +136,9 @@ export async function GET(req: Request) {
               roleTitle: data.roleTitle,
               scoreBefore: data.estimatedCompatibility.before,
               scoreAfter: data.estimatedCompatibility.after,
+              scorePossibleMax: possibleMax,
+              currentScore: data.estimatedCompatibility.before,
+              possibleMaxScore: possibleMax,
               applicationStatus: data.applicationStatus,
               size: blob.size,
               generationCount,
@@ -153,6 +157,9 @@ export async function GET(req: Request) {
               roleTitle: 'Unknown',
               scoreBefore: 0,
               scoreAfter: 0,
+              scorePossibleMax: 0,
+              currentScore: 0,
+              possibleMaxScore: 0,
               applicationStatus: 'draft' as const,
               size: blob.size,
               generationCount: 1,
