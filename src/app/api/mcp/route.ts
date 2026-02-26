@@ -13,6 +13,12 @@ import { getTrustedApiBaseUrl } from '@/lib/mcp/get-trusted-api-base-url';
 export const runtime = 'nodejs';
 export const maxDuration = 120;
 
+/**
+ * Extracts the raw API key from standard headers.
+ *
+ * Security note: this does not validate the key; validation is handled by
+ * `requireApiKey`. This helper only normalizes supported header formats.
+ */
 function getRawApiKey(req: Request): string | null {
   const authHeader = req.headers.get('Authorization');
   if (authHeader?.startsWith('Bearer ')) {
@@ -27,7 +33,12 @@ function getRawApiKey(req: Request): string | null {
   return null;
 }
 
-
+/**
+ * MCP JSON-RPC endpoint (non-SSE).
+ *
+ * Enforces API key auth and per-key+IP rate limiting before proxying the
+ * request into the MCP server transport.
+ */
 export async function POST(req: Request) {
   const authResult = await requireApiKey(req);
   if (authResult instanceof Response) {
@@ -87,6 +98,12 @@ export async function POST(req: Request) {
   }
 }
 
+/**
+ * MCP Server-Sent Events (SSE) endpoint.
+ *
+ * Uses the Web Standard streamable transport and applies the same auth and
+ * rate limiting as the POST handler.
+ */
 export async function GET(req: Request) {
   const authResult = await requireApiKey(req);
   if (authResult instanceof Response) {
@@ -123,6 +140,11 @@ export async function GET(req: Request) {
   }
 }
 
+/**
+ * No-op handler used by some clients to close/cleanup sessions.
+ *
+ * Auth is still required to avoid exposing endpoint metadata.
+ */
 export async function DELETE(req: Request) {
   const authResult = await requireApiKey(req);
   if (authResult instanceof Response) {

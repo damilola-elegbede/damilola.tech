@@ -16,6 +16,12 @@ import { registerChats } from '../../../mcp/tools/chats';
 import { registerAuditLog } from '../../../mcp/tools/audit-log';
 import { registerTraffic } from '../../../mcp/tools/traffic';
 
+/**
+ * Creates an MCP server instance with all supported tools registered.
+ *
+ * @param apiKey - API key used for downstream API calls made by tools.
+ * @param apiBaseUrl - Trusted base URL for server-to-server requests.
+ */
 export function createMcpServer(apiKey: string, apiBaseUrl: string): McpServer {
   const server = new McpServer({
     name: 'damilola-tech',
