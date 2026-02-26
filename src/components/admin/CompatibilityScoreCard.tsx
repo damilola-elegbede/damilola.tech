@@ -1,6 +1,7 @@
 'use client';
 
 import type { ScoreBreakdown } from '@/lib/types/resume-generation';
+import { sanitizeBreakdown, sanitizeScoreValue } from '@/lib/score-utils';
 
 interface CompatibilityScoreCardProps {
   title: string;
@@ -36,7 +37,8 @@ function ScoreBar({
   maxValue: number;
   description: string;
 }) {
-  const percentage = ((value ?? 0) / maxValue) * 100;
+  const safeValue = sanitizeScoreValue(value, 0, maxValue);
+  const percentage = (safeValue / maxValue) * 100;
   const barColor =
     percentage >= 75 ? 'bg-green-500' : percentage >= 50 ? 'bg-blue-500' : percentage >= 25 ? 'bg-yellow-500' : 'bg-red-500';
 
@@ -47,7 +49,7 @@ function ScoreBar({
           {label}
         </span>
         <span className="text-[var(--color-text)]">
-          {Math.round((value ?? 0) * 10) / 10}/{maxValue}
+          {Math.round(safeValue * 10) / 10}/{maxValue}
         </span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-[var(--color-bg-alt)]">
@@ -68,31 +70,34 @@ export function CompatibilityScoreCard({
   highlight,
   targetScore,
 }: CompatibilityScoreCardProps) {
-  const showTarget = targetScore !== undefined && targetScore > score;
+  const safeScore = sanitizeScoreValue(score, 0, 100);
+  const safeTargetScore = targetScore === undefined ? undefined : sanitizeScoreValue(targetScore, 0, 100);
+  const safeBreakdown = sanitizeBreakdown(breakdown);
+  const showTarget = safeTargetScore !== undefined && safeTargetScore > safeScore;
   return (
     <div className={`rounded-lg border bg-[var(--color-card)] p-6 ${highlight ? 'border-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/30' : 'border-[var(--color-border)]'}`}>
       <h3 className="text-sm font-medium text-[var(--color-text-muted)]">{title}</h3>
 
       <div className="mt-4 flex items-baseline gap-2">
-        <span className={`text-4xl font-bold ${getScoreColor(score)}`}>{Math.round(score * 10) / 10}</span>
+        <span className={`text-4xl font-bold ${getScoreColor(safeScore)}`}>{Math.round(safeScore * 10) / 10}</span>
         {showTarget && (
           <>
             <span className="text-2xl text-[var(--color-text-muted)]">→</span>
-            <span className={`text-2xl font-medium ${getScoreColor(targetScore)}`}>{Math.round(targetScore * 10) / 10}</span>
+            <span className={`text-2xl font-medium ${getScoreColor(safeTargetScore)}`}>{Math.round(safeTargetScore * 10) / 10}</span>
           </>
         )}
         <span
           className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${
-            score >= 85
+            safeScore >= 85
               ? 'bg-green-500/20 text-green-400'
-              : score >= 70
+              : safeScore >= 70
                 ? 'bg-blue-500/20 text-blue-400'
-                : score >= 55
+                : safeScore >= 55
                   ? 'bg-yellow-500/20 text-yellow-400'
                   : 'bg-red-500/20 text-red-400'
           }`}
         >
-          {getScoreLabel(score)}
+          {getScoreLabel(safeScore)}
         </span>
       </div>
 
@@ -101,25 +106,25 @@ export function CompatibilityScoreCard({
       <div className="mt-6 space-y-3">
         <ScoreBar
           label="Keyword Relevance"
-          value={breakdown.keywordRelevance}
+          value={safeBreakdown.keywordRelevance}
           maxValue={45}
           description="Matching JD keywords in resume (45 pts max)"
         />
         <ScoreBar
           label="Skills Quality"
-          value={breakdown.skillsQuality}
+          value={safeBreakdown.skillsQuality}
           maxValue={25}
           description="Skills section completeness and organization (25 pts max)"
         />
         <ScoreBar
           label="Experience Alignment"
-          value={breakdown.experienceAlignment}
+          value={safeBreakdown.experienceAlignment}
           maxValue={20}
           description="Years, scope, title, and education match (20 pts max)"
         />
         <ScoreBar
           label="Match Quality"
-          value={breakdown.contentQuality}
+          value={safeBreakdown.contentQuality}
           maxValue={10}
           description="Exact match ratio, keyword density, and section completeness (10 pts max)"
         />

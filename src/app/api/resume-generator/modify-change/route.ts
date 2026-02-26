@@ -90,6 +90,17 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
       return Response.json({ error: 'Invalid response structure from AI' }, { status: 500 });
     }
 
+    // Prevent model drift from mutating immutable fields for the selected change.
+    if (
+      revisedChange.section !== originalChange.section ||
+      revisedChange.original !== originalChange.original
+    ) {
+      return Response.json(
+        { error: 'AI response modified immutable change fields' },
+        { status: 500 }
+      );
+    }
+
     return Response.json({ revisedChange });
   } catch (error) {
     console.error('[modify-change] Error:', error);

@@ -9,6 +9,7 @@ import { ChangePreviewPanel } from '@/components/admin/ChangePreviewPanel';
 import { trackEvent } from '@/lib/audit-client';
 import { generateJobId, extractDatePosted } from '@/lib/job-id';
 import { calculateEditedImpact, normalizeImpactPoints } from '@/lib/resume-scoring';
+import { computeCappedScore, computePossibleMaxScore, sanitizeBreakdown, sanitizeScoreValue } from '@/lib/score-utils';
 import type { ResumeAnalysisResult, ReviewedChange, ProposedChange, LoggedChange, ScoreBreakdown } from '@/lib/types/resume-generation';
 import type { ResumeData } from '@/lib/resume-pdf';
 
@@ -55,7 +56,7 @@ function calculateDynamicBreakdown(
   reviewedChanges?: Map<number, ReviewedChange>
 ): ScoreBreakdown {
   // Start with current breakdown
-  const result = { ...currentBreakdown };
+  const result = sanitizeBreakdown(currentBreakdown);
 
   // Sum up impact points by category based on section
   for (const [index, change] of proposedChanges.entries()) {
@@ -63,9 +64,10 @@ function calculateDynamicBreakdown(
 
     // Calculate effective impact (accounting for user edits)
     const review = reviewedChanges?.get(index);
-    const effectiveImpact = review?.editedText !== undefined
+    const rawImpact = review?.editedText !== undefined
       ? calculateEditedImpact(change, review.editedText)
       : change.impactPoints;
+    const effectiveImpact = sanitizeScoreValue(rawImpact, 0, 100);
 
     // Map section to breakdown category and distribute impact
     if (change.section === 'summary') {
@@ -91,6 +93,11 @@ function calculateDynamicBreakdown(
 }
 
 type Phase = 'input' | 'analyzing' | 'preview' | 'generating' | 'complete';
+type AnalysisMetadata = {
+  wasUrl: boolean;
+  extractedUrl?: string;
+  resolvedJobDescription?: string;
+};
 
 export default function ResumeGeneratorPage() {
   const [phase, setPhase] = useState<Phase>('input');
@@ -100,6 +107,7 @@ export default function ResumeGeneratorPage() {
   const [reviewedChanges, setReviewedChanges] = useState<Map<number, ReviewedChange>>(new Map());
   const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState<string>('');
+  const [analysisMetadata, setAnalysisMetadata] = useState<AnalysisMetadata | null>(null);
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [resumeDataError, setResumeDataError] = useState<string | null>(null);
 
@@ -153,6 +161,7 @@ export default function ResumeGeneratorPage() {
     setJobDescription(jd);
     setError(null);
     setStreamingText('');
+    setAnalysisMetadata(null);
     setPhase('analyzing');
 
     try {
@@ -176,7 +185,12 @@ export default function ResumeGeneratorPage() {
 
       let fullText = '';
       let isFirstLine = true;
-      let metadata: { deterministicScore?: { total: number; breakdown: import('@/lib/types/resume-generation').ScoreBreakdown } } | null = null;
+      let metadata: (AnalysisMetadata & {
+        deterministicScore?: {
+          total: number;
+          breakdown: import('@/lib/types/resume-generation').ScoreBreakdown;
+        };
+      }) | null = null;
       const decoder = new TextDecoder();
 
       while (true) {
@@ -221,8 +235,8 @@ export default function ResumeGeneratorPage() {
       if (metadata?.deterministicScore) {
         result.currentScore = {
           ...result.currentScore,
-          total: metadata.deterministicScore.total,
-          breakdown: metadata.deterministicScore.breakdown,
+          total: sanitizeScoreValue(metadata.deterministicScore.total, 0, 100),
+          breakdown: sanitizeBreakdown(metadata.deterministicScore.breakdown),
         };
       }
 
@@ -246,6 +260,11 @@ export default function ResumeGeneratorPage() {
       }
 
       setAnalysisResult(normalizeImpactPoints(result));
+      setAnalysisMetadata({
+        wasUrl: metadata?.wasUrl ?? false,
+        extractedUrl: metadata?.extractedUrl,
+        resolvedJobDescription: metadata?.resolvedJobDescription,
+      });
       // Initialize all changes as pending (not auto-accepted)
       setReviewedChanges(new Map());
       setStreamingText('');
@@ -254,6 +273,7 @@ export default function ResumeGeneratorPage() {
       console.error('Analysis error:', err);
       setError(err instanceof Error ? err.message : 'Analysis failed');
       setStreamingText('');
+      setAnalysisMetadata(null);
       setPhase('input');
     }
   };
@@ -364,15 +384,18 @@ export default function ResumeGeneratorPage() {
 
       // Build logged changes with edit and rejection tracking
       const acceptedLoggedChanges: LoggedChange[] = analysisResult.proposedChanges
-        .filter((_, i) => acceptedIndices.has(i))
-        .map((change) => {
-          // Find original index
-          const originalIndex = analysisResult.proposedChanges.indexOf(change);
-          const review = reviewedChanges.get(originalIndex);
+        .map((change, index) => ({ change, index }))
+        .filter(({ index }) => acceptedIndices.has(index))
+        .map(({ change, index }) => {
+          const review = reviewedChanges.get(index);
           const wasEdited = review?.editedText !== undefined;
+          const effectiveImpact = wasEdited && review?.editedText
+            ? calculateEditedImpact(change, review.editedText)
+            : change.impactPoints;
 
           return {
             ...change,
+            impactPoints: effectiveImpact,
             modified: wasEdited ? review!.editedText! : change.modified,
             wasEdited,
             originalModified: wasEdited ? change.modified : undefined,
@@ -380,10 +403,10 @@ export default function ResumeGeneratorPage() {
         });
 
       const rejectedLoggedChanges: LoggedChange[] = analysisResult.proposedChanges
-        .filter((_, i) => rejectedIndices.has(i))
-        .map((change) => {
-          const originalIndex = analysisResult.proposedChanges.indexOf(change);
-          const review = reviewedChanges.get(originalIndex);
+        .map((change, index) => ({ change, index }))
+        .filter(({ index }) => rejectedIndices.has(index))
+        .map(({ change, index }) => {
+          const review = reviewedChanges.get(index);
 
           return {
             ...change,
@@ -394,14 +417,21 @@ export default function ResumeGeneratorPage() {
 
       // Calculate optimized score based on accepted changes
       const acceptedPoints = acceptedLoggedChanges.reduce((sum, c) => sum + c.impactPoints, 0);
-      const optimizedScore = Math.min(
-        analysisResult.scoreCeiling?.maximum ?? 100,
-        analysisResult.currentScore.total + acceptedPoints
+      const optimizedScore = computeCappedScore(
+        analysisResult.currentScore.total,
+        acceptedPoints,
+        analysisResult.scoreCeiling
+      );
+      const possibleMaxScore = computePossibleMaxScore(
+        analysisResult.currentScore.total,
+        analysisResult.proposedChanges,
+        analysisResult.scoreCeiling
       );
 
       // Generate job identifier for deduplication
-      const isUrl = jobDescription.trim().startsWith('http');
-      const extractedUrl = isUrl ? jobDescription.trim() : undefined;
+      const isUrl = analysisMetadata?.wasUrl ?? jobDescription.trim().startsWith('http');
+      const extractedUrl = analysisMetadata?.extractedUrl ?? (isUrl ? jobDescription.trim() : undefined);
+      const resolvedJobDescription = analysisMetadata?.resolvedJobDescription ?? jobDescription;
       const jobIdentifier = generateJobId(
         extractedUrl
           ? { url: extractedUrl }
@@ -412,13 +442,14 @@ export default function ResumeGeneratorPage() {
       );
 
       // Extract date posted from JD text (optional)
-      const datePosted = extractDatePosted(jobDescription);
+      const datePosted = extractDatePosted(resolvedJobDescription);
 
       // Calculate the actual breakdown based on accepted changes
       const actualBreakdown = calculateDynamicBreakdown(
         analysisResult.currentScore.breakdown,
         analysisResult.proposedChanges,
-        acceptedIndices
+        acceptedIndices,
+        reviewedChanges
       );
 
       // Apply changes to get the optimized resume JSON for logging
@@ -439,13 +470,14 @@ export default function ResumeGeneratorPage() {
           jobIdentifier,
           companyName: analysisResult.analysis.companyName,
           roleTitle: analysisResult.analysis.roleTitle,
-          jobDescriptionFull: jobDescription,
+          jobDescriptionFull: resolvedJobDescription,
           datePosted,
           inputType: isUrl ? 'url' : 'text',
           extractedUrl,
           estimatedCompatibility: {
             before: analysisResult.currentScore.total,
             after: optimizedScore,
+            possibleMax: possibleMaxScore,
             breakdown: actualBreakdown,
           },
           changesAccepted: acceptedLoggedChanges,
@@ -474,6 +506,7 @@ export default function ResumeGeneratorPage() {
     setReviewedChanges(new Map());
     setGeneratedPdfUrl(null);
     setStreamingText('');
+    setAnalysisMetadata(null);
   };
 
   // Calculate projected score with edit-aware rescoring
@@ -495,8 +528,7 @@ export default function ResumeGeneratorPage() {
       }
     }
 
-    const capped = Math.min(analysisResult.scoreCeiling?.maximum ?? 100, score);
-    return Math.round(capped * 10) / 10;
+    return computeCappedScore(score, 0, analysisResult.scoreCeiling);
   }, [analysisResult, acceptedIndices, reviewedChanges]);
 
   // Calculate dynamic breakdown based on accepted changes (with edit-aware rescoring)
@@ -513,12 +545,11 @@ export default function ResumeGeneratorPage() {
   // Maximum score if ALL changes accepted (constant for this analysis)
   const maximumScore = useMemo(() => {
     if (!analysisResult) return 0;
-    const raw = Math.min(
-      analysisResult.scoreCeiling?.maximum ?? 100,
-      analysisResult.currentScore.total +
-        analysisResult.proposedChanges.reduce((sum, c) => sum + c.impactPoints, 0)
+    return computePossibleMaxScore(
+      analysisResult.currentScore.total,
+      analysisResult.proposedChanges,
+      analysisResult.scoreCeiling
     );
-    return Math.round(raw * 10) / 10;
   }, [analysisResult]);
 
   // Target score that respects ceiling (for display purposes)
@@ -682,7 +713,7 @@ export default function ResumeGeneratorPage() {
               breakdown={projectedBreakdown ?? analysisResult.currentScore.breakdown}
               assessment={acceptedIndices.size > 0 ? `After ${acceptedIndices.size} accepted changes` : 'No changes accepted yet'}
               highlight={true}
-              targetScore={targetScore}
+              targetScore={acceptedIndices.size > 0 ? targetScore : undefined}
             />
           </div>
 

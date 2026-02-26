@@ -27,6 +27,9 @@ interface ResumeGenerationSummary {
   roleTitle: string;
   scoreBefore: number;
   scoreAfter: number;
+  scorePossibleMax?: number;
+  currentScore?: number;
+  possibleMaxScore?: number;
   applicationStatus: string;
   size: number;
   generationCount: number;

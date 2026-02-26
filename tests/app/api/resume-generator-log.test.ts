@@ -261,6 +261,7 @@ describe('resume-generator log API route', () => {
       expect(parsedContent.estimatedCompatibility).toEqual({
         before: 0,
         after: 0,
+        possibleMax: 0,
         breakdown: {
           keywordRelevance: 0,
           skillsQuality: 0,

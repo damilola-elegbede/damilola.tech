@@ -784,15 +784,35 @@ export function calculateATSScore(input: ScoringInput): ATSScore {
   // 6. Calculate total and create result
   const total = Math.round((keywordRelevance + skillsQuality + experienceAlignment + contentQuality) * 10) / 10;
 
+  const sanitizeComponent = (value: number, max: number): number => {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(max, value));
+  };
+
+  const sanitizedBreakdown = {
+    keywordRelevance: sanitizeComponent(keywordRelevance, 45),
+    skillsQuality: sanitizeComponent(skillsQuality, 25),
+    experienceAlignment: sanitizeComponent(experienceAlignment, 20),
+    contentQuality: sanitizeComponent(contentQuality, 10),
+  };
+
+  const sanitizedTotal = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(
+        (sanitizedBreakdown.keywordRelevance
+          + sanitizedBreakdown.skillsQuality
+          + sanitizedBreakdown.experienceAlignment
+          + sanitizedBreakdown.contentQuality) * 10
+      ) / 10
+    )
+  );
+
   return {
-    total: Math.min(100, total),
+    total: sanitizedTotal,
     isATSOptimized: true,
-    breakdown: {
-      keywordRelevance,
-      skillsQuality,
-      experienceAlignment,
-      contentQuality,
-    },
+    breakdown: sanitizedBreakdown,
     details: {
       matchedKeywords: matchResult.matched,
       missingKeywords: matchResult.missing,

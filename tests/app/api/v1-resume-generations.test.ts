@@ -182,6 +182,8 @@ describe('v1/resume-generations API route', () => {
       expect(data.data.generations[0]).toHaveProperty('roleTitle');
       expect(data.data.generations[0]).toHaveProperty('scoreBefore');
       expect(data.data.generations[0]).toHaveProperty('scoreAfter');
+      expect(data.data.generations[0]).toHaveProperty('currentScore');
+      expect(data.data.generations[0]).toHaveProperty('possibleMaxScore');
       expect(data.data.generations[0]).toHaveProperty('applicationStatus');
       expect(data.data.generations[0]).toHaveProperty('generationCount');
       expect(data.meta.pagination).toHaveProperty('cursor', 'next-page');

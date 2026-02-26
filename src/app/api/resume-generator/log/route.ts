@@ -155,6 +155,7 @@ export async function POST(req: Request) {
         estimatedCompatibility: estimatedCompatibility || {
           before: 0,
           after: 0,
+          possibleMax: 0,
           breakdown: {
             keywordRelevance: 0,
             skillsQuality: 0,
@@ -193,6 +194,7 @@ export async function POST(req: Request) {
         estimatedCompatibility: estimatedCompatibility || {
           before: 0,
           after: 0,
+          possibleMax: 0,
           breakdown: {
             keywordRelevance: 0,
             skillsQuality: 0,
