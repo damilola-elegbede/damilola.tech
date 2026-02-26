@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 
     if (file.size > MAX_PDF_SIZE_BYTES) {
       return apiError(
-        'BAD_REQUEST',
+        'PAYLOAD_TOO_LARGE',
         `File too large. Maximum size is ${MAX_PDF_SIZE_BYTES / (1024 * 1024)}MB`,
         413
       );

@@ -146,4 +146,15 @@ describe('v1/resume-generator/upload-pdf API route', () => {
     expect(errorResponse.status).toBe(500);
     expect(errorData.error.code).toBe('INTERNAL_ERROR');
   });
+
+  it('returns PAYLOAD_TOO_LARGE for oversized PDF files', async () => {
+    const { POST } = await import('@/app/api/v1/resume-generator/upload-pdf/route');
+
+    const oversizedResponse = await POST(createRequest({ pdf: createPdfFile(10 * 1024 * 1024 + 1) }));
+    const data = await oversizedResponse.json();
+
+    expect(oversizedResponse.status).toBe(413);
+    expect(data.success).toBe(false);
+    expect(data.error.code).toBe('PAYLOAD_TOO_LARGE');
+  });
 });

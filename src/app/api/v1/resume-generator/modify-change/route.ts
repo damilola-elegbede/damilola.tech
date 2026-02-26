@@ -10,6 +10,57 @@ export const maxDuration = 60;
 
 const client = new Anthropic();
 
+function xmlEscape(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isValidProposedChange(value: unknown): value is ProposedChange {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+
+  return (
+    isNonEmptyString(value.section) &&
+    isNonEmptyString(value.original) &&
+    isNonEmptyString(value.modified) &&
+    isNonEmptyString(value.reason) &&
+    Array.isArray(value.keywordsAdded) &&
+    value.keywordsAdded.every((keyword) => typeof keyword === 'string') &&
+    typeof value.impactPoints === 'number'
+  );
+}
+
+function parseModifyChangeRequest(body: unknown): ModifyChangeRequest | null {
+  if (!isObjectRecord(body)) {
+    return null;
+  }
+
+  if (
+    !isValidProposedChange(body.originalChange) ||
+    !isNonEmptyString(body.modifyPrompt) ||
+    !isNonEmptyString(body.jobDescription)
+  ) {
+    return null;
+  }
+
+  return {
+    originalChange: body.originalChange,
+    modifyPrompt: body.modifyPrompt,
+    jobDescription: body.jobDescription,
+  };
+}
+
 export async function POST(req: Request) {
   // Authenticate with API key
   const authResult = await requireApiKey(req);
@@ -18,28 +69,38 @@ export async function POST(req: Request) {
   }
 
   const ip = getClientIp(req);
+  let body: unknown;
 
   try {
-    const { originalChange, modifyPrompt, jobDescription }: ModifyChangeRequest = await req.json();
+    body = await req.json();
+  } catch {
+    return Errors.badRequest('Invalid JSON body');
+  }
 
-    if (!originalChange || !modifyPrompt || !jobDescription) {
-      return Errors.badRequest('Missing required fields: originalChange, modifyPrompt, jobDescription');
-    }
+  const parsedBody = parseModifyChangeRequest(body);
+  if (!parsedBody) {
+    return Errors.badRequest(
+      'Invalid request body. Expected originalChange, modifyPrompt, and jobDescription with valid types.'
+    );
+  }
+
+  try {
+    const { originalChange, modifyPrompt, jobDescription } = parsedBody;
 
     // Wrap user input in XML tags for prompt injection mitigation
     const prompt = `You are revising a single resume change for ATS optimization.
 
 <original_change>
-Section: ${originalChange.section}
-Original text: ${originalChange.original}
-Proposed modification: ${originalChange.modified}
-Reason: ${originalChange.reason}
+Section: ${xmlEscape(originalChange.section)}
+Original text: ${xmlEscape(originalChange.original)}
+Proposed modification: ${xmlEscape(originalChange.modified)}
+Reason: ${xmlEscape(originalChange.reason)}
 </original_change>
 
-<modify_request>${modifyPrompt}</modify_request>
+<modify_request>${xmlEscape(modifyPrompt)}</modify_request>
 
 Job Description (for context, truncated to 4000 chars to fit context window):
-<job_description>${jobDescription.slice(0, 4000)}</job_description>
+<job_description>${xmlEscape(jobDescription.slice(0, 4000))}</job_description>
 
 Return ONLY a JSON object with the revised change (no markdown code blocks):
 {
