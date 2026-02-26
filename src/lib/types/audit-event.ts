@@ -31,9 +31,14 @@ export type AuditEventType =
   | 'api_resume_generation'
   | 'api_resume_generation_status_updated'
   | 'api_resume_data_accessed'
+  | 'api_modify_change'
+  | 'api_resume_pdf_uploaded'
+  | 'api_generation_logged'
   | 'api_stats_accessed'
   | 'api_usage_accessed'
-  | 'api_traffic_accessed';
+  | 'api_traffic_accessed'
+  | 'api_chats_detail'
+  | 'api_audit_accessed';
 
 export interface TrafficSource {
   source: string;
