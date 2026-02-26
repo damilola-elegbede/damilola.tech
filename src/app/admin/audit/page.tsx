@@ -55,6 +55,7 @@ const eventTypes = [
   'api_stats_accessed',
   'api_usage_accessed',
   'api_traffic_accessed',
+  'api_mcp_request',
 ];
 
 const accessTypes = ['browser', 'api'] as const;
