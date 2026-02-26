@@ -28,6 +28,7 @@ const client = new Anthropic({
 });
 
 const MAX_BODY_SIZE = 50 * 1024;
+const AI_REQUEST_TIMEOUT_MS = 90_000;
 
 function buildScoreContext(atsScore: ATSScore): string {
   const { breakdown, details } = atsScore;
@@ -183,6 +184,11 @@ export async function POST(req: Request) {
       return Errors.badRequest('Invalid JSON body.');
     }
 
+    const bodyStr = JSON.stringify(body);
+    if (bodyStr.length > MAX_BODY_SIZE) {
+      return Errors.badRequest('Request body too large.');
+    }
+
     if (!body.input || typeof body.input !== 'string') {
       return Errors.validationError('Job description or URL is required in "input" field.');
     }
@@ -195,24 +201,45 @@ export async function POST(req: Request) {
     const systemPrompt = await getResumeGeneratorPrompt();
     const { atsScore } = buildAtsInput(resolvedInput.text);
 
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 8192,
-      temperature: 0,
-      system: [
-        {
-          type: 'text',
-          text: systemPrompt,
-          cache_control: { type: 'ephemeral', ttl: '1h' },
-        },
-      ],
-      messages: [
-        {
-          role: 'user',
-          content: `${buildScoreContext(atsScore)}\n\nAnalyze this job description and provide ATS optimization recommendations for the resume. Return ONLY valid JSON, no markdown or code blocks.\n\n<job_description>${resolvedInput.text}</job_description>`,
-        },
-      ],
-    });
+    const message = await (async () => {
+      try {
+        return await client.messages.create(
+          {
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 8192,
+            temperature: 0,
+            system: [
+              {
+                type: 'text',
+                text: systemPrompt,
+                cache_control: { type: 'ephemeral', ttl: '1h' },
+              },
+            ],
+            messages: [
+              {
+                role: 'user',
+                content: `${buildScoreContext(atsScore)}\n\nAnalyze this job description and provide ATS optimization recommendations for the resume. Return ONLY valid JSON, no markdown or code blocks.\n\n<job_description>${resolvedInput.text}</job_description>`,
+              },
+            ],
+          },
+          {
+            signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
+          }
+        );
+      } catch (error) {
+        if (
+          (error instanceof Error && error.name === 'TimeoutError') ||
+          (error instanceof Error && /aborted|timeout/i.test(error.message))
+        ) {
+          return null;
+        }
+        throw error;
+      }
+    })();
+
+    if (!message) {
+      return Errors.internalError('Resume generation timed out');
+    }
 
     const aiText = extractTextContent(message.content as Array<{ type: string; text?: string }>);
     const parsed = parseJsonResponse(aiText);

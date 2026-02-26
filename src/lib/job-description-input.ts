@@ -1,14 +1,16 @@
 import { isIP } from 'node:net';
 
-let dnsLookup: typeof import('node:dns/promises').lookup | null = null;
+let dnsLookup: typeof import('node:dns/promises').lookup | undefined;
+let hasInitializedDnsLookup = false;
 
 async function getDnsLookup() {
-  if (dnsLookup === null) {
+  if (!hasInitializedDnsLookup) {
+    hasInitializedDnsLookup = true;
     try {
       const dns = await import('node:dns/promises');
       dnsLookup = dns.lookup;
     } catch {
-      dnsLookup = undefined as unknown as typeof import('node:dns/promises').lookup;
+      dnsLookup = undefined;
     }
   }
   return dnsLookup;
@@ -182,12 +184,14 @@ async function validateUrlForSsrf(urlString: string): Promise<string | null> {
 
   try {
     const lookup = await getDnsLookup();
-    if (lookup) {
-      const results = await lookup(hostname, { all: true });
-      const addresses = results.map((result) => result.address);
-      if (addresses.some(isPrivateIp)) {
-        return 'This URL is not allowed.';
-      }
+    if (!lookup) {
+      return 'DNS resolution unavailable - URL fetching disabled for security.';
+    }
+
+    const results = await lookup(hostname, { all: true });
+    const addresses = results.map((result) => result.address);
+    if (addresses.some(isPrivateIp)) {
+      return 'This URL is not allowed.';
     }
   } catch {
     return 'This URL is not allowed.';

@@ -9,11 +9,18 @@ export function registerUpdateApplicationStatus(server: McpServer, client: ApiCl
     {
       id: z.string().describe('Blob pathname/URL ID for the resume generation'),
       applicationStatus: z.string().optional().describe('Application status'),
-      appliedDate: z.string().optional().describe('Applied date (YYYY-MM-DD)'),
+      appliedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Applied date (YYYY-MM-DD)'),
       notes: z.string().optional().describe('Optional notes'),
     },
     async ({ id, applicationStatus, appliedDate, notes }) => {
       try {
+        if (applicationStatus === undefined && appliedDate === undefined && notes === undefined) {
+          return {
+            content: [{ type: 'text' as const, text: 'Error: At least one field must be provided to update.' }],
+            isError: true,
+          };
+        }
+
         const result = await client.updateApplicationStatus(id, {
           applicationStatus,
           appliedDate,

@@ -23,11 +23,13 @@ export async function GET(req: Request) {
 
     const parsed = JSON.parse(content.resume) as unknown;
 
-    logApiAccess('api_resume_data_accessed', authResult.apiKey, {
-      hasResume: true,
-    }, ip).catch((error) => {
+    try {
+      await logApiAccess('api_resume_data_accessed', authResult.apiKey, {
+        hasResume: true,
+      }, ip);
+    } catch (error) {
       console.warn('[api/v1/resume-data] Failed to log audit:', error);
-    });
+    }
 
     return apiSuccess(parsed);
   } catch (error) {

@@ -107,7 +107,11 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     notes?: unknown;
   };
   try {
-    updates = await req.json();
+    const parsedUpdates = await req.json();
+    if (typeof parsedUpdates !== 'object' || parsedUpdates === null || Array.isArray(parsedUpdates)) {
+      return Errors.badRequest('Invalid request body. Expected a JSON object.');
+    }
+    updates = parsedUpdates;
   } catch {
     return Errors.badRequest('Invalid JSON body.');
   }
@@ -170,7 +174,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       updates: {
         applicationStatus,
         appliedDate,
-        notes,
+        notes: notes ? String(notes).slice(0, 200) : undefined,
       },
     }, ip, {
       accessType: 'api',
