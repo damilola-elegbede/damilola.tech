@@ -19,6 +19,7 @@
       }
     ],
     "paths": {
+      "@/lib/generated/system-prompt": ["./src/lib/generated-system-prompt.ts"],
       "@/*": ["./src/*"]
     }
   },

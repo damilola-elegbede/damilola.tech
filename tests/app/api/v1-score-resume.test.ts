@@ -40,12 +40,15 @@ vi.mock('@/lib/resume-data', () => ({
   },
 }));
 
-vi.mock('@/lib/resume-generator-prompt', () => ({
-  getResumeGeneratorPrompt: vi.fn().mockResolvedValue('Mock resume system prompt'),
-}));
-
-vi.mock('@/lib/generated/system-prompt', () => ({
-  RESUME_GENERATOR_PROMPT: 'Mock resume system prompt',
+vi.mock('@/lib/score-utils', () => ({
+  sanitizeBreakdown: (breakdown: Record<string, number>) => breakdown,
+  sanitizeScoreValue: (value: unknown, min: number, max: number) => {
+    const numeric = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(numeric)) {
+      return min;
+    }
+    return Math.max(min, Math.min(max, numeric));
+  },
 }));
 
 const mockCreate = vi.fn();
@@ -55,7 +58,7 @@ vi.mock('@anthropic-ai/sdk', () => ({
   },
 }));
 
-describe('v1/resume-generator API route', () => {
+describe('v1/score-resume API route', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -85,42 +88,7 @@ describe('v1/resume-generator API route', () => {
     mockCreate.mockResolvedValue({
       model: 'claude-sonnet-4-20250514',
       usage: { input_tokens: 10, output_tokens: 10 },
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          analysis: { companyName: 'Acme', roleTitle: 'Senior EM' },
-          currentScore: {
-            total: 64,
-            breakdown: {
-              keywordRelevance: 25,
-              skillsQuality: 18,
-              experienceAlignment: 14,
-              contentQuality: 7,
-            },
-          },
-          optimizedScore: {
-            total: 83,
-            breakdown: {
-              keywordRelevance: 33,
-              skillsQuality: 21,
-              experienceAlignment: 18,
-              contentQuality: 9,
-            },
-          },
-          proposedChanges: [
-            {
-              section: 'experience.verily.bullet1',
-              original: 'old',
-              modified: 'new',
-              reason: 'added key terms',
-              keywordsAdded: ['terraform'],
-              impactPoints: 5,
-            },
-          ],
-          gaps: [{ requirement: 'Cost optimization' }],
-          scoreCeiling: { maximum: 89 },
-        }),
-      }],
+      content: [{ type: 'text', text: '{"gapAnalysis":"Needs stronger infra depth.","maxPossibleScore":89,"recommendation":"full_generation_recommended"}' }],
     });
   });
 
@@ -134,8 +102,8 @@ describe('v1/resume-generator API route', () => {
         Response.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'missing' } }, { status: 401 })
       );
 
-      const { POST } = await import('@/app/api/v1/resume-generator/route');
-      const response = await POST(new Request('http://localhost/api/v1/resume-generator', { method: 'POST' }));
+      const { POST } = await import('@/app/api/v1/score-resume/route');
+      const response = await POST(new Request('http://localhost/api/v1/score-resume', { method: 'POST' }));
       expect(response.status).toBe(401);
     });
 
@@ -144,8 +112,8 @@ describe('v1/resume-generator API route', () => {
         Response.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'invalid' } }, { status: 401 })
       );
 
-      const { POST } = await import('@/app/api/v1/resume-generator/route');
-      const response = await POST(new Request('http://localhost/api/v1/resume-generator', { method: 'POST' }));
+      const { POST } = await import('@/app/api/v1/score-resume/route');
+      const response = await POST(new Request('http://localhost/api/v1/score-resume', { method: 'POST' }));
       expect(response.status).toBe(401);
     });
 
@@ -154,29 +122,31 @@ describe('v1/resume-generator API route', () => {
         Response.json({ success: false, error: { code: 'FORBIDDEN', message: 'revoked' } }, { status: 403 })
       );
 
-      const { POST } = await import('@/app/api/v1/resume-generator/route');
-      const response = await POST(new Request('http://localhost/api/v1/resume-generator', { method: 'POST' }));
+      const { POST } = await import('@/app/api/v1/score-resume/route');
+      const response = await POST(new Request('http://localhost/api/v1/score-resume', { method: 'POST' }));
       expect(response.status).toBe(403);
     });
   });
 
   it('returns 400 for missing input', async () => {
-    const { POST } = await import('@/app/api/v1/resume-generator/route');
+    const { POST } = await import('@/app/api/v1/score-resume/route');
     const response = await POST(
-      new Request('http://localhost/api/v1/resume-generator', {
+      new Request('http://localhost/api/v1/score-resume', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({}),
       })
     );
+    const data = await response.json();
 
     expect(response.status).toBe(400);
+    expect(data.error.code).toBe('VALIDATION_ERROR');
   });
 
-  it('returns full JSON generation payload (non-streaming)', async () => {
-    const { POST } = await import('@/app/api/v1/resume-generator/route');
+  it('returns score and AI analysis for text input', async () => {
+    const { POST } = await import('@/app/api/v1/score-resume/route');
     const response = await POST(
-      new Request('http://localhost/api/v1/resume-generator', {
+      new Request('http://localhost/api/v1/score-resume', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ input: 'JD text with requirements and responsibilities' }),
@@ -185,31 +155,59 @@ describe('v1/resume-generator API route', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('content-type')).toContain('application/json');
     expect(data.success).toBe(true);
-    expect(data.data.generationId).toBeDefined();
-    expect(data.data.companyName).toBe('Acme');
-    expect(data.data.roleTitle).toBe('Senior EM');
     expect(data.data.currentScore.total).toBe(64);
-    expect(data.data.optimizedScore.total).toBe(83);
     expect(data.data.maxPossibleScore).toBe(89);
-    expect(data.data.proposedChanges).toHaveLength(1);
-    expect(data.data.inputType).toBe('text');
+    expect(data.data.recommendation).toBe('full_generation_recommended');
+    expect(mockCalculateATSScore).toHaveBeenCalledTimes(1);
     expect(mockCreate).toHaveBeenCalledTimes(1);
     expect(mockLogApiAccess).toHaveBeenCalledWith(
-      'api_resume_generation',
+      'api_score_resume',
       expect.any(Object),
       expect.objectContaining({ inputType: 'text', currentScore: 64 }),
       '127.0.0.1'
     );
   });
 
+  it('fetches URL input before scoring', async () => {
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-length': '200' }),
+      body: {
+        getReader: () => {
+          let done = false;
+          return {
+            read: async () => {
+              if (done) return { done: true, value: undefined };
+              done = true;
+              return { done: false, value: new TextEncoder().encode(`<html><body>Job description responsibilities requirements qualifications experience skills about the role what we're looking for minimum requirements preferred qualifications and extensive details for senior engineering leadership cloud infrastructure kubernetes terraform cost optimization distributed systems observability and delivery excellence with measurable outcomes and team management expectations for this position.</body></html>`) };
+            },
+            releaseLock: () => {},
+          };
+        },
+      },
+    } as unknown as Response);
+
+    const { POST } = await import('@/app/api/v1/score-resume/route');
+    const response = await POST(
+      new Request('http://localhost/api/v1/score-resume', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ input: 'https://8.8.8.8/job' }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(global.fetch).toHaveBeenCalled();
+  });
+
   it('returns 429 when rate limited', async () => {
     mockCheckGenericRateLimit.mockResolvedValue({ limited: true, remaining: 0, retryAfter: 60 });
 
-    const { POST } = await import('@/app/api/v1/resume-generator/route');
+    const { POST } = await import('@/app/api/v1/score-resume/route');
     const response = await POST(
-      new Request('http://localhost/api/v1/resume-generator', {
+      new Request('http://localhost/api/v1/score-resume', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ input: 'JD text' }),
@@ -222,9 +220,9 @@ describe('v1/resume-generator API route', () => {
   it('returns 500 on Anthropic failure', async () => {
     mockCreate.mockRejectedValue(new Error('Anthropic down'));
 
-    const { POST } = await import('@/app/api/v1/resume-generator/route');
+    const { POST } = await import('@/app/api/v1/score-resume/route');
     const response = await POST(
-      new Request('http://localhost/api/v1/resume-generator', {
+      new Request('http://localhost/api/v1/score-resume', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ input: 'JD text' }),
@@ -232,10 +230,5 @@ describe('v1/resume-generator API route', () => {
     );
 
     expect(response.status).toBe(500);
-  });
-
-  it('exports maxDuration = 120', async () => {
-    const route = await import('@/app/api/v1/resume-generator/route');
-    expect(route.maxDuration).toBe(120);
   });
 });
