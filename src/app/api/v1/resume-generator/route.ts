@@ -302,15 +302,17 @@ export async function POST(req: Request) {
       extractedUrl: resolvedInput.extractedUrl,
     };
 
-    logApiAccess('api_resume_generation', authResult.apiKey, {
-      inputType: resolvedInput.inputType,
-      extractedUrl: resolvedInput.extractedUrl,
-      currentScore: responseData.currentScore.total,
-      optimizedScore: responseData.optimizedScore.total,
-      proposedChanges: responseData.proposedChanges.length,
-    }, ip).catch((error) => {
+    try {
+      await logApiAccess('api_resume_generation', authResult.apiKey, {
+        inputType: resolvedInput.inputType,
+        extractedUrl: resolvedInput.extractedUrl,
+        currentScore: responseData.currentScore.total,
+        optimizedScore: responseData.optimizedScore.total,
+        proposedChanges: responseData.proposedChanges.length,
+      }, ip);
+    } catch (error) {
       console.warn('[api/v1/resume-generator] Failed to log audit:', error);
-    });
+    }
 
     return apiSuccess(responseData);
   } catch (error) {

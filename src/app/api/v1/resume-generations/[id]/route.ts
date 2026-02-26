@@ -118,6 +118,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
   const { applicationStatus, appliedDate, notes } = updates;
 
+  if (applicationStatus === undefined && appliedDate === undefined && notes === undefined) {
+    return Errors.badRequest('At least one field (applicationStatus, appliedDate, notes) must be provided.');
+  }
+
   if (
     applicationStatus !== undefined &&
     (typeof applicationStatus !== 'string' ||
@@ -128,11 +132,21 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     );
   }
 
-  if (
-    appliedDate !== undefined &&
-    (typeof appliedDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(appliedDate) || Number.isNaN(Date.parse(appliedDate)))
-  ) {
+  if (appliedDate !== undefined && (typeof appliedDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(appliedDate))) {
     return Errors.validationError('Invalid appliedDate format. Use YYYY-MM-DD.');
+  }
+
+  if (typeof appliedDate === 'string') {
+    const [year, month, day] = appliedDate.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day);
+
+    if (
+      dateObj.getFullYear() !== year ||
+      dateObj.getMonth() !== month - 1 ||
+      dateObj.getDate() !== day
+    ) {
+      return Errors.validationError('Invalid date.');
+    }
   }
 
   if (notes !== undefined && typeof notes !== 'string') {
