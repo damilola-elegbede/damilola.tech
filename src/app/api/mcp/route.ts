@@ -1,8 +1,14 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { requireApiKey } from '@/lib/api-key-auth';
 import { logAdminEvent } from '@/lib/audit-server';
-import { getClientIp } from '@/lib/rate-limit';
+import {
+  RATE_LIMIT_CONFIGS,
+  checkGenericRateLimit,
+  createRateLimitResponse,
+  getClientIp,
+} from '@/lib/rate-limit';
 import { createMcpServer } from '@/lib/mcp/create-mcp-server';
+import { getTrustedApiBaseUrl } from '@/lib/mcp/get-trusted-api-base-url';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -21,10 +27,6 @@ function getRawApiKey(req: Request): string | null {
   return null;
 }
 
-function getApiBaseUrl(req: Request): string {
-  const url = new URL(req.url);
-  return `${url.protocol}//${url.host}`;
-}
 
 export async function POST(req: Request) {
   const authResult = await requireApiKey(req);
@@ -38,8 +40,16 @@ export async function POST(req: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
+  const rateLimit = await checkGenericRateLimit(
+    RATE_LIMIT_CONFIGS.mcp,
+    `${authResult.apiKey.id}:${ip}`
+  );
+  if (rateLimit.limited) {
+    return createRateLimitResponse(rateLimit);
+  }
+
   try {
-    const apiBaseUrl = getApiBaseUrl(req);
+    const apiBaseUrl = getTrustedApiBaseUrl();
     const server = createMcpServer(rawApiKey, apiBaseUrl);
 
     const transport = new WebStandardStreamableHTTPServerTransport({
@@ -84,12 +94,21 @@ export async function GET(req: Request) {
   }
 
   try {
+    const ip = getClientIp(req);
     const rawApiKey = getRawApiKey(req);
     if (!rawApiKey) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const apiBaseUrl = getApiBaseUrl(req);
+    const rateLimit = await checkGenericRateLimit(
+      RATE_LIMIT_CONFIGS.mcp,
+      `${authResult.apiKey.id}:${ip}`
+    );
+    if (rateLimit.limited) {
+      return createRateLimitResponse(rateLimit);
+    }
+
+    const apiBaseUrl = getTrustedApiBaseUrl();
     const server = createMcpServer(rawApiKey, apiBaseUrl);
 
     const transport = new WebStandardStreamableHTTPServerTransport({

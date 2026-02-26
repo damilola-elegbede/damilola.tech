@@ -1,20 +1,20 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { ApiClient } from '../../../mcp/lib/api-client.js';
-import { registerAssessFit } from '../../../mcp/tools/assess-fit.js';
-import { registerFitAssessments } from '../../../mcp/tools/fit-assessments.js';
-import { registerResumeGenerations } from '../../../mcp/tools/resume-generations.js';
-import { registerGetStats } from '../../../mcp/tools/get-stats.js';
-import { registerScoreResume } from '../../../mcp/tools/score-resume.js';
-import { registerGenerateResume } from '../../../mcp/tools/generate-resume.js';
-import { registerUpdateApplicationStatus } from '../../../mcp/tools/update-application-status.js';
-import { registerGetResumeData } from '../../../mcp/tools/get-resume-data.js';
-import { registerModifyChange } from '../../../mcp/tools/modify-change.js';
-import { registerUploadResumePdf } from '../../../mcp/tools/upload-resume-pdf.js';
-import { registerLogGeneration } from '../../../mcp/tools/log-generation.js';
-import { registerGetStatsOnly } from '../../../mcp/tools/get-stats-only.js';
-import { registerChats } from '../../../mcp/tools/chats.js';
-import { registerAuditLog } from '../../../mcp/tools/audit-log.js';
-import { registerTraffic } from '../../../mcp/tools/traffic.js';
+import { ApiClient } from '../../../mcp/lib/api-client';
+import { registerAssessFit } from '../../../mcp/tools/assess-fit';
+import { registerFitAssessments } from '../../../mcp/tools/fit-assessments';
+import { registerResumeGenerations } from '../../../mcp/tools/resume-generations';
+import { registerGetStats } from '../../../mcp/tools/get-stats';
+import { registerScoreResume } from '../../../mcp/tools/score-resume';
+import { registerGenerateResume } from '../../../mcp/tools/generate-resume';
+import { registerUpdateApplicationStatus } from '../../../mcp/tools/update-application-status';
+import { registerGetResumeData } from '../../../mcp/tools/get-resume-data';
+import { registerModifyChange } from '../../../mcp/tools/modify-change';
+import { registerUploadResumePdf } from '../../../mcp/tools/upload-resume-pdf';
+import { registerLogGeneration } from '../../../mcp/tools/log-generation';
+import { registerGetStatsOnly } from '../../../mcp/tools/get-stats-only';
+import { registerChats } from '../../../mcp/tools/chats';
+import { registerAuditLog } from '../../../mcp/tools/audit-log';
+import { registerTraffic } from '../../../mcp/tools/traffic';
 
 export function createMcpServer(apiKey: string, apiBaseUrl: string): McpServer {
   const server = new McpServer({
