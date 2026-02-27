@@ -24,8 +24,8 @@ export interface RateLimitConfig {
 export const RATE_LIMIT_CONFIGS = {
   chat: { key: 'chat', limit: 50, windowSeconds: 300 }, // 50 per 5 min
   fitAssessment: { key: 'fit-assessment', limit: 10, windowSeconds: 3600 }, // 10 per hour
-  resumeGenerator: { key: 'resume-generator', limit: 10, windowSeconds: 3600 }, // 10 per hour
-  mcp: { key: 'mcp', limit: 60, windowSeconds: 60 }, // 60 per minute per key+IP
+  resumeGenerator: { key: 'resume-generator', limit: 100, windowSeconds: 3600 }, // 100 per hour
+  mcp: { key: 'mcp', limit: 200, windowSeconds: 60 }, // 200 per minute per key+IP
 } as const;
 
 export interface GenericRateLimitResult {
