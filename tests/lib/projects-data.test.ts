@@ -360,6 +360,7 @@ describe('projects-data - Content Quality', () => {
 
   it('projects are in expected order', () => {
     const expectedOrder = [
+      'cortex-agent-fleet',
       'alo-cubano',
       'damilola-tech',
       'pipedream-automation',
@@ -444,7 +445,7 @@ describe('projects-data - Consistency', () => {
       const githubLinks = project.links.filter((l) => l.icon === 'github');
       for (const link of githubLinks) {
         expect(link.label).toBe('GitHub');
-        expect(link.url).toMatch(/^https:\/\/github\.com\/damilola-elegbede\//);
+        expect(link.url).toMatch(/^https:\/\/github\.com\/damilola-elegbede(-org)?\//);
       }
     }
   });

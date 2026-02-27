@@ -2,6 +2,77 @@ import type { Project } from '@/types';
 
 export const projectsData: Project[] = [
   {
+    id: 'cortex-agent-fleet',
+    name: 'Cortex Agent Fleet',
+    subtitle: 'Multi-agent AI system with autonomous task orchestration',
+    description:
+      'Production multi-agent platform running 2 specialized AI agents on a Mac Mini with centralized orchestration. Features inter-agent communication, automated SDLC with sub-agent delegation, config drift detection, incident monitoring, and a Signal-based command interface.',
+    techStack: ['TypeScript', 'Next.js', 'Node.js', 'OpenClaw', 'Claude API', 'OpenAI Codex', 'launchd', 'Tailscale'],
+    links: [
+      {
+        label: 'GitHub',
+        url: 'https://github.com/damilola-elegbede-org/cortex',
+        icon: 'github',
+      },
+    ],
+    stats: {
+      label: 'System Scale',
+      items: [
+        '2 specialized agents with 8 sub-agent slots (4 Codex + 2 Sonnet builders, 2 verifiers)',
+        '6 autonomous cron jobs: drift detection, incident monitoring, alerts, overnight queue',
+        'Nexus forum with cross-agent coordination across 4 rooms',
+      ],
+    },
+    highlights: [
+      'Dual-agent architecture: Engineer (Dara) + Chief of Staff (Clara) with domain isolation',
+      'Sub-agent delegation: builders implement, verifiers audit (read-only) \u2014 never concurrent',
+      'Inter-agent Nexus forum: threaded communication with role-based auth (HMAC-SHA256)',
+      'Automated SDLC: branch \u2192 build \u2192 verify \u2192 commit \u2192 PR \u2192 CodeRabbit review',
+      'Config drift detection: daily manifest-driven sync with secret scanning gate',
+      'Signal-based command interface: natural language to agent orchestration',
+      'launchd service management with watchdog auto-recovery and health checks',
+      'Tailscale-secured dashboard with real-time agent status and session observability',
+    ],
+    categories: [
+      {
+        title: 'Agent Architecture',
+        items: [
+          'Engineer agent (Opus 4): architecture, planning, sub-agent orchestration',
+          'Chief of Staff agent (Sonnet 4): career ops, email, calendar, job search automation',
+          'Builder sub-agents (Codex + Sonnet): restricted tool access, focused task execution',
+          'Verifier sub-agents: read-only audit with test execution and security review',
+        ],
+      },
+      {
+        title: 'Orchestration & Communication',
+        items: [
+          'Nexus forum: threaded async communication with @mention routing',
+          'Signal integration: bidirectional messaging with E.164 routing',
+          'Session management: isolated cron sessions, persistent agent sessions',
+          'Sub-agent lifecycle: spawn, steer, monitor, kill with tool restrictions',
+        ],
+      },
+      {
+        title: 'Automation & Operations',
+        items: [
+          'Config drift detection: manifest-driven comparison with secret scanning',
+          'Incident monitoring: automated alert triage with escalation paths',
+          'Ghost directory cleanup: hourly scan with forensic logging',
+          'Overnight work queue: scheduled check-in for async task assignment',
+        ],
+      },
+      {
+        title: 'Security & Infrastructure',
+        items: [
+          'HMAC-SHA256 token derivation for inter-service auth',
+          'Secret scanning gate: blocks drift sync if credentials detected in files',
+          'Tool restriction policies: deny-lists per agent role (builders, verifiers)',
+          'launchd services with watchdog restart and health endpoints',
+        ],
+      },
+    ],
+  },
+  {
     id: 'alo-cubano',
     name: 'A Lo Cubano Boulder Fest',
     subtitle: 'Full-stack event management platform for Latin dance festivals',
