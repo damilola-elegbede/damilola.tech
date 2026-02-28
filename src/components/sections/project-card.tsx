@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { Project } from "@/types";
 import { Badge } from "@/components/ui";
-import { ActivityFeed } from "@/components/sections/activity-feed";
 import { cn } from "@/lib/utils";
 
 interface ProjectCardProps {
@@ -106,23 +106,38 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
       {/* Links and Toggle */}
       <div className="flex flex-wrap items-center gap-4">
-        {project.links.map((link) => (
-          <a
-            key={link.url}
-            href={link.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-accent)]"
-            aria-label={`${link.label} (opens in new tab)`}
-          >
-            {link.icon === "github" ? (
-              <GitHubIcon className="h-4 w-4" />
-            ) : (
-              <ExternalLinkIcon className="h-4 w-4" />
-            )}
-            <span>{link.label}</span>
-          </a>
-        ))}
+        {project.links.map((link) =>
+          link.url.startsWith("/") ? (
+            <Link
+              key={link.url}
+              href={link.url}
+              className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-accent)]"
+            >
+              {link.icon === "github" ? (
+                <GitHubIcon className="h-4 w-4" />
+              ) : (
+                <ExternalLinkIcon className="h-4 w-4" />
+              )}
+              <span>{link.label}</span>
+            </Link>
+          ) : (
+            <a
+              key={link.url}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-accent)]"
+              aria-label={`${link.label} (opens in new tab)`}
+            >
+              {link.icon === "github" ? (
+                <GitHubIcon className="h-4 w-4" />
+              ) : (
+                <ExternalLinkIcon className="h-4 w-4" />
+              )}
+              <span>{link.label}</span>
+            </a>
+          ),
+        )}
 
         {hasDetails && (
           <button
@@ -207,18 +222,6 @@ export function ProjectCard({ project }: ProjectCardProps) {
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
-
-          {/* Engineering Activity Feed */}
-          {project.id === "cortex-agent-fleet" && (
-            <div>
-              <h4 className="font-semibold text-[var(--color-text)]">
-                Recent Engineering Activity
-              </h4>
-              <div className="mt-2">
-                <ActivityFeed />
-              </div>
             </div>
           )}
         </div>

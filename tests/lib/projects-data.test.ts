@@ -106,7 +106,8 @@ describe('projects-data - Data Structure', () => {
 
     it.each(projectsData)('$name links have valid URLs', (project: Project) => {
       for (const link of project.links) {
-        expect(link.url).toMatch(/^https?:\/\/.+/);
+        expect(link.url.length).toBeGreaterThan(0);
+        expect(link.url).toMatch(/^(https?:\/\/.+|\/.*)/);
       }
     });
 
@@ -454,7 +455,7 @@ describe('projects-data - Consistency', () => {
     for (const project of projectsData) {
       const externalLinks = project.links.filter((l) => l.icon === 'external');
       for (const link of externalLinks) {
-        expect(['Live Site', 'Demo', 'Website']).toContain(link.label);
+        expect(['Live Site', 'Demo', 'Website', 'Activity']).toContain(link.label);
       }
     }
   });

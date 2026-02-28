@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 export async function GET(req: Request) {
   try {
     const baseUrl = new URL(req.url).origin;
-    const response = await fetch(`${baseUrl}/api/v1/activity?limit=4`, {
+    const response = await fetch(`${baseUrl}/api/v1/activity?limit=52`, {
       headers: {
         "x-api-key": process.env.DK_API_KEY ?? "",
       },
