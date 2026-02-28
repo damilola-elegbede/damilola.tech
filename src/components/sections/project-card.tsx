@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import type { Project } from '@/types';
-import { Badge } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { useState } from "react";
+import type { Project } from "@/types";
+import { Badge } from "@/components/ui";
+import { ActivityFeed } from "@/components/sections/activity-feed";
+import { cn } from "@/lib/utils";
 
 interface ProjectCardProps {
   project: Project;
@@ -45,10 +46,20 @@ function GitHubIcon({ className }: { className?: string }) {
   );
 }
 
-function ChevronIcon({ className, isOpen }: { className?: string; isOpen: boolean }) {
+function ChevronIcon({
+  className,
+  isOpen,
+}: {
+  className?: string;
+  isOpen: boolean;
+}) {
   return (
     <svg
-      className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180', className)}
+      className={cn(
+        "h-4 w-4 transition-transform",
+        isOpen && "rotate-180",
+        className,
+      )}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -104,7 +115,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-accent)]"
             aria-label={`${link.label} (opens in new tab)`}
           >
-            {link.icon === 'github' ? (
+            {link.icon === "github" ? (
               <GitHubIcon className="h-4 w-4" />
             ) : (
               <ExternalLinkIcon className="h-4 w-4" />
@@ -121,7 +132,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             aria-expanded={isExpanded}
             aria-controls={`project-details-${project.id}`}
           >
-            <span>{isExpanded ? 'Hide Details' : 'View Details'}</span>
+            <span>{isExpanded ? "Hide Details" : "View Details"}</span>
             <ChevronIcon isOpen={isExpanded} />
           </button>
         )}
@@ -180,7 +191,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
           {/* Simple Highlights */}
           {project.highlights && !project.categories && (
             <div>
-              <h4 className="font-semibold text-[var(--color-text)]">Highlights</h4>
+              <h4 className="font-semibold text-[var(--color-text)]">
+                Highlights
+              </h4>
               <ul className="mt-2 space-y-2">
                 {project.highlights.map((item) => (
                   <li
@@ -194,6 +207,18 @@ export function ProjectCard({ project }: ProjectCardProps) {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Engineering Activity Feed */}
+          {project.id === "cortex-agent-fleet" && (
+            <div>
+              <h4 className="font-semibold text-[var(--color-text)]">
+                Recent Engineering Activity
+              </h4>
+              <div className="mt-2">
+                <ActivityFeed />
+              </div>
             </div>
           )}
         </div>
