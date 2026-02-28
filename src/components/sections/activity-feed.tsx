@@ -30,7 +30,7 @@ interface ActivityItemProps {
 
 function ActivityItem({ summary }: ActivityItemProps) {
   return (
-    <div className="animate-[fadeIn_0.4s_ease-in-out] rounded-md border border-[var(--color-border)] bg-[var(--color-card)] p-3 space-y-2">
+    <div className="animate-[fadeIn_0.4s_ease-in-out] rounded-md border border-[var(--color-border)] bg-transparent p-3 space-y-2">
       <p className="text-xs text-[var(--color-text-muted)]">
         {formatWeekEnding(summary.weekEnding)}
       </p>
