@@ -338,4 +338,41 @@ export const projectsData: Project[] = [
       "Composable workflows: /ship-it supports flags (-d -t -c -r -p -pr)",
     ],
   },
+  {
+    id: "claude-assistant",
+    name: "Claude Assistant",
+    subtitle: "Persistent AI personal assistant with long-term memory",
+    description:
+      "Claude Code-based personal assistant framework with persistent memory, session continuity, and automation capabilities. Handles scheduling, research, coding delegation, and personal productivity workflows.",
+    techStack: [
+      "TypeScript",
+      "Claude Code",
+      "Claude API",
+      "OpenClaw",
+      "Shell",
+      "Markdown",
+    ],
+    links: [
+      {
+        label: "GitHub",
+        url: "https://github.com/damilola-elegbede-org/claude-assistant",
+        icon: "github",
+      },
+    ],
+    stats: {
+      label: "Capabilities",
+      items: [
+        "Persistent memory across sessions via structured MEMORY.md",
+        "Autonomous task delegation and sub-agent orchestration",
+        "Multi-channel integration: Signal, email, calendar",
+      ],
+    },
+    highlights: [
+      "Session continuity: structured memory system persists context across restarts",
+      "Sub-agent delegation: spawns specialist agents for coding, research, and automation",
+      "Multi-channel interface: Signal, email, and calendar integration",
+      "Skill-based extensibility: pluggable skill system for domain-specific behaviors",
+      "Cron-driven autonomy: scheduled work cycles, heartbeat checks, overnight queues",
+    ],
+  },
 ];
