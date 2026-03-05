@@ -362,6 +362,7 @@ describe('projects-data - Content Quality', () => {
   it('projects are in expected order', () => {
     const expectedOrder = [
       'cortex-agent-fleet',
+      'claude-assistant',
       'alo-cubano',
       'damilola-tech',
       'pipedream-automation',

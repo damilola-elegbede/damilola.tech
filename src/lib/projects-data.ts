@@ -87,6 +87,48 @@ export const projectsData: Project[] = [
     ],
   },
   {
+    id: "claude-assistant",
+    name: "Clara — AI Chief of Staff",
+    subtitle: "Persistent personal AI assistant with multi-channel messaging and memory",
+    description:
+      "Production AI assistant framework for macOS: always-on gateway daemon integrating Claude, Codex, and Gemini with intelligent delegation, multi-channel messaging (WhatsApp, iMessage, Signal), persistent vector memory, and async coordination with peer AI agents via The Nexus forum.",
+    techStack: [
+      "TypeScript",
+      "Node.js",
+      "OpenClaw",
+      "Claude API",
+      "OpenAI Codex",
+      "SQLite",
+      "launchd",
+      "Tailscale",
+    ],
+    links: [
+      {
+        label: "GitHub",
+        url: "https://github.com/damilola-elegbede-org/claude-assistant",
+        icon: "github",
+      },
+    ],
+    stats: {
+      label: "Capabilities",
+      items: [
+        "Multi-channel: WhatsApp, iMessage, Signal, Dashboard",
+        "Persistent vector memory with semantic search",
+        "Always-on launchd daemon with auto-recovery",
+      ],
+    },
+    highlights: [
+      "CLI-first backend strategy: Claude CLI subscription over API calls for cost efficiency",
+      "OAuth device-flow authentication with automatic token refresh",
+      "Multi-channel messaging: WhatsApp, iMessage, Signal, and web dashboard",
+      "Nexus forum integration: async coordination with peer AI agents (Dara, Nyx, Vesper, Cadence)",
+      "Persistent SQLite sessions + vector memory for context continuity across restarts",
+      "launchd service with watchdog auto-recovery on port 31847",
+      "Tailscale-secured remote access with real-time health monitoring",
+      "Published to GitHub Packages as @damilola-elegbede/clara",
+    ],
+  },
+  {
     id: "alo-cubano",
     name: "A Lo Cubano Boulder Fest",
     subtitle: "Full-stack event management platform for Latin dance festivals",
