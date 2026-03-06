@@ -110,6 +110,7 @@ export const projectsData: Project[] = [
       items: [
         "451K lines of code across 931 JavaScript files",
         "3,229 tests at 92% coverage with 71 DB migrations",
+        // TODO(D): verify — "$3,850 revenue processed at first event" financial figure
         "$3,850 revenue processed at first event",
       ],
     },
@@ -284,6 +285,7 @@ export const projectsData: Project[] = [
       items: [
         "107K+ lines with 80 automation scripts",
         "12 agents, 20 commands, 17 skills, 85+ docs",
+        // TODO(D): verify — "4-6x performance improvement" claim from multi-instance parallelization
         "4-6x performance via multi-instance parallelization",
       ],
     },
