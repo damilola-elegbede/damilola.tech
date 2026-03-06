@@ -29,8 +29,10 @@ export const resumeData: ResumeData = {
       startDate: 'Sep 2022',
       endDate: 'Nov 2024',
       highlights: [
-        "Architected and executed enterprise-wide GCP cloud transformation supporting 30+ production systems, enabling successful launches of L'Oréal LDP and T1D healthcare platforms while establishing multi-cloud (AWS/GCP) capabilities.",
-        'Built Cloud Infrastructure and developer experience functions from ground up, hiring and scaling to 13 engineers across 4 req cycles; promoted 3 ICs to senior roles, achieved 93% retention with multiple internal transfers to my org.',
+        "Architected and executed enterprise-wide GCP cloud transformation supporting 30+ production systems, enabling successful launches of L'Oréal LDP and T1D healthcare platforms while establishing multi-cloud (GCP/AWS) capabilities.",
+        // TODO(D): verify — "93% retention" metric; also confirm "13 engineers across 4 requisition cycles" headcount is accurate
+        'Built Cloud Infrastructure and developer experience functions from ground up, hiring and scaling to 13 engineers across 4 requisition cycles; promoted 3 ICs to senior roles, achieved 93% retention with multiple internal transfers to the organization.',
+        // TODO(D): verify — "30% GitHub Actions usage reduction" and "400+ engineers" metrics
         'Drove platform efficiency initiatives reducing GitHub Actions usage by 30% and establishing self-service infrastructure capabilities, improving developer velocity across 400+ engineers.',
         'Led executive stakeholder alignment across Engineering, Product, and Security organizations, influencing enterprise-wide policies on containerization, observability, and cloud architecture adopted by 15+ teams.',
         'Delivered complex multi-phase production launches including T1D platform (20+ systems, 5 deployment phases), managing cross-functional dependencies and security compliance requirements.',
@@ -45,7 +47,9 @@ export const resumeData: ResumeData = {
       startDate: 'Oct 2019',
       endDate: 'Jul 2022',
       highlights: [
+        // TODO(D): verify — "75% reduction in critical issue resolution time" and "400+ customer deployments" metrics
         'Transformed customer support operations from reactive to proactive model, reducing critical issue resolution time by 75% while scaling to support 400+ customer deployments globally.',
+        // TODO(D): verify — "60% training operational cost reduction" metric
         'Created self-service 5G training platform replacing quarterly live sessions, enabling 24/7 customer enablement across global time zones and reducing training operational costs by 60%.',
         'Led data-driven performance optimization using Splunk analytics, identifying and resolving signal-to-noise ratio issues across 40+ customer sites, directly improving chipset performance metrics.',
         'Established Release Engineering function compressing multi-day software deployment cycles to same-day delivery, accelerating time-to-market for critical 5G features.',
@@ -59,8 +63,11 @@ export const resumeData: ResumeData = {
       startDate: 'Oct 2014',
       endDate: 'Oct 2019',
       highlights: [
+        // TODO(D): verify — "6 major 4G feature releases annually" and "99.9% platform stability" metrics
         "Delivered 6 major 4G feature releases annually while maintaining 99.9% platform stability, directly supporting Qualcomm's telecom infrastructure revenue stream.",
+        // TODO(D): verify — "87% build time reduction (4 hours → 30 minutes)" and "100+ engineers" metrics
         'Implemented CI/CD transformation reducing build times by 87% (4 hours to 30 minutes), improving productivity for 100+ engineers and accelerating feature delivery.',
+        // TODO(D): verify — "40% productivity improvement" metric from Agile transformation
         'Led Agile transformation achieving 40% productivity improvement, implementing Scrum for development teams and Kanban for customer support operations.',
       ],
     },
@@ -72,7 +79,9 @@ export const resumeData: ResumeData = {
       startDate: 'Oct 2009',
       endDate: 'Oct 2014',
       highlights: [
-        'Drove 40% productivity improvement through Scrum implementation, enabling faster feature delivery for 3G roadmap on ~300 Base Stations.',
+        // TODO(D): verify — "40% productivity improvement" metric and "~300 base stations" count
+        'Drove 40% productivity improvement through Scrum implementation, enabling faster feature delivery for 3G roadmap on ~300 base stations.',
+        // TODO(D): verify — "~100 monthly customer tickets" volume and "50% response time improvement" metric
         'Streamlined customer support operations using Kanban methodology, improving response times for ~100 monthly customer tickets by 50%.',
       ],
     },
@@ -96,6 +105,7 @@ export const resumeData: ResumeData = {
         'Cross-Functional Leadership',
         'Technical Strategy',
         'Executive Stakeholder Management',
+        // TODO(D): verify — "35+ engineers" total; Verily experience cites 13 engineers — clarify if this is a career-wide aggregate or peak team size
         'Multi-Site Team Leadership (35+ engineers)',
         'Agile/Scrum/Kanban',
         'Organizational Transformation',
@@ -183,12 +193,12 @@ export const resumeData: ResumeData = {
       'WebSockets',
       'JWT',
       'Knowledge Transfer',
+      'JavaScript/TypeScript',
     ],
     familiar: [
       'AWS',
       'SQL',
       'YAML',
-      'JavaScript/TypeScript',
       'ArgoCD',
       'Atlantis',
       'Skaffold',
