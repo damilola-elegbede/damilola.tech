@@ -330,6 +330,8 @@ describe('Keyword cap', () => {
 
     // The ceiling must hold; the stuffed result should not be materially higher
     expect(stuffedResult.total).toBeLessThanOrEqual(100);
+    // Stuffed keywords should not exceed the clean resume's score
+    expect(stuffedResult.total).toBeLessThanOrEqual(cleanResult.total);
     // Sanity: stuffing shouldn't catastrophically destroy a good score either
     expect(stuffedResult.total).toBeGreaterThanOrEqual(0);
   });
