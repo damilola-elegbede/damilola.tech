@@ -489,9 +489,8 @@ describe('Edge cases', () => {
     const result = calculateATSScore(makeInput({ resumeText: '' }));
     // All extracted keywords should end up as missing
     const allKws = result.details.extractedKeywords.all;
-    if (allKws.length > 0) {
-      expect(result.details.missingKeywords.length).toBeGreaterThan(0);
-    }
+    expect(allKws.length).toBeGreaterThan(0);
+    expect(result.details.missingKeywords.length).toBe(allKws.length);
     expect(result.details.matchedKeywords).toHaveLength(0);
   });
 });
