@@ -260,9 +260,16 @@ describe('Keyword matching', () => {
     const result = calculateATSScore(makeInput());
     const matched = new Set(result.details.matchedKeywords.map((k) => k.toLowerCase()));
     const missing = new Set(result.details.missingKeywords.map((k) => k.toLowerCase()));
+    const all = new Set(result.details.extractedKeywords.all.map((k) => k.toLowerCase()));
     // No overlap between matched and missing
     for (const kw of matched) {
       expect(missing.has(kw)).toBe(false);
+    }
+    // Union of matched + missing must equal extractedKeywords.all
+    const union = new Set([...matched, ...missing]);
+    expect(union.size).toBe(all.size);
+    for (const kw of all) {
+      expect(union.has(kw)).toBe(true);
     }
   });
 
@@ -740,10 +747,6 @@ const MASTERS_RESUME_DATA: ResumeData = {
   experiences: [{ title: 'ML Engineer', company: 'Corp', highlights: ['Training models'] }],
 };
 
-// ---------------------------------------------------------------------------
-// 10. Integration — scoring a generated resumeDataToText
-// ---------------------------------------------------------------------------
-
 describe('Integration: resumeDataToText → calculateATSScore', () => {
   it('text generated from structured data scores above zero against its JD', () => {
     const generatedText = resumeDataToText({ ...RICH_RESUME_DATA, name: 'Jane Smith' });
@@ -912,8 +915,8 @@ describe('Education matching', () => {
     });
     const mastersResult = calculateATSScore({
       jobDescription: PHD_JD,
-      resumeText: resumeDataToText({ ...sharedData, education: [{ degree: 'Master of Science in Computer Science', institution: 'CMU' }] }),
-      resumeData: { ...sharedData, education: [{ degree: 'Master of Science in Computer Science', institution: 'CMU' }] },
+      resumeText: resumeDataToText({ ...sharedData, education: MASTERS_RESUME_DATA.education }),
+      resumeData: { ...sharedData, education: MASTERS_RESUME_DATA.education },
     });
 
     // Both scores must be valid
