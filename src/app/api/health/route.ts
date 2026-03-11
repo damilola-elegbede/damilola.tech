@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
+const HEALTH_ENDPOINT = '/api/health';
 
 type HealthResponse = {
   status: 'ok' | 'error';
@@ -12,7 +13,7 @@ type HealthResponse = {
   };
 };
 
-export async function GET(request: Request): Promise<NextResponse<HealthResponse>> {
+export async function GET(): Promise<NextResponse<HealthResponse>> {
   try {
     const response: HealthResponse = {
       status: 'ok',
@@ -28,7 +29,7 @@ export async function GET(request: Request): Promise<NextResponse<HealthResponse
       status: 200,
       headers: {
         'Cache-Control': 'no-store, max-age=0',
-        'X-Health-Endpoint': new URL(request.url).pathname,
+        'X-Health-Endpoint': HEALTH_ENDPOINT,
       },
     });
   } catch {
@@ -46,6 +47,7 @@ export async function GET(request: Request): Promise<NextResponse<HealthResponse
         status: 503,
         headers: {
           'Cache-Control': 'no-store, max-age=0',
+          'X-Health-Endpoint': HEALTH_ENDPOINT,
         },
       }
     );
