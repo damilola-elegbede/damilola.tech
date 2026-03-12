@@ -6,7 +6,7 @@
  * Mapping rules:
  * - tagline            ← resumeData.tagline
  * - experience[i].responsibilities ← resumeData.experiences[i].highlights
- * - skills "Programming & Data" items ← add JavaScript/TypeScript if missing
+ * - skills "Programming" items ← add JavaScript/TypeScript if missing
  * - skillsAssessment.proficient ← add JavaScript/TypeScript if missing; remove from familiar
  *
  * Fields preserved as-is from resume-full.json (not in resume-data.ts):
@@ -16,19 +16,14 @@
  * - targetRoles (resume-full.json has a curated short list)
  */
 
-import { writeFileSync, readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
+import { fileURLToPath } from 'url';
 import { join } from 'path';
 import { resumeData } from '../src/lib/resume-data';
 
-const JSON_PATH = join(process.cwd(), 'career-data/data/resume-full.json');
-const existing = JSON.parse(readFileSync(JSON_PATH, 'utf-8'));
+export const JSON_PATH = join(process.cwd(), 'career-data/data/resume-full.json');
+export const TARGET_SKILL = 'JavaScript/TypeScript';
 
-// ── 1. Sync tagline ────────────────────────────────────────────────────────────
-const tagline = resumeData.tagline;
-
-// ── 2. Sync experience responsibilities ────────────────────────────────────────
-// Experiences in both arrays are in the same order (chronologically descending).
-// If counts differ, fall back to existing for extras.
 type ExistingExperience = {
   company: string;
   title: string;
@@ -38,56 +33,100 @@ type ExistingExperience = {
   responsibilities: string[];
 };
 
-const experience: ExistingExperience[] = existing.experience.map(
-  (exp: ExistingExperience, idx: number) => {
-    const newExp = resumeData.experiences[idx];
-    if (!newExp) return exp;
-    return {
-      ...exp,
-      responsibilities: newExp.highlights,
-    };
-  }
-);
-
-// ── 3. Sync skills: add JavaScript/TypeScript to Programming & Data ──────────
 type SkillCategory = { category: string; items: string[] };
 
-const skills: SkillCategory[] = existing.skills.map((cat: SkillCategory) => {
-  if (cat.category === 'Programming & Data') {
-    const items = cat.items.includes('JavaScript/TypeScript')
-      ? cat.items
-      : [...cat.items, 'JavaScript/TypeScript'];
-    return { ...cat, items };
-  }
-  return cat;
-});
-
-// ── 4. Sync skillsAssessment: move JS/TS to proficient ────────────────────────
 type SkillsAssessment = {
   expert: string[];
   proficient: string[];
   familiar: string[];
 };
 
-const sa: SkillsAssessment = existing.skillsAssessment;
-const TARGET_SKILL = 'JavaScript/TypeScript';
-
-const skillsAssessment: SkillsAssessment = {
-  expert: sa.expert,
-  proficient: sa.proficient.includes(TARGET_SKILL)
-    ? sa.proficient
-    : [...sa.proficient, TARGET_SKILL],
-  familiar: sa.familiar.filter((s: string) => s !== TARGET_SKILL),
+type ExistingResumeJson = {
+  tagline: string;
+  experience: ExistingExperience[];
+  skills: SkillCategory[];
+  skillsAssessment: SkillsAssessment;
+  [key: string]: unknown;
 };
 
-// ── 5. Assemble ────────────────────────────────────────────────────────────────
-const result = {
-  ...existing,
-  tagline,
-  experience,
-  skills,
-  skillsAssessment,
-};
+export function generateResumeJson(existing: ExistingResumeJson): ExistingResumeJson {
+  // ── 1. Sync tagline ──────────────────────────────────────────────────────────
+  const tagline = resumeData.tagline;
 
-writeFileSync(JSON_PATH, JSON.stringify(result, null, 2) + '\n');
-console.log('✅  Generated career-data/data/resume-full.json');
+  // ── 2. Sync experience responsibilities ──────────────────────────────────────
+  // Experiences in both arrays are in the same order (chronologically descending).
+  // If counts differ, fall back to existing for extras.
+  const experience: ExistingExperience[] = existing.experience.map(
+    (exp: ExistingExperience, idx: number) => {
+      const newExp = resumeData.experiences[idx];
+      if (!newExp) return exp;
+      return {
+        ...exp,
+        responsibilities: newExp.highlights,
+      };
+    }
+  );
+
+  // ── 3. Sync skills: add JavaScript/TypeScript to Programming ─────────────────
+  const skills: SkillCategory[] = existing.skills.map((cat: SkillCategory) => {
+    if (cat.category === 'Programming') {
+      const items = cat.items.includes(TARGET_SKILL)
+        ? cat.items
+        : [...cat.items, TARGET_SKILL];
+      return { ...cat, items };
+    }
+    return cat;
+  });
+
+  // ── 4. Sync skillsAssessment: move JS/TS to proficient ───────────────────────
+  const sa: SkillsAssessment = existing.skillsAssessment;
+
+  const skillsAssessment: SkillsAssessment = {
+    expert: sa.expert,
+    proficient: sa.proficient.includes(TARGET_SKILL)
+      ? sa.proficient
+      : [...sa.proficient, TARGET_SKILL],
+    familiar: sa.familiar.filter((s: string) => s !== TARGET_SKILL),
+  };
+
+  // ── 5. Assemble ───────────────────────────────────────────────────────────────
+  return {
+    ...existing,
+    tagline,
+    experience,
+    skills,
+    skillsAssessment,
+  };
+}
+
+export function readExistingResumeJson(jsonPath: string = JSON_PATH): ExistingResumeJson {
+  try {
+    return JSON.parse(readFileSync(jsonPath, 'utf-8')) as ExistingResumeJson;
+  } catch (error) {
+    console.error(`❌ Failed to read or parse ${jsonPath}:`, error);
+    process.exit(1);
+  }
+}
+
+export function writeResumeJson(result: ExistingResumeJson, jsonPath: string = JSON_PATH): void {
+  try {
+    writeFileSync(jsonPath, JSON.stringify(result, null, 2) + '\n');
+    console.log(`✅ Generated ${jsonPath}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Failed to write ${jsonPath}: ${message}`);
+    process.exit(1);
+  }
+}
+
+export function main(): void {
+  const existing = readExistingResumeJson();
+  const result = generateResumeJson(existing);
+  writeResumeJson(result);
+}
+
+const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isDirectRun) {
+  main();
+}
