@@ -16,13 +16,16 @@
  * - targetRoles (resume-full.json has a curated short list)
  */
 
-import { readFileSync, writeFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { join } from 'path';
-import { resumeData } from '../src/lib/resume-data';
+import { readFileSync, writeFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { join } from "path";
+import { resumeData } from "../src/lib/resume-data";
 
-export const JSON_PATH = join(process.cwd(), 'career-data/data/resume-full.json');
-export const TARGET_SKILL = 'JavaScript/TypeScript';
+export const JSON_PATH = join(
+  process.cwd(),
+  "career-data/data/resume-full.json",
+);
+export const TARGET_SKILL = "JavaScript/TypeScript";
 
 type ExistingExperience = {
   company: string;
@@ -49,27 +52,31 @@ type ExistingResumeJson = {
   [key: string]: unknown;
 };
 
-export function generateResumeJson(existing: ExistingResumeJson): ExistingResumeJson {
+export function generateResumeJson(
+  existing: ExistingResumeJson,
+): ExistingResumeJson {
   // ── 1. Sync tagline ──────────────────────────────────────────────────────────
   const tagline = resumeData.tagline;
 
   // ── 2. Sync experience responsibilities ──────────────────────────────────────
-  // Experiences in both arrays are in the same order (chronologically descending).
-  // If counts differ, fall back to existing for extras.
+  // Key-based lookup using company::title composite key to avoid silent
+  // misassignment when arrays are reordered.
+  const sourceByRole = new Map(
+    resumeData.experiences.map(
+      (exp) => [`${exp.company}::${exp.title}`, exp.highlights] as const,
+    ),
+  );
+
   const experience: ExistingExperience[] = existing.experience.map(
-    (exp: ExistingExperience, idx: number) => {
-      const newExp = resumeData.experiences[idx];
-      if (!newExp) return exp;
-      return {
-        ...exp,
-        responsibilities: newExp.highlights,
-      };
-    }
+    (exp: ExistingExperience) => {
+      const highlights = sourceByRole.get(`${exp.company}::${exp.title}`);
+      return highlights ? { ...exp, responsibilities: highlights } : exp;
+    },
   );
 
   // ── 3. Sync skills: add JavaScript/TypeScript to Programming ─────────────────
   const skills: SkillCategory[] = existing.skills.map((cat: SkillCategory) => {
-    if (cat.category === 'Programming') {
+    if (cat.category === "Programming") {
       const items = cat.items.includes(TARGET_SKILL)
         ? cat.items
         : [...cat.items, TARGET_SKILL];
@@ -99,18 +106,23 @@ export function generateResumeJson(existing: ExistingResumeJson): ExistingResume
   };
 }
 
-export function readExistingResumeJson(jsonPath: string = JSON_PATH): ExistingResumeJson {
+export function readExistingResumeJson(
+  jsonPath: string = JSON_PATH,
+): ExistingResumeJson {
   try {
-    return JSON.parse(readFileSync(jsonPath, 'utf-8')) as ExistingResumeJson;
+    return JSON.parse(readFileSync(jsonPath, "utf-8")) as ExistingResumeJson;
   } catch (error) {
     console.error(`❌ Failed to read or parse ${jsonPath}:`, error);
     process.exit(1);
   }
 }
 
-export function writeResumeJson(result: ExistingResumeJson, jsonPath: string = JSON_PATH): void {
+export function writeResumeJson(
+  result: ExistingResumeJson,
+  jsonPath: string = JSON_PATH,
+): void {
   try {
-    writeFileSync(jsonPath, JSON.stringify(result, null, 2) + '\n');
+    writeFileSync(jsonPath, JSON.stringify(result, null, 2) + "\n");
     console.log(`✅ Generated ${jsonPath}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
