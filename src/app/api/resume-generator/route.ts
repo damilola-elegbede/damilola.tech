@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { xmlEscape } from '@/lib/xml-escape';
 import { isIP } from 'node:net';
-import { RESUME_GENERATOR_PROMPT } from '@/lib/generated/system-prompt';
+import { getResumeGeneratorPrompt } from '@/lib/resume-generator-prompt';
 import { logAdminEvent } from '@/lib/audit-server';
 import {
   checkGenericRateLimit,
@@ -43,9 +43,6 @@ const client = new Anthropic({
     'anthropic-beta': 'extended-cache-ttl-2025-04-11',
   },
 });
-
-// Use generated prompt in production, fall back to runtime fetch in development
-const isGeneratedPromptAvailable = RESUME_GENERATOR_PROMPT !== '__DEVELOPMENT_PLACEHOLDER__';
 
 const MAX_BODY_SIZE = 50 * 1024; // 50KB max request body
 const MIN_EXTRACTED_CONTENT_LENGTH = 100;
@@ -375,50 +372,6 @@ Use this score as your "currentScore" in the response. DO NOT recalculate it.
 </pre_calculated_readiness_score>`;
 }
 
-/**
- * Runtime fetch for the resume generator prompt (development fallback)
- */
-async function getResumeGeneratorPrompt(): Promise<string> {
-  if (isGeneratedPromptAvailable) {
-    return RESUME_GENERATOR_PROMPT;
-  }
-
-  // Development fallback: fetch from blob or local file
-  try {
-    const { fetchResumeGeneratorInstructionsRequired } = await import('@/lib/blob');
-    const { fetchAllContent } = await import('@/lib/blob');
-
-    const [instructions, content] = await Promise.all([
-      fetchResumeGeneratorInstructionsRequired(),
-      fetchAllContent(),
-    ]);
-
-    // Apply replacements
-    let prompt = instructions;
-    const replacements: Record<string, string> = {
-      '{{RESUME_FULL}}': content.resume || '*Resume content not available.*',
-      '{{STAR_STORIES}}': content.starStories || '*STAR stories not available.*',
-      '{{LEADERSHIP_PHILOSOPHY}}': content.leadershipPhilosophy || '*Leadership philosophy not available.*',
-      '{{TECHNICAL_EXPERTISE}}': content.technicalExpertise || '*Technical expertise not available.*',
-      '{{VERILY_FEEDBACK}}': content.verilyFeedback || '*Performance feedback not available.*',
-      '{{PROJECTS_CONTEXT}}': content.projectsContext || '*Projects context not available.*',
-      '{{ANECDOTES}}': content.anecdotes || '*Anecdotes not available.*',
-    };
-
-    for (const [placeholder, value] of Object.entries(replacements)) {
-      prompt = prompt.replace(
-        new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'),
-        () => value
-      );
-    }
-
-    return prompt;
-  } catch (error) {
-    console.error('[resume-generator] Failed to fetch prompt:', error);
-    throw new Error('Resume generator prompt not available');
-  }
-}
-
 export async function POST(req: Request) {
   console.log('[resume-generator] Request received');
   const startTime = Date.now();
@@ -544,7 +497,7 @@ export async function POST(req: Request) {
     }
 
     // Get the system prompt
-    console.log('[resume-generator] Loading system prompt (generated:', isGeneratedPromptAvailable, ')');
+    console.log('[resume-generator] Loading system prompt...');
     const systemPrompt = await getResumeGeneratorPrompt();
     console.log('[resume-generator] System prompt loaded, length:', systemPrompt.length);
 

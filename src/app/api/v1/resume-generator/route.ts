@@ -15,8 +15,10 @@ import {
   type ResumeData as ScorerResumeData,
 } from '@/lib/readiness-scorer';
 import { resumeData } from '@/lib/resume-data';
-import { sanitizeBreakdown, sanitizeScoreValue } from '@/lib/score-utils';
+import { sanitizeBreakdown, sanitizeScoreValue, computePossibleMaxScore } from '@/lib/score-utils';
 import { getResumeGeneratorPrompt } from '@/lib/resume-generator-prompt';
+import { normalizeImpactPoints } from '@/lib/resume-scoring';
+import type { ImpactBreakdown, ProposedChange, ResumeAnalysisResult } from '@/lib/types/resume-generation';
 import { JobDescriptionInputError, resolveJobDescriptionInput } from '@/lib/job-description-input';
 
 export const runtime = 'nodejs';
@@ -120,7 +122,24 @@ function buildScoringInput(jobDescription: string) {
   return { readinessScore };
 }
 
-function normalizeChanges(changes: unknown): Array<Record<string, unknown>> {
+function normalizeImpactBreakdown(value: unknown): ImpactBreakdown | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const b = value as Record<string, unknown>;
+  if (
+    typeof b.roleRelevance !== 'number' ||
+    typeof b.claritySkimmability !== 'number' ||
+    typeof b.businessImpact !== 'number' ||
+    typeof b.presentationQuality !== 'number'
+  ) return undefined;
+  return {
+    roleRelevance: sanitizeScoreValue(b.roleRelevance, 0, 30),
+    claritySkimmability: sanitizeScoreValue(b.claritySkimmability, 0, 30),
+    businessImpact: sanitizeScoreValue(b.businessImpact, 0, 25),
+    presentationQuality: sanitizeScoreValue(b.presentationQuality, 0, 15),
+  };
+}
+
+function normalizeChanges(changes: unknown): ProposedChange[] {
   if (!Array.isArray(changes)) {
     return [];
   }
@@ -129,6 +148,7 @@ function normalizeChanges(changes: unknown): Array<Record<string, unknown>> {
     .filter((change) => change && typeof change === 'object')
     .map((change) => {
       const value = change as Record<string, unknown>;
+      const breakdown = normalizeImpactBreakdown(value.impactBreakdown);
       return {
         section: typeof value.section === 'string' ? value.section : 'unknown',
         original: typeof value.original === 'string' ? value.original : '',
@@ -138,6 +158,10 @@ function normalizeChanges(changes: unknown): Array<Record<string, unknown>> {
           ? value.relevanceSignals.filter((signal) => typeof signal === 'string')
           : [],
         impactPoints: sanitizeScoreValue(value.impactPoints, 0, 100),
+        ...(typeof value.impactPerSignal === 'number'
+          ? { impactPerSignal: sanitizeScoreValue(value.impactPerSignal, 0, 100) }
+          : {}),
+        ...(breakdown !== undefined ? { impactBreakdown: breakdown } : {}),
       };
     });
 }
@@ -268,17 +292,27 @@ export async function POST(req: Request) {
       }),
     };
 
-    const maxFromResponse = sanitizeScoreValue(
-      parsed.maxPossibleScore ?? (parsed.scoreCeiling as Record<string, unknown> | undefined)?.maximum,
-      0,
-      100
-    );
+    // Parse scoreCeiling for use in normalization and maxPossibleScore computation
+    const scoreCeilingInput = parsed.scoreCeiling && typeof parsed.scoreCeiling === 'object'
+      ? parsed.scoreCeiling as Record<string, unknown>
+      : undefined;
+    const scoreCeiling = scoreCeilingInput ? {
+      maximum: sanitizeScoreValue(scoreCeilingInput.maximum, 0, 100),
+      blockers: [],
+      toImprove: '',
+    } : undefined;
 
-    const maxPossibleScore = Math.max(
-      readinessScore.total,
-      optimizedScore.total,
-      maxFromResponse
-    );
+    // Normalize changes and scale impact points to match admin page behavior
+    const rawChanges = normalizeChanges(parsed.proposedChanges);
+    const normalizedResult = normalizeImpactPoints({
+      proposedChanges: rawChanges,
+      scoreCeiling,
+      optimizedScore: { total: optimizedScore.total, breakdown: optimizedScore.breakdown, assessment: '' },
+      currentScore: { total: readinessScore.total, breakdown: sanitizeBreakdown(readinessScore.breakdown), assessment: '' },
+    } as ResumeAnalysisResult);
+    const proposedChanges = normalizedResult.proposedChanges;
+
+    const maxPossibleScore = computePossibleMaxScore(readinessScore.total, proposedChanges, scoreCeiling);
 
     const responseData = {
       generationId: crypto.randomUUID(),
@@ -298,7 +332,7 @@ export async function POST(req: Request) {
       },
       optimizedScore,
       maxPossibleScore,
-      proposedChanges: normalizeChanges(parsed.proposedChanges),
+      proposedChanges,
       gapsIdentified: extractGaps(parsed.gaps),
       inputType: resolvedInput.inputType,
       extractedUrl: resolvedInput.extractedUrl,

@@ -116,6 +116,13 @@ describe('v1/resume-generator API route', () => {
               reason: 'added key terms',
               relevanceSignals: ['terraform'],
               impactPoints: 5,
+              impactPerSignal: 5,
+              impactBreakdown: {
+                roleRelevance: 3,
+                claritySkimmability: 1,
+                businessImpact: 1,
+                presentationQuality: 0,
+              },
             },
           ],
           gaps: [{ requirement: 'Cost optimization' }],
@@ -193,8 +200,17 @@ describe('v1/resume-generator API route', () => {
     expect(data.data.roleTitle).toBe('Senior EM');
     expect(data.data.currentScore.total).toBe(64);
     expect(data.data.optimizedScore.total).toBe(83);
-    expect(data.data.maxPossibleScore).toBe(89);
+    // maxPossibleScore = computePossibleMaxScore(64, [{impactPoints:5}], {maximum:89})
+    // = min(89, 64+5) = 69
+    expect(data.data.maxPossibleScore).toBe(69);
     expect(data.data.proposedChanges).toHaveLength(1);
+    expect(data.data.proposedChanges[0].impactBreakdown).toEqual({
+      roleRelevance: 3,
+      claritySkimmability: 1,
+      businessImpact: 1,
+      presentationQuality: 0,
+    });
+    expect(data.data.proposedChanges[0].impactPerSignal).toBe(5);
     expect(data.data.inputType).toBe('text');
     expect(mockCreate).toHaveBeenCalledTimes(1);
     expect(mockLogApiAccess).toHaveBeenCalledWith(
@@ -203,6 +219,48 @@ describe('v1/resume-generator API route', () => {
       expect.objectContaining({ inputType: 'text', currentScore: 64 }),
       '127.0.0.1'
     );
+  });
+
+  it('handles changes without impactBreakdown (backward compat)', async () => {
+    mockCreate.mockResolvedValue({
+      model: 'claude-opus-4-6',
+      usage: { input_tokens: 10, output_tokens: 10 },
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          analysis: { companyName: 'Legacy Co', roleTitle: 'EM' },
+          optimizedScore: { total: 72, breakdown: { roleRelevance: 28, claritySkimmability: 20, businessImpact: 16, presentationQuality: 8 } },
+          proposedChanges: [
+            {
+              section: 'summary',
+              original: 'old summary',
+              modified: 'new summary',
+              reason: 'improved',
+              relevanceSignals: ['leadership'],
+              impactPoints: 8,
+              // no impactBreakdown, no impactPerSignal
+            },
+          ],
+          gaps: [],
+        }),
+      }],
+    });
+
+    const { POST } = await import('@/app/api/v1/resume-generator/route');
+    const response = await POST(
+      new Request('http://localhost/api/v1/resume-generator', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ input: 'JD text with requirements and responsibilities' }),
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.data.proposedChanges[0].impactBreakdown).toBeUndefined();
+    expect(data.data.proposedChanges[0].impactPerSignal).toBeUndefined();
+    // maxPossibleScore = min(100, 64+8) = 72
+    expect(data.data.maxPossibleScore).toBe(72);
   });
 
   it('returns 429 when rate limited', async () => {
