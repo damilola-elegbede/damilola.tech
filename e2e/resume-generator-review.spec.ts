@@ -27,13 +27,13 @@ test.describe('Resume Generator Review Workflow', () => {
 
     // Navigate to resume generator
     await page.goto('/admin/resume-generator');
-    await expect(page.getByRole('heading', { name: 'ATS Resume Generator' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Resume Generator' })).toBeVisible();
   });
 
   test('shows changes as pending after analysis (not auto-accepted)', async ({ page }) => {
     // This test requires the analysis API to be working
     // For now, we just verify the UI loads correctly
-    await expect(page.getByRole('heading', { name: 'ATS Resume Generator' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Resume Generator' })).toBeVisible();
 
     // Check that form elements are visible
     await expect(page.getByPlaceholder(/paste.*job description/i)).toBeVisible();
