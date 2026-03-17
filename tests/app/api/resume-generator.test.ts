@@ -27,15 +27,16 @@ vi.mock('@/lib/resume-data', () => ({
   },
 }));
 
-vi.mock('@/lib/ats-scorer', () => ({
-  calculateATSScore: vi.fn(() => ({
+vi.mock('@/lib/readiness-scorer', () => ({
+  calculateReadinessScore: vi.fn(() => ({
     total: 75,
     breakdown: {
-      keywordRelevance: 30,
-      skillsQuality: 20,
-      experienceAlignment: 15,
-      contentQuality: 8,
+      roleRelevance: 30,
+      claritySkimmability: 20,
+      businessImpact: 15,
+      presentationQuality: 8,
     },
+    isOptimized: true,
     details: {
       matchRate: 60,
       keywordDensity: 2.5,

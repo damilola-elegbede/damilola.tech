@@ -32,7 +32,7 @@ export function FloatingScoreIndicator({
       className="fixed bottom-6 right-6 z-40 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]/95 p-4 shadow-lg backdrop-blur-sm transition-all hover:border-[var(--color-accent)] hover:shadow-xl"
       aria-label="Scroll to score cards"
     >
-      <p className="text-xs font-medium text-[var(--color-text-muted)]">ATS Score</p>
+      <p className="text-xs font-medium text-[var(--color-text-muted)]">Readiness Score</p>
       <div className="mt-1 flex items-baseline gap-1">
         <span className={`text-lg font-bold ${getScoreColor(initialScore)}`}>
           {Math.round(initialScore * 10) / 10}

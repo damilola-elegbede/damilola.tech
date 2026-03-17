@@ -216,7 +216,7 @@ Or with raw job description text:
   "success": true,
   "data": {
     "assessment": "## Executive Fit Report\n\n...",
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-4-6",
     "usage": {
       "inputTokens": 5000,
       "outputTokens": 2000,
@@ -225,6 +225,104 @@ Or with raw job description text:
   }
 }
 ```
+
+### Resume Generator
+
+Generate a tailored resume analysis and proposed changes for a job description.
+
+```
+POST /api/v1/resume-generator
+```
+
+**Request Body:**
+
+```json
+{
+  "input": "https://example.com/job-posting"
+}
+```
+
+Or with raw job description text:
+
+```json
+{
+  "input": "Senior Engineering Manager at Acme Corp..."
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "generationId": "uuid",
+    "companyName": "Acme Corp",
+    "roleTitle": "Senior Engineering Manager",
+    "currentScore": {
+      "total": 64,
+      "breakdown": {
+        "roleRelevance": 25,
+        "claritySkimmability": 18,
+        "businessImpact": 14,
+        "presentationQuality": 7
+      },
+      "matchedKeywords": ["cloud", "kubernetes"],
+      "missingKeywords": ["terraform"],
+      "matchRate": 45.2,
+      "keywordDensity": 2.1
+    },
+    "optimizedScore": {
+      "total": 83,
+      "breakdown": {
+        "roleRelevance": 33,
+        "claritySkimmability": 21,
+        "businessImpact": 18,
+        "presentationQuality": 9
+      }
+    },
+    "maxPossibleScore": 69,
+    "proposedChanges": [
+      {
+        "section": "experience.verily.bullet1",
+        "original": "Managed infrastructure team",
+        "modified": "Led 13-engineer infrastructure team delivering Kubernetes platform",
+        "reason": "Adds relevant keywords and quantifies scope",
+        "relevanceSignals": ["kubernetes", "platform"],
+        "impactPoints": 5,
+        "impactPerSignal": 2,
+        "impactBreakdown": {
+          "roleRelevance": 3,
+          "claritySkimmability": 1,
+          "businessImpact": 1,
+          "presentationQuality": 0
+        }
+      }
+    ],
+    "gapsIdentified": ["Cost optimization experience"],
+    "inputType": "text",
+    "extractedUrl": null
+  }
+}
+```
+
+**Response fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `generationId` | string | Unique ID for this generation |
+| `currentScore` | object | Deterministic baseline readiness score |
+| `optimizedScore` | object | Projected score after accepting all changes |
+| `maxPossibleScore` | number | `currentScore.total` + sum of normalized `impactPoints`, capped at score ceiling |
+| `proposedChanges` | array | AI-proposed resume edits |
+| `proposedChanges[].impactBreakdown` | object \| undefined | Per-category impact (optional — absent on logs generated before V4) |
+| `proposedChanges[].impactPerSignal` | number \| undefined | `impactPoints / relevanceSignals.length` (optional) |
+| `gapsIdentified` | string[] | JD requirements not met by resume |
+
+**Notes:**
+- Model: `claude-opus-4-6` with `temperature: 0`
+- `maxPossibleScore` is computed server-side from normalized `impactPoints`, not from Claude's stated value
+- `impactBreakdown` is optional for backward compatibility with older generation logs
 
 ### Resume Generations
 
@@ -330,7 +428,7 @@ POST /api/v1/chat
       "role": "assistant",
       "content": "I have extensive experience with AWS..."
     },
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-4-6",
     "usage": {
       "inputTokens": 3000,
       "outputTokens": 150,

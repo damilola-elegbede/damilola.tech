@@ -188,7 +188,7 @@ describe('ApiClient', () => {
           original: 'A',
           modified: 'B',
           reason: 'C',
-          keywordsAdded: ['k'],
+          relevanceSignals: ['k'],
           impactPoints: 3,
         },
         modifyPrompt: 'Make concise',

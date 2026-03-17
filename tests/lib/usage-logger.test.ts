@@ -35,8 +35,8 @@ const mockHeadResult = (url: string): HeadBlobResult => ({
 });
 
 describe('calculateCost', () => {
-  describe('with known model (claude-sonnet-4-20250514)', () => {
-    const model = 'claude-sonnet-4-20250514';
+  describe('with known model (claude-sonnet-4-6)', () => {
+    const model = 'claude-sonnet-4-6';
 
     it('calculates cost for basic request without caching', () => {
       const cost = calculateCost({
@@ -106,7 +106,7 @@ describe('calculateCost', () => {
   describe('edge cases', () => {
     it('returns 0 for zero tokens', () => {
       const cost = calculateCost({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         inputTokens: 0,
         outputTokens: 0,
         cacheCreation: 0,
@@ -118,7 +118,7 @@ describe('calculateCost', () => {
 
     it('clamps uncached input to 0 when cacheRead > inputTokens', () => {
       const cost = calculateCost({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         inputTokens: 500,
         outputTokens: 100,
         cacheCreation: 0,
@@ -134,7 +134,7 @@ describe('calculateCost', () => {
 
     it('handles large token counts', () => {
       const cost = calculateCost({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         inputTokens: 100000,
         outputTokens: 50000,
         cacheCreation: 10000,
@@ -161,14 +161,14 @@ describe('calculateCost', () => {
       });
 
       const costKnown = calculateCost({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         inputTokens: 1000,
         outputTokens: 500,
         cacheCreation: 0,
         cacheRead: 0,
       });
 
-      // Should use claude-sonnet-4-20250514 pricing as fallback
+      // Should use claude-sonnet-4-6 pricing as fallback
       expect(costUnknown).toBe(costKnown);
     });
 
@@ -189,7 +189,7 @@ describe('calculateCost', () => {
   describe('precision and rounding', () => {
     it('rounds to 6 decimal places', () => {
       const cost = calculateCost({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         inputTokens: 1,
         outputTokens: 1,
         cacheCreation: 1,
@@ -210,7 +210,7 @@ describe('calculateCostSavings', () => {
   describe('with known model', () => {
     it('calculates savings from cache hits', () => {
       const savings = calculateCostSavings({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         cacheRead: 100000,
       });
 
@@ -222,7 +222,7 @@ describe('calculateCostSavings', () => {
 
     it('returns 0 for zero cache read', () => {
       const savings = calculateCostSavings({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         cacheRead: 0,
       });
 
@@ -231,7 +231,7 @@ describe('calculateCostSavings', () => {
 
     it('handles small cache read amounts', () => {
       const savings = calculateCostSavings({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         cacheRead: 1000,
       });
 
@@ -250,7 +250,7 @@ describe('calculateCostSavings', () => {
       });
 
       const savingsKnown = calculateCostSavings({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         cacheRead: 100000,
       });
 
@@ -261,7 +261,7 @@ describe('calculateCostSavings', () => {
   describe('precision', () => {
     it('rounds to 6 decimal places', () => {
       const savings = calculateCostSavings({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         cacheRead: 1,
       });
 
@@ -291,7 +291,7 @@ describe('logUsage', () => {
         'test-session-1',
         {
           endpoint: 'chat-api',
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           inputTokens: 1000,
           outputTokens: 500,
           cacheCreation: 0,
@@ -320,7 +320,7 @@ describe('logUsage', () => {
         'test-session-2',
         {
           endpoint: 'fit-assessment-api',
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           inputTokens: 2000,
           outputTokens: 1000,
           cacheCreation: 500,
@@ -349,7 +349,7 @@ describe('logUsage', () => {
         'test-session-3',
         {
           endpoint: 'resume-generator',
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           inputTokens: 1500,
           outputTokens: 800,
           cacheCreation: 300,
@@ -379,7 +379,7 @@ describe('logUsage', () => {
         'test-session-4',
         {
           endpoint: 'chat',
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           inputTokens: 500,
           outputTokens: 250,
           cacheCreation: 0,
@@ -406,7 +406,7 @@ describe('logUsage', () => {
         'test-session-5',
         {
           endpoint: 'chat-api',
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           inputTokens: 1000,
           outputTokens: 500,
           cacheCreation: 0,
@@ -434,7 +434,7 @@ describe('logUsage', () => {
 
       await logUsage('test-session-5', {
         endpoint: 'chat-api',
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         inputTokens: 800,
         outputTokens: 400,
         cacheCreation: 0,
@@ -462,7 +462,7 @@ describe('logUsage', () => {
         'test-session-6',
         {
           endpoint: 'chat-api',
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           inputTokens: 1000,
           outputTokens: 500,
           cacheCreation: 200,
@@ -492,7 +492,7 @@ describe('logUsage', () => {
       expect(sessionData.requests).toHaveLength(1);
       expect(sessionData.requests[0]).toMatchObject({
         endpoint: 'chat-api',
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         inputTokens: 1000,
         outputTokens: 500,
         cacheCreation: 200,

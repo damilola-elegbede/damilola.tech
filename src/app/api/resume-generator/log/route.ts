@@ -7,6 +7,7 @@ import type {
   ResumeGenerationLog,
   EstimatedCompatibility,
 } from '@/lib/types/resume-generation';
+import { normalizeBreakdown } from '@/lib/types/resume-generation';
 import type { JobIdentifier } from '@/lib/job-id';
 import { sanitizeScoreValue } from '@/lib/score-utils';
 
@@ -61,7 +62,7 @@ function normalizeEstimatedCompatibility(input: unknown): EstimatedCompatibility
     ? input as Record<string, unknown>
     : {};
 
-  const breakdown = value.breakdown && typeof value.breakdown === 'object'
+  const rawBreakdown = value.breakdown && typeof value.breakdown === 'object'
     ? value.breakdown as Record<string, unknown>
     : {};
 
@@ -69,15 +70,18 @@ function normalizeEstimatedCompatibility(input: unknown): EstimatedCompatibility
   const after = sanitizeScoreValue(value.after, 0, 100);
   const possibleMax = sanitizeScoreValue(value.possibleMax, after, 100);
 
+  // Handle both legacy (V1/V2: keywordRelevance etc.) and V3 field names
+  const normalized = normalizeBreakdown(rawBreakdown as unknown as Parameters<typeof normalizeBreakdown>[0]);
+
   return {
     before,
     after,
     possibleMax,
     breakdown: {
-      keywordRelevance: sanitizeScoreValue(breakdown.keywordRelevance, 0, 45),
-      skillsQuality: sanitizeScoreValue(breakdown.skillsQuality, 0, 25),
-      experienceAlignment: sanitizeScoreValue(breakdown.experienceAlignment, 0, 20),
-      contentQuality: sanitizeScoreValue(breakdown.contentQuality, 0, 10),
+      roleRelevance: sanitizeScoreValue(normalized.roleRelevance, 0, 30),
+      claritySkimmability: sanitizeScoreValue(normalized.claritySkimmability, 0, 30),
+      businessImpact: sanitizeScoreValue(normalized.businessImpact, 0, 25),
+      presentationQuality: sanitizeScoreValue(normalized.presentationQuality, 0, 15),
     },
   };
 }

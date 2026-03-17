@@ -60,7 +60,7 @@ function createChange(overrides: Partial<ProposedChange>): ProposedChange {
     original: 'engineering leader',
     modified: 'platform engineering leader',
     reason: 'Test change',
-    keywordsAdded: [],
+    relevanceSignals: [],
     impactPoints: 1,
     ...overrides,
   };

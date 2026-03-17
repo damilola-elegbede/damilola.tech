@@ -152,7 +152,7 @@ export async function POST(req: Request) {
     // Wrap user messages in XML tags for prompt injection mitigation
     // Enable prompt caching for the system prompt (90% cost reduction on cache hits)
     const stream = client.messages.stream({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 512, // Reduced to encourage brevity
       system: [
         {
@@ -207,7 +207,7 @@ export async function POST(req: Request) {
               timestamp: new Date().toISOString(),
               sessionId: isValidSessionId ? `sess_${sessionId.slice(0, 8)}` : 'anon',
               endpoint: 'chat',
-              model: 'claude-sonnet-4-20250514',
+              model: 'claude-sonnet-4-6',
               inputTokens: usage.input_tokens,
               outputTokens: usage.output_tokens,
               cacheCreation: usage.cache_creation_input_tokens ?? 0,
@@ -217,7 +217,7 @@ export async function POST(req: Request) {
             // Log to Vercel Blob for usage dashboard (fire-and-forget)
             logUsage(isValidSessionId ? sessionId : 'anonymous', {
               endpoint: 'chat',
-              model: 'claude-sonnet-4-20250514',
+              model: 'claude-sonnet-4-6',
               inputTokens: usage.input_tokens,
               outputTokens: usage.output_tokens,
               cacheCreation: usage.cache_creation_input_tokens ?? 0,

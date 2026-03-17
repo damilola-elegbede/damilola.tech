@@ -43,10 +43,10 @@ interface ScoreResumeResponse {
   currentScore: {
     total: number;
     breakdown: {
-      keywordRelevance: number;
-      skillsQuality: number;
-      experienceAlignment: number;
-      contentQuality: number;
+      roleRelevance: number;
+      claritySkimmability: number;
+      businessImpact: number;
+      presentationQuality: number;
     };
     matchedKeywords: string[];
     missingKeywords: string[];
@@ -250,7 +250,7 @@ export class ApiClient {
       original: string;
       modified: string;
       reason: string;
-      keywordsAdded: string[];
+      relevanceSignals: string[];
       impactPoints: number;
     };
     modifyPrompt: string;

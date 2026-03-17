@@ -1,19 +1,13 @@
 /**
- * ATS Keyword Extraction and Matching
+ * JD Keyword Extraction and Matching
  *
- * Deterministic keyword extraction and matching for ATS scoring.
- * Based on research from 20+ sources triangulated across industry best practices.
- *
- * Key findings used:
- * - 99.7% of recruiters use keyword filters (Jobscan)
- * - 75% match rate target (65% minimum acceptable)
- * - Exact matches beat synonyms - ATS doesn't recognize all synonyms
- * - Job title is the most important keyword (10.6x more likely to get interviews)
+ * Deterministic keyword extraction and matching for recruiter search findability.
+ * Extracts role-relevant terms from job descriptions to assess resume relevance.
  */
 
 /**
  * Common English stopwords to filter from keyword extraction.
- * These words don't carry semantic meaning for ATS matching.
+ * These words don't carry semantic meaning for keyword matching.
  */
 export const STOPWORDS = new Set([
   // Articles
@@ -48,7 +42,7 @@ export const STOPWORDS = new Set([
   'knowledge', 'experience', 'expertise', 'exposure', 'contributions',
   'passion', 'passionate', 'enthusiasm', 'comfortable', 'competence',
   'competent', 'skilled', 'capable', 'hands-on', 'background',
-  // Generic descriptor words that don't improve ATS matching quality
+  // Generic descriptor words that don't improve keyword matching quality
   'significant', 'depth', 'track', 'record', 'scratch',
   // Numbers and time
   'years', 'year', 'months', 'month', 'days', 'day', 'time', 'times',
@@ -339,7 +333,7 @@ export const TECH_KEYWORDS = new Set([
 
 /**
  * Action verbs commonly valued in resumes.
- * Starting bullets with these increases ATS score.
+ * Starting bullets with these increases readiness score.
  */
 export const ACTION_VERBS = new Set([
   // Leadership
@@ -455,7 +449,7 @@ export interface ExtractedKeywords {
 
 /**
  * Simple word stemmer using suffix stripping.
- * Not as sophisticated as Porter/Snowball but deterministic and sufficient for ATS matching.
+ * Not as sophisticated as Porter/Snowball but deterministic and sufficient for keyword matching.
  */
 export function stemWord(word: string): string {
   const stem = word.toLowerCase();

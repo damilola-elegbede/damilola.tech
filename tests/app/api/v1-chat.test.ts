@@ -152,7 +152,7 @@ describe('v1/chat API route', () => {
     it('returns JSON response (not streaming)', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Hello! How can I help you?' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: {
           input_tokens: 100,
           output_tokens: 20,
@@ -180,7 +180,7 @@ describe('v1/chat API route', () => {
     it('returns assistant message in response', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'I am Damilola, a technology executive.' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: {
           input_tokens: 100,
           output_tokens: 20,
@@ -204,7 +204,7 @@ describe('v1/chat API route', () => {
     it('includes usage information in response', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Response' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: {
           input_tokens: 1000,
           output_tokens: 50,
@@ -232,7 +232,7 @@ describe('v1/chat API route', () => {
     it('includes model info in response', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Response' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: { input_tokens: 100, output_tokens: 20 },
       });
 
@@ -246,13 +246,13 @@ describe('v1/chat API route', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(data.data.model).toBe('claude-sonnet-4-20250514');
+      expect(data.data.model).toBe('claude-sonnet-4-6');
     });
 
     it('supports multi-turn conversations', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'I previously said hello!' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: { input_tokens: 200, output_tokens: 30 },
       });
 
@@ -365,7 +365,7 @@ describe('v1/chat API route', () => {
     it('escapes XML in user messages for safety', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Response' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: { input_tokens: 100, output_tokens: 20 },
       });
 
@@ -393,7 +393,7 @@ describe('v1/chat API route', () => {
     it('wraps user messages in XML tags', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Response' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: { input_tokens: 100, output_tokens: 20 },
       });
 
@@ -421,7 +421,7 @@ describe('v1/chat API route', () => {
     it('logs api_chat audit event with correct parameters', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Response' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: {
           input_tokens: 100,
           output_tokens: 20,

@@ -1,4 +1,4 @@
-import type { ProposedChange, ResumeAnalysisResult } from '@/lib/types/resume-generation';
+import type { ProposedChange, ResumeAnalysisResult, ImpactBreakdown } from '@/lib/types/resume-generation';
 
 function keywordInText(text: string, keyword: string): boolean {
   const normalizedText = text.toLowerCase();
@@ -22,29 +22,55 @@ function keywordInText(text: string, keyword: string): boolean {
 /**
  * Calculate the adjusted impact when a user edits a proposed change.
  * Uses impactPerKeyword if available, otherwise falls back to proportional calculation.
+ * When impactBreakdown is present, scales each category by signal retention ratio.
  * @param change - The original proposed change
  * @param editedText - The user's edited version of the text
  * @returns The adjusted impact points based on retained keywords
  */
 export function calculateEditedImpact(change: ProposedChange, editedText: string): number {
-  if (change.keywordsAdded.length === 0) {
+  if (change.relevanceSignals.length === 0) {
     return change.impactPoints;
   }
 
-  // Count how many keywords are retained in the edited text
-  const retainedKeywords = change.keywordsAdded.filter((keyword) =>
-    keywordInText(editedText, keyword)
+  // Count how many signals are retained in the edited text
+  const retainedSignals = change.relevanceSignals.filter((signal) =>
+    keywordInText(editedText, signal)
   );
 
-  // Use impactPerKeyword if available, otherwise calculate from impactPoints
-  const impactPerKeyword = change.impactPerKeyword
-    ?? change.impactPoints / change.keywordsAdded.length;
+  // Use impactPerSignal if available, otherwise calculate from impactPoints
+  const impactPerSignal = change.impactPerSignal
+    ?? change.impactPoints / change.relevanceSignals.length;
 
-  return Math.round(retainedKeywords.length * impactPerKeyword);
+  return Math.round(retainedSignals.length * impactPerSignal);
 }
 
 /**
- * Proportionally scale each change's impactPoints (and impactPerKeyword) so their
+ * Calculate the adjusted impact breakdown when a user edits a proposed change.
+ * Scales each category by the signal retention ratio and rounds to integers.
+ * Returns undefined if the change has no impactBreakdown.
+ */
+export function calculateEditedImpactBreakdown(
+  change: ProposedChange,
+  editedText: string
+): ImpactBreakdown | undefined {
+  if (!change.impactBreakdown) return undefined;
+  if (change.relevanceSignals.length === 0) return change.impactBreakdown;
+
+  const retainedCount = change.relevanceSignals.filter((signal) =>
+    keywordInText(editedText, signal)
+  ).length;
+  const ratio = retainedCount / change.relevanceSignals.length;
+
+  return {
+    roleRelevance: Math.round(change.impactBreakdown.roleRelevance * ratio),
+    claritySkimmability: Math.round(change.impactBreakdown.claritySkimmability * ratio),
+    businessImpact: Math.round(change.impactBreakdown.businessImpact * ratio),
+    presentationQuality: Math.round(change.impactBreakdown.presentationQuality * ratio),
+  };
+}
+
+/**
+ * Proportionally scale each change's impactPoints (and impactPerSignal) so their
  * sum equals the achievable score delta (budget). This prevents the projected score
  * from exceeding the score ceiling when Claude's per-change estimates are inflated.
  *
@@ -75,22 +101,31 @@ export function normalizeImpactPoints(
   const scaleFactor = budget / rawSum;
 
   // Scale each change's impactPoints proportionally.
-  // Uses floor to avoid overshoot; remainder is distributed via round to the largest change.
+  // Uses floor to avoid overshoot; remainder is distributed to the largest change.
   const scaledChanges = result.proposedChanges.map((change) => {
-    const scaledImpact = Math.floor(change.impactPoints * scaleFactor * 100) / 100;
-    const scaledPerKeyword = change.impactPerKeyword !== undefined
-      ? Math.floor(change.impactPerKeyword * scaleFactor * 100) / 100
+    const scaledImpact = Math.floor(change.impactPoints * scaleFactor);
+    const scaledPerSignal = change.impactPerSignal !== undefined
+      ? Math.round(change.impactPerSignal * scaleFactor)
+      : undefined;
+    const scaledBreakdown = change.impactBreakdown
+      ? {
+          roleRelevance: Math.round(change.impactBreakdown.roleRelevance * scaleFactor),
+          claritySkimmability: Math.round(change.impactBreakdown.claritySkimmability * scaleFactor),
+          businessImpact: Math.round(change.impactBreakdown.businessImpact * scaleFactor),
+          presentationQuality: Math.round(change.impactBreakdown.presentationQuality * scaleFactor),
+        }
       : undefined;
     return {
       ...change,
       impactPoints: scaledImpact,
-      ...(scaledPerKeyword !== undefined ? { impactPerKeyword: scaledPerKeyword } : {}),
+      ...(scaledPerSignal !== undefined ? { impactPerSignal: scaledPerSignal } : {}),
+      ...(scaledBreakdown !== undefined ? { impactBreakdown: scaledBreakdown } : {}),
     };
   });
 
   // Distribute any remaining budget due to floor rounding to the largest change
   const scaledSum = scaledChanges.reduce((sum, c) => sum + c.impactPoints, 0);
-  const remainder = Math.round((budget - scaledSum) * 100) / 100;
+  const remainder = budget - scaledSum;
   if (remainder > 0 && scaledChanges.length > 0) {
     let maxIdx = 0;
     for (let i = 1; i < scaledChanges.length; i++) {
@@ -100,7 +135,7 @@ export function normalizeImpactPoints(
     }
     scaledChanges[maxIdx] = {
       ...scaledChanges[maxIdx],
-      impactPoints: Math.round((scaledChanges[maxIdx].impactPoints + remainder) * 100) / 100,
+      impactPoints: scaledChanges[maxIdx].impactPoints + remainder,
     };
   }
 

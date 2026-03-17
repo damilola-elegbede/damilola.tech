@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
 import { verifyToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
 import type { ModifyChangeRequest, ProposedChange } from '@/lib/types/resume-generation';
+import { xmlEscape } from '@/lib/xml-escape';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -27,32 +28,40 @@ export async function POST(req: Request) {
     }
 
     // Wrap user input in XML tags for prompt injection mitigation
-    const prompt = `You are revising a single resume change for ATS optimization.
+    const prompt = `You are revising a single resume change for readability and relevance optimization.
 
 <original_change>
-Section: ${originalChange.section}
-Original text: ${originalChange.original}
-Proposed modification: ${originalChange.modified}
-Reason: ${originalChange.reason}
+Section: ${xmlEscape(originalChange.section)}
+Original text: ${xmlEscape(originalChange.original)}
+Proposed modification: ${xmlEscape(originalChange.modified)}
+Reason: ${xmlEscape(originalChange.reason)}
 </original_change>
 
-<modify_request>${modifyPrompt}</modify_request>
+<modify_request>${xmlEscape(modifyPrompt)}</modify_request>
 
 Job Description (for context, truncated to 4000 chars to fit context window):
-<job_description>${jobDescription.slice(0, 4000)}</job_description>
+<job_description>${xmlEscape(jobDescription.slice(0, 4000))}</job_description>
 
-Return ONLY a JSON object with the revised change (no markdown code blocks):
+Return ONLY a JSON object with the revised change (no markdown code blocks).
+All point values MUST be non-negative integers. impactPoints MUST equal the sum of impactBreakdown values.
+Bullets must be ≤150 characters. Use exact titles from source data — never fabricate skills or experience.
 {
-  "section": "${originalChange.section}",
-  "original": "${originalChange.original}",
+  "section": ${JSON.stringify(originalChange.section)},
+  "original": ${JSON.stringify(originalChange.original)},
   "modified": "YOUR REVISED TEXT HERE",
   "reason": "Updated reason explaining the change",
-  "keywordsAdded": ["keyword1", "keyword2"],
-  "impactPoints": ${originalChange.impactPoints}
+  "relevanceSignals": ["signal1", "signal2"],
+  "impactPoints": ${originalChange.impactPoints},
+  "impactBreakdown": {
+    "roleRelevance": 0,
+    "claritySkimmability": 0,
+    "businessImpact": 0,
+    "presentationQuality": 0
+  }
 }`;
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-6',
       max_tokens: 1000,
       temperature: 0,
       messages: [
@@ -79,13 +88,32 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
     const revisedChange: ProposedChange = JSON.parse(jsonText);
 
     // Validate the response has all required fields
+    const validRelevanceSignals =
+      Array.isArray(revisedChange.relevanceSignals) &&
+      revisedChange.relevanceSignals.every((s: unknown) => typeof s === 'string');
+
+    const bd = revisedChange.impactBreakdown;
+    const validImpactBreakdown =
+      bd === undefined ||
+      (bd !== null &&
+        typeof bd === 'object' &&
+        Number.isFinite(bd.roleRelevance) && bd.roleRelevance >= 0 &&
+        Number.isFinite(bd.claritySkimmability) && bd.claritySkimmability >= 0 &&
+        Number.isFinite(bd.businessImpact) && bd.businessImpact >= 0 &&
+        Number.isFinite(bd.presentationQuality) && bd.presentationQuality >= 0 &&
+        Math.abs(
+          bd.roleRelevance + bd.claritySkimmability + bd.businessImpact + bd.presentationQuality -
+          revisedChange.impactPoints
+        ) <= 1);
+
     if (
       !revisedChange.section ||
       !revisedChange.original ||
       !revisedChange.modified ||
       !revisedChange.reason ||
-      !Array.isArray(revisedChange.keywordsAdded) ||
-      typeof revisedChange.impactPoints !== 'number'
+      !validRelevanceSignals ||
+      !Number.isFinite(revisedChange.impactPoints) ||
+      !validImpactBreakdown
     ) {
       return Response.json({ error: 'Invalid response structure from AI' }, { status: 500 });
     }

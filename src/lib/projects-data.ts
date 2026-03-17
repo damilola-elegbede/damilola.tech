@@ -214,11 +214,11 @@ export const projectsData: Project[] = [
       "Production admin portal: JWT auth, 10 pages, real-time analytics dashboard",
       "Distributed rate limiting: Redis + circuit breaker with graceful degradation",
       "Comprehensive audit system: 18 event types with IP anonymization",
-      "ATS resume generator: Claude-powered optimization with PDF export",
+      "Recruiter-ready resume generator: Claude-powered tailoring with PDF export",
       "Security hardening: CSRF, SSRF prevention, timing-safe comparisons",
       "UTM traffic tracking: Full attribution with source/medium/campaign analytics",
       "Private content submodule: Git submodule with Vercel Blob sync workflows",
-      "Deterministic ATS scoring: Reproducible algorithm with weighted criteria",
+      "Deterministic resume scoring: Reproducible algorithm with weighted criteria",
     ],
   },
   {

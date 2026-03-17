@@ -1,14 +1,26 @@
-import type { ProposedChange, ScoreBreakdown, ScoreCeiling } from '@/lib/types/resume-generation';
+import type { ProposedChange, ScoreBreakdown, ScoreCeiling, LegacyScoreBreakdown } from '@/lib/types/resume-generation';
 
 export function sanitizeScoreValue(value: unknown, min: number, max: number): number {
   const numeric = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(numeric)) {
     return min;
   }
-  return Math.max(min, Math.min(max, numeric));
+  return Math.round(Math.max(min, Math.min(max, numeric)));
 }
 
 export function sanitizeBreakdown(breakdown: ScoreBreakdown): ScoreBreakdown {
+  return {
+    roleRelevance: sanitizeScoreValue(breakdown.roleRelevance, 0, 30),
+    claritySkimmability: sanitizeScoreValue(breakdown.claritySkimmability, 0, 30),
+    businessImpact: sanitizeScoreValue(breakdown.businessImpact, 0, 25),
+    presentationQuality: sanitizeScoreValue(breakdown.presentationQuality, 0, 15),
+  };
+}
+
+/**
+ * Sanitize a legacy breakdown (V1/V2 logs) with old field names and maxes.
+ */
+export function sanitizeBreakdownLegacy(breakdown: LegacyScoreBreakdown): LegacyScoreBreakdown {
   return {
     keywordRelevance: sanitizeScoreValue(breakdown.keywordRelevance, 0, 45),
     skillsQuality: sanitizeScoreValue(breakdown.skillsQuality, 0, 25),
@@ -25,7 +37,7 @@ export function computeCappedScore(
   const base = sanitizeScoreValue(currentScore, 0, 100);
   const increment = sanitizeScoreValue(delta, 0, 100);
   const ceiling = sanitizeScoreValue(scoreCeiling?.maximum ?? 100, 0, 100);
-  return Math.round(Math.min(ceiling, base + increment) * 10) / 10;
+  return Math.round(Math.min(ceiling, base + increment));
 }
 
 export function computePossibleMaxScore(

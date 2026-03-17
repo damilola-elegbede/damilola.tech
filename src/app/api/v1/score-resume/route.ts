@@ -2,17 +2,18 @@ import Anthropic from '@anthropic-ai/sdk';
 import { requireApiKey } from '@/lib/api-key-auth';
 import { logApiAccess } from '@/lib/api-audit';
 import { apiSuccess, Errors } from '@/lib/api-response';
+import { xmlEscape } from '@/lib/xml-escape';
 import {
   checkGenericRateLimit,
   getClientIp,
   RATE_LIMIT_CONFIGS,
 } from '@/lib/rate-limit';
 import {
-  calculateATSScore,
+  calculateReadinessScore,
   resumeDataToText,
-  type ATSScore,
-  type ResumeData as ATSResumeData,
-} from '@/lib/ats-scorer';
+  type ReadinessScore,
+  type ResumeData as ScorerResumeData,
+} from '@/lib/readiness-scorer';
 import { resumeData } from '@/lib/resume-data';
 import { sanitizeBreakdown, sanitizeScoreValue } from '@/lib/score-utils';
 import { JobDescriptionInputError, resolveJobDescriptionInput } from '@/lib/job-description-input';
@@ -27,22 +28,20 @@ const client = new Anthropic({
 
 const MAX_BODY_SIZE = 50 * 1024;
 
-function buildScorePayload(atsScore: ATSScore) {
+function buildScorePayload(score: ReadinessScore) {
   return {
-    total: atsScore.total,
-    coreTotal: atsScore.coreTotal,
-    calibration: atsScore.calibration,
-    breakdown: sanitizeBreakdown(atsScore.breakdown),
-    matchedKeywords: atsScore.details.matchedKeywords,
-    missingKeywords: atsScore.details.missingKeywords,
-    matchRate: atsScore.details.matchRate,
-    keywordDensity: atsScore.details.keywordDensity,
+    total: score.total,
+    breakdown: sanitizeBreakdown(score.breakdown),
+    matchedKeywords: score.details.matchedKeywords,
+    missingKeywords: score.details.missingKeywords,
+    matchRate: score.details.matchRate,
+    keywordDensity: score.details.keywordDensity,
   };
 }
 
 function buildGapAnalysisPrompt(currentScore: ReturnType<typeof buildScorePayload>): string {
   return [
-    'Analyze this ATS score against the job description and return JSON only.',
+    'Analyze this resume readiness score against the job description and return JSON only.',
     '',
     `Current score: ${currentScore.total}/100`,
     `Breakdown: ${JSON.stringify(currentScore.breakdown)}`,
@@ -84,8 +83,8 @@ function parseJsonResponse(text: string): Record<string, unknown> {
   }
 }
 
-function buildAtsInput(jobDescription: string) {
-  const atsResumeData: ATSResumeData = {
+function buildScoringInput(jobDescription: string) {
+  const scorerResumeData: ScorerResumeData = {
     title: resumeData.title,
     yearsExperience: 15,
     teamSize: '13 engineers',
@@ -104,18 +103,18 @@ function buildAtsInput(jobDescription: string) {
   };
 
   const resumeText = resumeDataToText({
-    ...atsResumeData,
+    ...scorerResumeData,
     name: resumeData.name,
     summary: resumeData.brandingStatement,
   });
 
-  const atsScore = calculateATSScore({
+  const readinessScore = calculateReadinessScore({
     jobDescription,
     resumeText,
-    resumeData: atsResumeData,
+    resumeData: scorerResumeData,
   });
 
-  return { atsScore };
+  return { readinessScore };
 }
 
 export async function POST(req: Request) {
@@ -153,24 +152,24 @@ export async function POST(req: Request) {
       'Mozilla/5.0 (compatible; ResumeScoreBot/1.0)'
     );
 
-    const { atsScore } = buildAtsInput(resolvedInput.text);
-    const currentScore = buildScorePayload(atsScore);
+    const { readinessScore } = buildScoringInput(resolvedInput.text);
+    const currentScore = buildScorePayload(readinessScore);
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-6',
       max_tokens: 1200,
       temperature: 0,
       system: [
         {
           type: 'text',
-          text: 'You are an ATS resume optimization analyst. Be concise and accurate.',
+          text: 'You are a resume readiness analyst. Be concise and accurate.',
           cache_control: { type: 'ephemeral', ttl: '1h' },
         },
       ],
       messages: [
         {
           role: 'user',
-          content: `${buildGapAnalysisPrompt(currentScore)}\n\n<job_description>${resolvedInput.text}</job_description>`,
+          content: `${buildGapAnalysisPrompt(currentScore)}\n\n<job_description>${xmlEscape(resolvedInput.text)}</job_description>`,
         },
       ],
     });

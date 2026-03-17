@@ -56,10 +56,10 @@ describe('resume-generator log API route', () => {
       before: 65,
       after: 85,
       breakdown: {
-        keywordRelevance: 32,
-        skillsQuality: 20,
-        experienceAlignment: 18,
-        contentQuality: 8,
+        roleRelevance: 32,
+        claritySkimmability: 20,
+        businessImpact: 18,
+        presentationQuality: 8,
       },
     },
     changesAccepted: [
@@ -68,7 +68,7 @@ describe('resume-generator log API route', () => {
         original: 'Experienced engineer',
         modified: 'Senior software engineer with expertise in cloud platforms',
         reason: 'Added keywords from job description',
-        keywordsAdded: ['cloud platforms', 'senior'],
+        relevanceSignals: ['cloud platforms', 'senior'],
         impactPoints: 5,
       },
     ],
@@ -263,10 +263,10 @@ describe('resume-generator log API route', () => {
         after: 0,
         possibleMax: 0,
         breakdown: {
-          keywordRelevance: 0,
-          skillsQuality: 0,
-          experienceAlignment: 0,
-          contentQuality: 0,
+          roleRelevance: 0,
+          claritySkimmability: 0,
+          businessImpact: 0,
+          presentationQuality: 0,
         },
       });
       expect(parsedContent.changesAccepted).toEqual([]);
@@ -287,10 +287,10 @@ describe('resume-generator log API route', () => {
           before: 'not-a-number',
           after: 80,
           breakdown: {
-            keywordRelevance: 20,
-            skillsQuality: undefined,
-            experienceAlignment: Number.NaN,
-            contentQuality: 30,
+            roleRelevance: 20,
+            claritySkimmability: undefined,
+            businessImpact: Number.NaN,
+            presentationQuality: 30,
           },
         },
       };
@@ -311,10 +311,10 @@ describe('resume-generator log API route', () => {
         after: 80,
         possibleMax: 80,
         breakdown: {
-          keywordRelevance: 20,
-          skillsQuality: 0,
-          experienceAlignment: 0,
-          contentQuality: 10,
+          roleRelevance: 20,
+          claritySkimmability: 0,
+          businessImpact: 0,
+          presentationQuality: 15,
         },
       });
     });
@@ -338,10 +338,10 @@ describe('resume-generator log API route', () => {
           before: 60,
           after: 80,
           breakdown: {
-            keywordRelevance: 30,
-            skillsQuality: 18,
-            experienceAlignment: 17,
-            contentQuality: 8,
+            roleRelevance: 30,
+            claritySkimmability: 18,
+            businessImpact: 17,
+            presentationQuality: 8,
           },
         },
         changesAccepted: [],
@@ -428,10 +428,10 @@ describe('resume-generator log API route', () => {
           before: 55,
           after: 75,
           breakdown: {
-            keywordRelevance: 28,
-            skillsQuality: 16,
-            experienceAlignment: 16,
-            contentQuality: 8,
+            roleRelevance: 28,
+            claritySkimmability: 16,
+            businessImpact: 16,
+            presentationQuality: 8,
           },
         },
         changesAccepted: [
@@ -440,7 +440,7 @@ describe('resume-generator log API route', () => {
             original: 'Old text',
             modified: 'New text',
             reason: 'Improvement',
-            keywordsAdded: ['keyword'],
+            relevanceSignals: ['keyword'],
             impactPoints: 3,
           },
         ],

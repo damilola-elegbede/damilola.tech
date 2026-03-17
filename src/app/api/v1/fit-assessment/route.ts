@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { isIP } from 'node:net';
 import { requireApiKey } from '@/lib/api-key-auth';
+import { xmlEscape } from '@/lib/xml-escape';
 import { logApiAccess } from '@/lib/api-audit';
 import { apiSuccess, Errors } from '@/lib/api-response';
 import { FIT_ASSESSMENT_PROMPT } from '@/lib/generated/system-prompt';
@@ -272,7 +273,7 @@ export async function POST(req: Request) {
 
     // Non-streaming API call for JSON response
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       temperature: 0,
       system: [
@@ -285,7 +286,7 @@ export async function POST(req: Request) {
       messages: [
         {
           role: 'user',
-          content: `Generate an Executive Fit Report for this job description:\n\n<job_description>${jobDescriptionText}</job_description>`,
+          content: `Generate an Executive Fit Report for this job description:\n\n<job_description>${xmlEscape(jobDescriptionText)}</job_description>`,
         },
       ],
     });
@@ -299,7 +300,7 @@ export async function POST(req: Request) {
       timestamp: new Date().toISOString(),
       sessionId: fitSessionId,
       endpoint: 'fit-assessment-api',
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       inputTokens: usage.input_tokens,
       outputTokens: usage.output_tokens,
       cacheCreation: usage.cache_creation_input_tokens ?? 0,
@@ -308,7 +309,7 @@ export async function POST(req: Request) {
 
     logUsage(fitSessionId, {
       endpoint: 'fit-assessment-api',
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       inputTokens: usage.input_tokens,
       outputTokens: usage.output_tokens,
       cacheCreation: usage.cache_creation_input_tokens ?? 0,

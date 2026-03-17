@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { xmlEscape } from '@/lib/xml-escape';
 import { isIP } from 'node:net';
-import { RESUME_GENERATOR_PROMPT } from '@/lib/generated/system-prompt';
+import { getResumeGeneratorPrompt } from '@/lib/resume-generator-prompt';
 import { logAdminEvent } from '@/lib/audit-server';
 import {
   checkGenericRateLimit,
@@ -10,11 +11,11 @@ import {
 } from '@/lib/rate-limit';
 import { logUsage } from '@/lib/usage-logger';
 import {
-  calculateATSScore,
+  calculateReadinessScore,
   resumeDataToText,
-  type ATSScore,
-  type ResumeData as ATSResumeData,
-} from '@/lib/ats-scorer';
+  type ReadinessScore,
+  type ResumeData as ScorerResumeData,
+} from '@/lib/readiness-scorer';
 import { resumeData } from '@/lib/resume-data';
 import { sanitizeBreakdown } from '@/lib/score-utils';
 // ResumeAnalysisResult parsing happens client-side for streaming support
@@ -35,15 +36,13 @@ async function getDnsLookup() {
 
 // Use Node.js runtime (not edge) to allow local file fallback in development
 export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 const client = new Anthropic({
   defaultHeaders: {
     'anthropic-beta': 'extended-cache-ttl-2025-04-11',
   },
 });
-
-// Use generated prompt in production, fall back to runtime fetch in development
-const isGeneratedPromptAvailable = RESUME_GENERATOR_PROMPT !== '__DEVELOPMENT_PLACEHOLDER__';
 
 const MAX_BODY_SIZE = 50 * 1024; // 50KB max request body
 const MIN_EXTRACTED_CONTENT_LENGTH = 100;
@@ -338,25 +337,25 @@ async function fetchWithSizeLimit(
 }
 
 /**
- * Build context about pre-calculated ATS score for Claude.
+ * Build context about pre-calculated readiness score for Claude.
  * This provides Claude with a deterministic baseline to work from.
  */
-function buildScoreContext(atsScore: ATSScore): string {
-  const { breakdown, details } = atsScore;
+function buildScoreContext(score: ReadinessScore): string {
+  const { breakdown, details } = score;
 
-  return `<pre_calculated_ats_score>
-## IMPORTANT: Pre-Calculated ATS Score
+  return `<pre_calculated_readiness_score>
+## IMPORTANT: Pre-Calculated Readiness Score
 
-The system has calculated a deterministic baseline ATS score for this job description.
+The system has calculated a deterministic baseline readiness score for this job description.
 Use this score as your "currentScore" in the response. DO NOT recalculate it.
 
-### Current Score: ${atsScore.total}/100
+### Current Score: ${score.total}/100
 
 ### Breakdown:
-- Keyword Relevance: ${breakdown.keywordRelevance}/45
-- Skills Quality: ${breakdown.skillsQuality}/25
-- Experience Alignment: ${breakdown.experienceAlignment}/20
-- Match Quality: ${breakdown.contentQuality}/10
+- Role Relevance: ${breakdown.roleRelevance}/30
+- Clarity & Skimmability: ${breakdown.claritySkimmability}/30
+- Business Impact: ${breakdown.businessImpact}/25
+- Presentation Quality: ${breakdown.presentationQuality}/15
 
 ### Keyword Analysis:
 - Match Rate: ${details.matchRate}%
@@ -366,60 +365,11 @@ Use this score as your "currentScore" in the response. DO NOT recalculate it.
 
 ### Your Task:
 1. Use the currentScore values EXACTLY as provided above
-2. Focus on incorporating MISSING KEYWORDS naturally
-3. Propose changes that will increase the score toward 90+
+2. Focus on clarity, quantified impact, and natural relevance
+3. Propose changes that improve recruiter readability
 4. Calculate optimizedScore based on your proposed changes
 5. Each change should have an impactPoints estimate
-
-### Optimization Targets:
-- Target score: 90+ (if achievable with factual content)
-- If 90+ not achievable, explain the gap and maximize within bounds
-- Priority: Missing keywords > Keyword placement > Action verbs
-</pre_calculated_ats_score>`;
-}
-
-/**
- * Runtime fetch for the resume generator prompt (development fallback)
- */
-async function getResumeGeneratorPrompt(): Promise<string> {
-  if (isGeneratedPromptAvailable) {
-    return RESUME_GENERATOR_PROMPT;
-  }
-
-  // Development fallback: fetch from blob or local file
-  try {
-    const { fetchResumeGeneratorInstructionsRequired } = await import('@/lib/blob');
-    const { fetchAllContent } = await import('@/lib/blob');
-
-    const [instructions, content] = await Promise.all([
-      fetchResumeGeneratorInstructionsRequired(),
-      fetchAllContent(),
-    ]);
-
-    // Apply replacements
-    let prompt = instructions;
-    const replacements: Record<string, string> = {
-      '{{RESUME_FULL}}': content.resume || '*Resume content not available.*',
-      '{{STAR_STORIES}}': content.starStories || '*STAR stories not available.*',
-      '{{LEADERSHIP_PHILOSOPHY}}': content.leadershipPhilosophy || '*Leadership philosophy not available.*',
-      '{{TECHNICAL_EXPERTISE}}': content.technicalExpertise || '*Technical expertise not available.*',
-      '{{VERILY_FEEDBACK}}': content.verilyFeedback || '*Performance feedback not available.*',
-      '{{PROJECTS_CONTEXT}}': content.projectsContext || '*Projects context not available.*',
-      '{{ANECDOTES}}': content.anecdotes || '*Anecdotes not available.*',
-    };
-
-    for (const [placeholder, value] of Object.entries(replacements)) {
-      prompt = prompt.replace(
-        new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'),
-        () => value
-      );
-    }
-
-    return prompt;
-  } catch (error) {
-    console.error('[resume-generator] Failed to fetch prompt:', error);
-    throw new Error('Resume generator prompt not available');
-  }
+</pre_calculated_readiness_score>`;
 }
 
 export async function POST(req: Request) {
@@ -547,14 +497,13 @@ export async function POST(req: Request) {
     }
 
     // Get the system prompt
-    console.log('[resume-generator] Loading system prompt (generated:', isGeneratedPromptAvailable, ')');
+    console.log('[resume-generator] Loading system prompt...');
     const systemPrompt = await getResumeGeneratorPrompt();
     console.log('[resume-generator] System prompt loaded, length:', systemPrompt.length);
 
-    // Calculate deterministic ATS score before calling Claude
-    // This provides a consistent baseline score that Claude will use for optimization
-    console.log('[resume-generator] Calculating deterministic ATS score...');
-    const atsResumeData: ATSResumeData = {
+    // Calculate deterministic readiness score before calling Claude
+    console.log('[resume-generator] Calculating deterministic readiness score...');
+    const scorerResumeData: ScorerResumeData = {
       title: resumeData.title,
       yearsExperience: 15, // Based on resume data (2009-2024)
       teamSize: '13 engineers',
@@ -571,36 +520,36 @@ export async function POST(req: Request) {
       })) ?? [],
     };
     const resumeText = resumeDataToText({
-      ...atsResumeData,
+      ...scorerResumeData,
       name: resumeData.name,
       summary: resumeData.brandingStatement,
     });
-    const atsScore = calculateATSScore({
+    const readinessScore = calculateReadinessScore({
       jobDescription: jobDescriptionText,
       resumeText,
-      resumeData: atsResumeData,
+      resumeData: scorerResumeData,
     });
-    console.log('[resume-generator] Deterministic ATS score:', atsScore.total);
+    console.log('[resume-generator] Deterministic readiness score:', readinessScore.total);
 
     // Log audit event for generation started
     await logAdminEvent('resume_generation_started', {
       inputType: wasUrl ? 'url' : 'text',
       extractedUrl: extractedUrl || undefined,
       jobDescriptionLength: jobDescriptionText.length,
-      deterministicScore: atsScore.total,
+      deterministicScore: readinessScore.total,
     }, ip);
 
     console.log('[resume-generator] Calling Anthropic API (streaming)...');
 
     // Build the user message with pre-calculated score
-    const scoreContext = buildScoreContext(atsScore);
+    const scoreContext = buildScoreContext(readinessScore);
 
     // Streaming API call for progressive JSON output
     // Wrap job description in XML tags for prompt injection mitigation
     // Use temperature: 0 for deterministic, consistent scoring across runs
     // Enable prompt caching for the system prompt (90% cost reduction on cache hits)
     const stream = client.messages.stream({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-6',
       max_tokens: 8192,
       temperature: 0,
       system: [
@@ -613,7 +562,7 @@ export async function POST(req: Request) {
       messages: [
         {
           role: 'user',
-          content: `${scoreContext}\n\nAnalyze this job description and provide ATS optimization recommendations for the resume. Return ONLY valid JSON, no markdown or code blocks.\n\n<job_description>${jobDescriptionText}</job_description>`,
+          content: `${scoreContext}\n\nAnalyze this job description and provide resume readiness optimization recommendations. Return ONLY valid JSON, no markdown or code blocks.\n\n<job_description>${xmlEscape(jobDescriptionText)}</job_description>`,
         },
       ],
     });
@@ -625,12 +574,12 @@ export async function POST(req: Request) {
       extractedUrl,
       ...(wasUrl ? { resolvedJobDescription: jobDescriptionText } : {}),
       deterministicScore: {
-        total: atsScore.total,
-        breakdown: sanitizeBreakdown(atsScore.breakdown),
-        matchedKeywords: atsScore.details.matchedKeywords,
-        missingKeywords: atsScore.details.missingKeywords,
-        matchRate: atsScore.details.matchRate,
-        keywordDensity: atsScore.details.keywordDensity,
+        total: readinessScore.total,
+        breakdown: sanitizeBreakdown(readinessScore.breakdown),
+        matchedKeywords: readinessScore.details.matchedKeywords,
+        missingKeywords: readinessScore.details.missingKeywords,
+        matchRate: readinessScore.details.matchRate,
+        keywordDensity: readinessScore.details.keywordDensity,
       },
     });
 
@@ -662,7 +611,7 @@ export async function POST(req: Request) {
                 timestamp: new Date().toISOString(),
                 sessionId: resumeSessionId,
                 endpoint: 'resume-generator',
-                model: 'claude-sonnet-4-20250514',
+                model: 'claude-opus-4-6',
                 inputTokens: usage.input_tokens,
                 outputTokens: usage.output_tokens,
                 cacheCreation: usage.cache_creation_input_tokens ?? 0,
@@ -672,7 +621,7 @@ export async function POST(req: Request) {
               // Log to Vercel Blob for usage dashboard (fire-and-forget)
               logUsage(resumeSessionId, {
                 endpoint: 'resume-generator',
-                model: 'claude-sonnet-4-20250514',
+                model: 'claude-opus-4-6',
                 inputTokens: usage.input_tokens,
                 outputTokens: usage.output_tokens,
                 cacheCreation: usage.cache_creation_input_tokens ?? 0,

@@ -17,7 +17,7 @@ import {
   calculateActualKeywordDensity,
   calculateDynamicKeywordCount,
   parseJDSections,
-} from '@/lib/ats-keywords';
+} from '@/lib/jd-keywords';
 
 describe('ATS Keywords - Data Structures', () => {
   describe('STOPWORDS', () => {

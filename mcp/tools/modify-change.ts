@@ -12,7 +12,7 @@ export function registerModifyChange(server: McpServer, client: ApiClient) {
         original: z.string(),
         modified: z.string(),
         reason: z.string(),
-        keywordsAdded: z.array(z.string()),
+        relevanceSignals: z.array(z.string()),
         impactPoints: z.number(),
       }),
       modifyPrompt: z.string().describe('Instructions for how to revise the change'),

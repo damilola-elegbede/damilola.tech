@@ -1,18 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import type { ProposedChange, ResumeAnalysisResult, ScoreCeiling } from '@/lib/types/resume-generation';
-import { calculateEditedImpact, normalizeImpactPoints } from '@/lib/resume-scoring';
+import type { ProposedChange, ResumeAnalysisResult, ScoreCeiling, ImpactBreakdown } from '@/lib/types/resume-generation';
+import { calculateEditedImpact, calculateEditedImpactBreakdown, normalizeImpactPoints } from '@/lib/resume-scoring';
 
 describe('calculateEditedImpact', () => {
-  describe('with impactPerKeyword provided', () => {
+  describe('with impactPerSignal provided', () => {
     it('returns full impact when all keywords are retained', () => {
       const change: ProposedChange = {
         section: 'summary',
         original: 'Original text',
         modified: 'Platform engineering leader with cloud infrastructure expertise',
         reason: 'Added keywords',
-        keywordsAdded: ['platform engineering', 'cloud infrastructure'],
+        relevanceSignals: ['platform engineering', 'cloud infrastructure'],
         impactPoints: 4,
-        impactPerKeyword: 2,
+        impactPerSignal: 2,
       };
 
       const editedText = 'Platform engineering leader with cloud infrastructure expertise';
@@ -27,9 +27,9 @@ describe('calculateEditedImpact', () => {
         original: 'Original text',
         modified: 'Platform engineering leader with cloud infrastructure expertise',
         reason: 'Added keywords',
-        keywordsAdded: ['platform engineering', 'cloud infrastructure'],
+        relevanceSignals: ['platform engineering', 'cloud infrastructure'],
         impactPoints: 4,
-        impactPerKeyword: 2,
+        impactPerSignal: 2,
       };
 
       // Removed 'cloud infrastructure'
@@ -45,9 +45,9 @@ describe('calculateEditedImpact', () => {
         original: 'Original text',
         modified: 'Platform engineering leader with cloud infrastructure expertise',
         reason: 'Added keywords',
-        keywordsAdded: ['platform engineering', 'cloud infrastructure'],
+        relevanceSignals: ['platform engineering', 'cloud infrastructure'],
         impactPoints: 4,
-        impactPerKeyword: 2,
+        impactPerSignal: 2,
       };
 
       const editedText = 'Technology leader with deep technical expertise';
@@ -56,15 +56,15 @@ describe('calculateEditedImpact', () => {
       expect(impact).toBe(0); // 0 keywords retained
     });
 
-    it('handles fractional impactPerKeyword correctly', () => {
+    it('handles fractional impactPerSignal correctly', () => {
       const change: ProposedChange = {
         section: 'skills.cloud',
         original: 'GCP, AWS',
         modified: 'Google Cloud Platform (GCP), AWS, Kubernetes, Terraform, Docker',
         reason: 'Expanded skills',
-        keywordsAdded: ['kubernetes', 'terraform', 'docker', 'helm', 'istio'],
+        relevanceSignals: ['kubernetes', 'terraform', 'docker', 'helm', 'istio'],
         impactPoints: 8,
-        impactPerKeyword: 1.6,
+        impactPerSignal: 1.6,
       };
 
       // Keep only kubernetes and terraform
@@ -75,16 +75,16 @@ describe('calculateEditedImpact', () => {
     });
   });
 
-  describe('without impactPerKeyword (fallback calculation)', () => {
-    it('calculates impactPerKeyword from impactPoints / keywordsAdded.length', () => {
+  describe('without impactPerSignal (fallback calculation)', () => {
+    it('calculates impactPerSignal from impactPoints / relevanceSignals.length', () => {
       const change: ProposedChange = {
         section: 'summary',
         original: 'Original text',
         modified: 'Platform engineering leader with cloud infrastructure expertise',
         reason: 'Added keywords',
-        keywordsAdded: ['platform engineering', 'cloud infrastructure'],
+        relevanceSignals: ['platform engineering', 'cloud infrastructure'],
         impactPoints: 4,
-        // No impactPerKeyword provided
+        // No impactPerSignal provided
       };
 
       const editedText = 'Platform engineering leader with technical expertise';
@@ -100,7 +100,7 @@ describe('calculateEditedImpact', () => {
         original: 'Led teams',
         modified: 'Led cross-functional engineering teams',
         reason: 'Added keywords',
-        keywordsAdded: ['led', 'cross-functional', 'engineering'],
+        relevanceSignals: ['led', 'cross-functional', 'engineering'],
         impactPoints: 6,
       };
 
@@ -112,13 +112,13 @@ describe('calculateEditedImpact', () => {
   });
 
   describe('edge cases', () => {
-    it('returns full impact when keywordsAdded is empty', () => {
+    it('returns full impact when relevanceSignals is empty', () => {
       const change: ProposedChange = {
         section: 'summary',
         original: 'Original text',
         modified: 'Improved text',
         reason: 'Better phrasing',
-        keywordsAdded: [],
+        relevanceSignals: [],
         impactPoints: 3,
       };
 
@@ -134,9 +134,9 @@ describe('calculateEditedImpact', () => {
         original: 'Skills',
         modified: 'Kubernetes, AWS, GCP',
         reason: 'Added cloud skills',
-        keywordsAdded: ['Kubernetes', 'AWS'],
+        relevanceSignals: ['Kubernetes', 'AWS'],
         impactPoints: 4,
-        impactPerKeyword: 2,
+        impactPerSignal: 2,
       };
 
       // Keywords in different case
@@ -152,9 +152,9 @@ describe('calculateEditedImpact', () => {
         original: 'Built platform',
         modified: 'Built CI/CD platform with 99.9% uptime',
         reason: 'Added specifics',
-        keywordsAdded: ['CI/CD', '99.9%'],
+        relevanceSignals: ['CI/CD', '99.9%'],
         impactPoints: 4,
-        impactPerKeyword: 2,
+        impactPerSignal: 2,
       };
 
       const editedText = 'Built CI/CD platform with high availability';
@@ -169,9 +169,9 @@ describe('calculateEditedImpact', () => {
         original: 'Skills',
         modified: 'JavaScript, TypeScript, React',
         reason: 'Added frontend skills',
-        keywordsAdded: ['JavaScript', 'TypeScript'],
+        relevanceSignals: ['JavaScript', 'TypeScript'],
         impactPoints: 4,
-        impactPerKeyword: 2,
+        impactPerSignal: 2,
       };
 
       // "Script" alone should NOT match "JavaScript" or "TypeScript"
@@ -187,9 +187,9 @@ describe('calculateEditedImpact', () => {
         original: 'Skills',
         modified: 'C, Python',
         reason: 'Added language keyword',
-        keywordsAdded: ['c'],
+        relevanceSignals: ['c'],
         impactPoints: 2,
-        impactPerKeyword: 2,
+        impactPerSignal: 2,
       };
 
       const editedText = 'Experienced in cloud platforms';
@@ -204,9 +204,9 @@ describe('calculateEditedImpact', () => {
         original: 'Skills',
         modified: 'C++, Python',
         reason: 'Added language keyword',
-        keywordsAdded: ['c++'],
+        relevanceSignals: ['c++'],
         impactPoints: 2,
-        impactPerKeyword: 2,
+        impactPerSignal: 2,
       };
 
       const editedText = 'Experienced in C+ migration projects';
@@ -221,9 +221,9 @@ describe('calculateEditedImpact', () => {
         original: 'Managed cloud migration',
         modified: 'Led cloud migration',
         reason: 'Changed verb to match JD',
-        keywordsAdded: ['led'],
+        relevanceSignals: ['led'],
         impactPoints: 2,
-        impactPerKeyword: 2,
+        impactPerSignal: 2,
       };
 
       const editedText = 'Led the cloud migration project';
@@ -238,9 +238,9 @@ describe('calculateEditedImpact', () => {
         original: 'Managed cloud migration',
         modified: 'Led cloud migration',
         reason: 'Changed verb to match JD',
-        keywordsAdded: ['led'],
+        relevanceSignals: ['led'],
         impactPoints: 2,
-        impactPerKeyword: 2,
+        impactPerSignal: 2,
       };
 
       // Changed back to "managed"
@@ -256,7 +256,7 @@ describe('calculateEditedImpact', () => {
         original: 'Skills',
         modified: 'Added 5 skills',
         reason: 'More skills',
-        keywordsAdded: ['skill1', 'skill2', 'skill3'],
+        relevanceSignals: ['skill1', 'skill2', 'skill3'],
         impactPoints: 5, // 5/3 = 1.67 per keyword
       };
 
@@ -267,6 +267,82 @@ describe('calculateEditedImpact', () => {
       // 2 * 1.67 = 3.33, rounds to 3
       expect(impact).toBe(3);
     });
+  });
+});
+
+describe('calculateEditedImpactBreakdown', () => {
+  it('returns undefined when change has no impactBreakdown', () => {
+    const change: ProposedChange = {
+      section: 'summary',
+      original: 'Old',
+      modified: 'New with cloud',
+      reason: 'Test',
+      relevanceSignals: ['cloud'],
+      impactPoints: 4,
+    };
+    expect(calculateEditedImpactBreakdown(change, 'New with cloud')).toBeUndefined();
+  });
+
+  it('returns full breakdown when all signals retained', () => {
+    const change: ProposedChange = {
+      section: 'summary',
+      original: 'Old',
+      modified: 'New with cloud and k8s',
+      reason: 'Test',
+      relevanceSignals: ['cloud', 'kubernetes'],
+      impactPoints: 4,
+      impactBreakdown: { roleRelevance: 2, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 },
+    };
+    const result = calculateEditedImpactBreakdown(change, 'New with cloud and kubernetes');
+    expect(result).toEqual({ roleRelevance: 2, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 });
+  });
+
+  it('scales breakdown proportionally when signals removed', () => {
+    const change: ProposedChange = {
+      section: 'summary',
+      original: 'Old',
+      modified: 'New with cloud and k8s',
+      reason: 'Test',
+      relevanceSignals: ['cloud', 'kubernetes'],
+      impactPoints: 4,
+      impactBreakdown: { roleRelevance: 2, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 },
+    };
+    const result = calculateEditedImpactBreakdown(change, 'New with cloud only');
+    // 50% retained: each value halved and rounded
+    expect(result).toEqual({ roleRelevance: 1, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 });
+  });
+
+  it('returns all zeros when no signals retained', () => {
+    const change: ProposedChange = {
+      section: 'summary',
+      original: 'Old',
+      modified: 'New with cloud',
+      reason: 'Test',
+      relevanceSignals: ['cloud', 'kubernetes'],
+      impactPoints: 4,
+      impactBreakdown: { roleRelevance: 2, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 },
+    };
+    const result = calculateEditedImpactBreakdown(change, 'Something completely different');
+    expect(result).toEqual({ roleRelevance: 0, claritySkimmability: 0, businessImpact: 0, presentationQuality: 0 });
+  });
+
+  it('returns integer values only', () => {
+    const change: ProposedChange = {
+      section: 'summary',
+      original: 'Old',
+      modified: 'New',
+      reason: 'Test',
+      relevanceSignals: ['a', 'b', 'c'],
+      impactPoints: 5,
+      impactBreakdown: { roleRelevance: 3, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 },
+    };
+    // 1 of 3 retained = 33%
+    const result = calculateEditedImpactBreakdown(change, 'a only');
+    expect(result).toBeDefined();
+    expect(Number.isInteger(result!.roleRelevance)).toBe(true);
+    expect(Number.isInteger(result!.claritySkimmability)).toBe(true);
+    expect(Number.isInteger(result!.businessImpact)).toBe(true);
+    expect(Number.isInteger(result!.presentationQuality)).toBe(true);
   });
 });
 
@@ -303,7 +379,7 @@ describe('projected score calculation', () => {
         original: 'Old',
         modified: 'New with keyword1',
         reason: 'Test',
-        keywordsAdded: ['keyword1'],
+        relevanceSignals: ['keyword1'],
         impactPoints: 3,
       },
       {
@@ -311,7 +387,7 @@ describe('projected score calculation', () => {
         original: 'Old skills',
         modified: 'New skills with keyword2',
         reason: 'Test',
-        keywordsAdded: ['keyword2'],
+        relevanceSignals: ['keyword2'],
         impactPoints: 5,
       },
     ];
@@ -331,7 +407,7 @@ describe('projected score calculation', () => {
         original: 'Old',
         modified: 'New',
         reason: 'Test',
-        keywordsAdded: ['keyword1'],
+        relevanceSignals: ['keyword1'],
         impactPoints: 3,
       },
       {
@@ -339,7 +415,7 @@ describe('projected score calculation', () => {
         original: 'Old',
         modified: 'New',
         reason: 'Test',
-        keywordsAdded: ['keyword2'],
+        relevanceSignals: ['keyword2'],
         impactPoints: 5,
       },
     ];
@@ -359,9 +435,9 @@ describe('projected score calculation', () => {
         original: 'Old',
         modified: 'New with keyword1 and keyword2',
         reason: 'Test',
-        keywordsAdded: ['keyword1', 'keyword2'],
+        relevanceSignals: ['keyword1', 'keyword2'],
         impactPoints: 6,
-        impactPerKeyword: 3,
+        impactPerSignal: 3,
       },
     ];
 
@@ -380,7 +456,7 @@ describe('projected score calculation', () => {
         original: 'Old',
         modified: 'New',
         reason: 'Test',
-        keywordsAdded: ['keyword1'],
+        relevanceSignals: ['keyword1'],
         impactPoints: 50,
       },
     ];
@@ -400,7 +476,7 @@ describe('projected score calculation', () => {
         original: 'Old',
         modified: 'New',
         reason: 'Test',
-        keywordsAdded: ['keyword1'],
+        relevanceSignals: ['keyword1'],
         impactPoints: 5,
       },
     ];
@@ -433,13 +509,13 @@ function makeResult(
     },
     currentScore: {
       total: currentTotal,
-      breakdown: { keywordRelevance: 20, skillsQuality: 15, experienceAlignment: 10, contentQuality: 8 },
+      breakdown: { roleRelevance: 20, claritySkimmability: 15, businessImpact: 10, presentationQuality: 8 },
       assessment: 'Test',
     },
     proposedChanges: changes,
     optimizedScore: {
       total: optimizedTotal,
-      breakdown: { keywordRelevance: 30, skillsQuality: 20, experienceAlignment: 15, contentQuality: 8 },
+      breakdown: { roleRelevance: 30, claritySkimmability: 20, businessImpact: 15, presentationQuality: 8 },
       assessment: 'Test',
     },
     gaps: [],
@@ -452,8 +528,8 @@ function makeResult(
 describe('normalizeImpactPoints', () => {
   it('does not normalize when sum <= budget', () => {
     const changes: ProposedChange[] = [
-      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k1'], impactPoints: 5 },
-      { section: 'skills', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k2'], impactPoints: 3 },
+      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k1'], impactPoints: 5 },
+      { section: 'skills', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k2'], impactPoints: 3 },
     ];
     // budget = min(100, 80) - 72 = 8, sum = 8
     const result = makeResult(72, 80, changes);
@@ -465,9 +541,9 @@ describe('normalizeImpactPoints', () => {
 
   it('proportionally scales when sum > budget', () => {
     const changes: ProposedChange[] = [
-      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k1'], impactPoints: 10 },
-      { section: 'skills', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k2'], impactPoints: 10 },
-      { section: 'experience.a', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k3'], impactPoints: 15 },
+      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k1'], impactPoints: 10 },
+      { section: 'skills', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k2'], impactPoints: 10 },
+      { section: 'experience.a', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k3'], impactPoints: 15 },
     ];
     // sum = 35, budget = min(100, 89) - 65 = 24
     const result = makeResult(65, 89, changes);
@@ -484,14 +560,14 @@ describe('normalizeImpactPoints', () => {
 
   it('uses scoreCeiling.maximum for budget when present', () => {
     const changes: ProposedChange[] = [
-      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k1'], impactPoints: 20 },
-      { section: 'skills', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k2'], impactPoints: 15 },
+      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k1'], impactPoints: 20 },
+      { section: 'skills', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k2'], impactPoints: 15 },
     ];
     // sum = 35, ceiling = 85, budget = min(85, 89) - 65 = 20
     const result = makeResult(65, 89, changes, {
       maximum: 85,
       blockers: ['Missing React experience'],
-      toReach90: 'Add React projects',
+      toImprove: 'Add React projects',
     });
     const normalized = normalizeImpactPoints(result);
 
@@ -499,13 +575,13 @@ describe('normalizeImpactPoints', () => {
     expect(Math.round(normalizedSum)).toBe(20);
   });
 
-  it('scales impactPerKeyword proportionally', () => {
+  it('scales impactPerSignal proportionally', () => {
     const changes: ProposedChange[] = [
       {
         section: 'summary', original: 'Old', modified: 'New', reason: 'Test',
-        keywordsAdded: ['k1', 'k2'],
+        relevanceSignals: ['k1', 'k2'],
         impactPoints: 20,
-        impactPerKeyword: 10,
+        impactPerSignal: 10,
       },
     ];
     // sum = 20, budget = min(100, 75) - 65 = 10, scaleFactor = 0.5
@@ -513,19 +589,19 @@ describe('normalizeImpactPoints', () => {
     const normalized = normalizeImpactPoints(result);
 
     expect(normalized.proposedChanges[0].impactPoints).toBe(10);
-    expect(normalized.proposedChanges[0].impactPerKeyword).toBe(5);
+    expect(normalized.proposedChanges[0].impactPerSignal).toBe(5);
   });
 
   it('handles zero budget (current >= ceiling) -- all impacts become 0', () => {
     const changes: ProposedChange[] = [
-      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k1'], impactPoints: 10 },
-      { section: 'skills', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k2'], impactPoints: 5 },
+      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k1'], impactPoints: 10 },
+      { section: 'skills', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k2'], impactPoints: 5 },
     ];
     // current = 85, ceiling = 85 => budget = min(85, 90) - 85 = 0
     const result = makeResult(85, 90, changes, {
       maximum: 85,
       blockers: ['Already at ceiling'],
-      toReach90: 'N/A',
+      toImprove: 'N/A',
     });
     const normalized = normalizeImpactPoints(result);
 
@@ -533,13 +609,62 @@ describe('normalizeImpactPoints', () => {
     expect(normalized.proposedChanges[1].impactPoints).toBe(0);
   });
 
+  it('scales impactBreakdown proportionally when present', () => {
+    const changes: ProposedChange[] = [
+      {
+        section: 'summary', original: 'Old', modified: 'New', reason: 'Test',
+        relevanceSignals: ['k1'],
+        impactPoints: 20,
+        impactBreakdown: { roleRelevance: 8, claritySkimmability: 6, businessImpact: 4, presentationQuality: 2 },
+      },
+    ];
+    // sum = 20, budget = min(100, 75) - 65 = 10, scaleFactor = 0.5
+    const result = makeResult(65, 75, changes);
+    const normalized = normalizeImpactPoints(result);
+
+    expect(normalized.proposedChanges[0].impactBreakdown).toEqual({
+      roleRelevance: 4,
+      claritySkimmability: 3,
+      businessImpact: 2,
+      presentationQuality: 1,
+    });
+  });
+
+  it('all impact values are integers after normalization', () => {
+    const changes: ProposedChange[] = [
+      {
+        section: 'a', original: 'O', modified: 'N', reason: 'T',
+        relevanceSignals: ['k1'], impactPoints: 7,
+        impactBreakdown: { roleRelevance: 3, claritySkimmability: 2, businessImpact: 1, presentationQuality: 1 },
+      },
+      {
+        section: 'b', original: 'O', modified: 'N', reason: 'T',
+        relevanceSignals: ['k2'], impactPoints: 7,
+        impactBreakdown: { roleRelevance: 2, claritySkimmability: 3, businessImpact: 1, presentationQuality: 1 },
+      },
+    ];
+    // sum = 14, budget = min(100, 75) - 65 = 10
+    const result = makeResult(65, 75, changes);
+    const normalized = normalizeImpactPoints(result);
+
+    for (const change of normalized.proposedChanges) {
+      expect(Number.isInteger(change.impactPoints)).toBe(true);
+      if (change.impactBreakdown) {
+        expect(Number.isInteger(change.impactBreakdown.roleRelevance)).toBe(true);
+        expect(Number.isInteger(change.impactBreakdown.claritySkimmability)).toBe(true);
+        expect(Number.isInteger(change.impactBreakdown.businessImpact)).toBe(true);
+        expect(Number.isInteger(change.impactBreakdown.presentationQuality)).toBe(true);
+      }
+    }
+  });
+
   it('rounding does not cause sum to exceed budget', () => {
     const changes: ProposedChange[] = [
-      { section: 'a', original: 'O', modified: 'N', reason: 'T', keywordsAdded: ['k1'], impactPoints: 7 },
-      { section: 'b', original: 'O', modified: 'N', reason: 'T', keywordsAdded: ['k2'], impactPoints: 7 },
-      { section: 'c', original: 'O', modified: 'N', reason: 'T', keywordsAdded: ['k3'], impactPoints: 7 },
-      { section: 'd', original: 'O', modified: 'N', reason: 'T', keywordsAdded: ['k4'], impactPoints: 7 },
-      { section: 'e', original: 'O', modified: 'N', reason: 'T', keywordsAdded: ['k5'], impactPoints: 7 },
+      { section: 'a', original: 'O', modified: 'N', reason: 'T', relevanceSignals: ['k1'], impactPoints: 7 },
+      { section: 'b', original: 'O', modified: 'N', reason: 'T', relevanceSignals: ['k2'], impactPoints: 7 },
+      { section: 'c', original: 'O', modified: 'N', reason: 'T', relevanceSignals: ['k3'], impactPoints: 7 },
+      { section: 'd', original: 'O', modified: 'N', reason: 'T', relevanceSignals: ['k4'], impactPoints: 7 },
+      { section: 'e', original: 'O', modified: 'N', reason: 'T', relevanceSignals: ['k5'], impactPoints: 7 },
     ];
     // sum = 35, budget = 24
     const result = makeResult(65, 89, changes);
@@ -582,7 +707,7 @@ describe('projected score with ceiling', () => {
 
   it('caps at ceiling when present', () => {
     const changes: ProposedChange[] = [
-      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k1'], impactPoints: 30 },
+      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k1'], impactPoints: 30 },
     ];
 
     const score = calculateProjectedScoreWithCeiling(
@@ -590,7 +715,7 @@ describe('projected score with ceiling', () => {
       changes,
       new Set([0]),
       new Map(),
-      { maximum: 85, blockers: ['Missing React'], toReach90: 'Add React' }
+      { maximum: 85, blockers: ['Missing React'], toImprove: 'Add React' }
     );
 
     expect(score).toBe(85); // Capped at ceiling, not 95
@@ -598,7 +723,7 @@ describe('projected score with ceiling', () => {
 
   it('does not cap beyond 100 when no ceiling', () => {
     const changes: ProposedChange[] = [
-      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k1'], impactPoints: 50 },
+      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k1'], impactPoints: 50 },
     ];
 
     const score = calculateProjectedScoreWithCeiling(
@@ -615,9 +740,9 @@ describe('projected score with ceiling', () => {
     const changes: ProposedChange[] = [
       {
         section: 'summary', original: 'Old', modified: 'New with k1 and k2', reason: 'Test',
-        keywordsAdded: ['k1', 'k2'],
+        relevanceSignals: ['k1', 'k2'],
         impactPoints: 30,
-        impactPerKeyword: 15,
+        impactPerSignal: 15,
       },
     ];
 
@@ -627,7 +752,7 @@ describe('projected score with ceiling', () => {
       changes,
       new Set([0]),
       new Map([[0, 'New with k1 only']]),
-      { maximum: 85, blockers: ['Gap'], toReach90: 'Fix gap' }
+      { maximum: 85, blockers: ['Gap'], toImprove: 'Fix gap' }
     );
 
     expect(score).toBe(80); // 65 + 15 = 80, which is below ceiling of 85
@@ -635,7 +760,7 @@ describe('projected score with ceiling', () => {
 
   it('ceiling does not lift score (only caps downward)', () => {
     const changes: ProposedChange[] = [
-      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', keywordsAdded: ['k1'], impactPoints: 5 },
+      { section: 'summary', original: 'Old', modified: 'New', reason: 'Test', relevanceSignals: ['k1'], impactPoints: 5 },
     ];
 
     const score = calculateProjectedScoreWithCeiling(
@@ -643,7 +768,7 @@ describe('projected score with ceiling', () => {
       changes,
       new Set([0]),
       new Map(),
-      { maximum: 85, blockers: ['Gap'], toReach90: 'Fix gap' }
+      { maximum: 85, blockers: ['Gap'], toImprove: 'Fix gap' }
     );
 
     expect(score).toBe(70); // 65 + 5 = 70, below ceiling so no capping

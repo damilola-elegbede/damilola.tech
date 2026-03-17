@@ -4,18 +4,12 @@ import { logApiAccess } from '@/lib/api-audit';
 import { apiSuccess, Errors } from '@/lib/api-response';
 import { getClientIp } from '@/lib/rate-limit';
 import type { ModifyChangeRequest, ProposedChange } from '@/lib/types/resume-generation';
+import { xmlEscape } from '@/lib/xml-escape';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 const client = new Anthropic();
-
-function xmlEscape(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -35,8 +29,8 @@ function isValidProposedChange(value: unknown): value is ProposedChange {
     isNonEmptyString(value.original) &&
     isNonEmptyString(value.modified) &&
     isNonEmptyString(value.reason) &&
-    Array.isArray(value.keywordsAdded) &&
-    value.keywordsAdded.every((keyword) => typeof keyword === 'string') &&
+    Array.isArray(value.relevanceSignals) &&
+    value.relevanceSignals.every((signal) => typeof signal === 'string') &&
     typeof value.impactPoints === 'number'
   );
 }
@@ -88,7 +82,7 @@ export async function POST(req: Request) {
     const { originalChange, modifyPrompt, jobDescription } = parsedBody;
 
     // Wrap user input in XML tags for prompt injection mitigation
-    const prompt = `You are revising a single resume change for ATS optimization.
+    const prompt = `You are revising a single resume change for readability and relevance optimization.
 
 <original_change>
 Section: ${xmlEscape(originalChange.section)}
@@ -102,18 +96,26 @@ Reason: ${xmlEscape(originalChange.reason)}
 Job Description (for context, truncated to 4000 chars to fit context window):
 <job_description>${xmlEscape(jobDescription.slice(0, 4000))}</job_description>
 
-Return ONLY a JSON object with the revised change (no markdown code blocks):
+Return ONLY a JSON object with the revised change (no markdown code blocks).
+All point values MUST be non-negative integers. impactPoints MUST equal the sum of impactBreakdown values.
+Bullets must be ≤150 characters. Use exact titles from source data — never fabricate skills or experience.
 {
-  "section": "${originalChange.section}",
-  "original": "${originalChange.original}",
+  "section": ${JSON.stringify(originalChange.section)},
+  "original": ${JSON.stringify(originalChange.original)},
   "modified": "YOUR REVISED TEXT HERE",
   "reason": "Updated reason explaining the change",
-  "keywordsAdded": ["keyword1", "keyword2"],
-  "impactPoints": ${originalChange.impactPoints}
+  "relevanceSignals": ["signal1", "signal2"],
+  "impactPoints": ${originalChange.impactPoints},
+  "impactBreakdown": {
+    "roleRelevance": 0,
+    "claritySkimmability": 0,
+    "businessImpact": 0,
+    "presentationQuality": 0
+  }
 }`;
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-6',
       max_tokens: 1000,
       temperature: 0,
       messages: [
@@ -145,8 +147,9 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
       !revisedChange.original ||
       !revisedChange.modified ||
       !revisedChange.reason ||
-      !Array.isArray(revisedChange.keywordsAdded) ||
-      typeof revisedChange.impactPoints !== 'number'
+      !(Array.isArray(revisedChange.relevanceSignals) &&
+        revisedChange.relevanceSignals.every((s: unknown) => typeof s === 'string')) ||
+      !Number.isFinite(revisedChange.impactPoints)
     ) {
       return Errors.internalError('Invalid response structure from AI');
     }
@@ -162,7 +165,7 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
     logApiAccess('api_modify_change', authResult.apiKey, {
       section: originalChange.section,
       impactPoints: revisedChange.impactPoints,
-      keywordCount: revisedChange.keywordsAdded.length,
+      signalCount: revisedChange.relevanceSignals.length,
     }, ip).catch((err) => console.warn('[api/v1/resume-generator/modify-change] Failed to log audit:', err));
 
     return apiSuccess({ revisedChange });
