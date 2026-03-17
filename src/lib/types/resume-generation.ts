@@ -76,7 +76,7 @@ export function normalizeBreakdown(b: ScoreBreakdown | LegacyScoreBreakdown): Sc
   if (isLegacyBreakdown(b)) {
     return migrateBreakdownToV3(b);
   }
-  const obj = (b ?? {}) as Record<string, unknown>;
+  const obj = (b ?? {}) as unknown as Record<string, unknown>;
   return {
     roleRelevance: clampScore(obj.roleRelevance, 0, 30),
     claritySkimmability: clampScore(obj.claritySkimmability, 0, 30),
