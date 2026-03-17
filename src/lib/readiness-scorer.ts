@@ -14,7 +14,6 @@
 import {
   extractKeywords,
   matchKeywords,
-  wordCount,
   calculateMatchRate,
   calculateActualKeywordDensity,
   calculateDynamicKeywordCount,
@@ -110,7 +109,7 @@ function emptyExtractedKeywords(): ExtractedKeywords {
 }
 
 function normalizeSkill(skill: string): string {
-  return skill.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return skill.toLowerCase().trim();
 }
 
 function escapeRegex(value: string): string {
@@ -120,11 +119,15 @@ function escapeRegex(value: string): string {
 function containsExactTerm(haystackLower: string, term: string): boolean {
   const keyword = term.toLowerCase().trim();
   if (!keyword) return false;
-  const isPhrase = keyword.includes(' ');
   const hasSpecialChars = /[\/+#.-]/.test(keyword);
-  if (isPhrase || hasSpecialChars) return haystackLower.includes(keyword);
-  if (keyword.length <= 3) return new RegExp(`\\b${escapeRegex(keyword)}\\b`).test(haystackLower);
-  return haystackLower.includes(keyword);
+  if (hasSpecialChars) {
+    // For terms with special chars (C#, C++, CI/CD), use escaped literal match
+    return new RegExp(`(?:^|[^a-zA-Z0-9])${escapeRegex(keyword)}(?:$|[^a-zA-Z0-9])`).test(haystackLower)
+      || haystackLower.startsWith(keyword)
+      || haystackLower.endsWith(keyword);
+  }
+  // For all other terms, use word boundary matching to prevent Java→JavaScript
+  return new RegExp(`\\b${escapeRegex(keyword)}\\b`).test(haystackLower);
 }
 
 function uniqueKeywords(values: string[]): string[] {
@@ -185,9 +188,7 @@ function calculateRoleRelevance(
     let hits = 0;
     for (const skill of hardSkills) {
       const normalized = normalizeSkill(skill);
-      const matched = [...resumeSkills].some(rs =>
-        rs === normalized || rs.includes(normalized) || normalized.includes(rs)
-      );
+      const matched = [...resumeSkills].some(rs => rs === normalized);
       if (matched || containsExactTerm(resumeLower, skill)) {
         hits++;
       }
@@ -308,9 +309,16 @@ function calculateBusinessImpact(resumeData: ResumeData): number {
 
   if (allBullets.length === 0) return 0;
 
-  // Metrics presence (10 pts): ratio of bullets with numbers/percentages/$
-  const metricsPattern = /\d+[\s]*[%$kKmMbB]|\$[\s]*\d|increased|reduced|improved|decreased|saved|grew|cut|accelerated.*\d/i;
-  const bulletsWithMetrics = allBullets.filter(b => metricsPattern.test(b)).length;
+  // Metrics presence (10 pts): ratio of bullets with quantified results
+  // Strict numeric: numbers with units/suffixes (%, $, k, etc.)
+  const strictNumericPattern = /\d+[\s]*[%$kKmMbB]|\$[\s]*\d|\d+[,\d]*\s*(?:percent|hours|days|weeks|months|engineers|teams|users|customers|systems|services|applications)/i;
+  // Impact verb + number nearby (verb must co-occur with a number)
+  const impactVerbWithNumber = /\b(?:increased|reduced|improved|decreased|saved|grew|cut|accelerated|eliminated|boosted|lowered|expanded)\b.*\d|\d.*\b(?:increased|reduced|improved|decreased|saved|grew|cut|accelerated|eliminated|boosted|lowered|expanded)\b/i;
+  // Any bullet containing a number (catches "Led 13 engineers", "30+ systems")
+  const hasNumber = /\d+/;
+  const bulletsWithMetrics = allBullets.filter(b =>
+    strictNumericPattern.test(b) || impactVerbWithNumber.test(b) || hasNumber.test(b)
+  ).length;
   const metricsRatio = bulletsWithMetrics / allBullets.length;
   score += metricsRatio * 10;
 
@@ -458,7 +466,7 @@ export function calculateReadinessScore(input: ScoringInput): ReadinessScore {
   if (!jobDescription || jobDescription.trim().length === 0) {
     return {
       total: 0,
-      isOptimized: true,
+      isOptimized: false,
       breakdown: { roleRelevance: 0, claritySkimmability: 0, businessImpact: 0, presentationQuality: 0 },
       details: {
         matchedKeywords: [], missingKeywords: [],
@@ -474,7 +482,7 @@ export function calculateReadinessScore(input: ScoringInput): ReadinessScore {
     const extractedKeywords = extractKeywords(jobDescription, dynamicCount);
     return {
       total: 0,
-      isOptimized: true,
+      isOptimized: false,
       breakdown: { roleRelevance: 0, claritySkimmability: 0, businessImpact: 0, presentationQuality: 0 },
       details: {
         matchedKeywords: [], missingKeywords: extractedKeywords.all,
@@ -495,7 +503,6 @@ export function calculateReadinessScore(input: ScoringInput): ReadinessScore {
     allowSynonyms: true,
   });
 
-  const resumeWordCount = wordCount(resumeText);
   const strictMatchResult = matchKeywords(extractedKeywords.all, resumeText, {
     allowStem: false,
     allowSynonyms: false,
@@ -524,12 +531,12 @@ export function calculateReadinessScore(input: ScoringInput): ReadinessScore {
 
   return {
     total,
-    isOptimized: true,
+    isOptimized: total >= 70,
     breakdown,
     details: {
       matchedKeywords: matchResult.matched,
       missingKeywords: matchResult.missing,
-      keywordDensity: Math.round((matchResult.matched.length / Math.max(resumeWordCount, 1)) * 1000) / 10,
+      keywordDensity: Math.round(actualDensity.overallDensity * 10) / 10,
       matchRate: strictMatchRate,
       extractedKeywords,
       matchDetails: matchResult.matchDetails,

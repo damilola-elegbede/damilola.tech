@@ -252,11 +252,11 @@ function ChangeCard({
             )}
 
             {/* Keywords Added (only in view mode for pending) */}
-            {mode === 'view' && change.relevanceSignals.length > 0 && (
+            {mode === 'view' && (change.relevanceSignals ?? []).length > 0 && (
               <div>
                 <p className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">Keywords Added</p>
                 <div className="flex flex-wrap gap-1">
-                  {change.relevanceSignals.map((keyword, i) => (
+                  {(change.relevanceSignals ?? []).map((keyword, i) => (
                     <span
                       key={i}
                       className="rounded-full bg-[var(--color-accent)]/10 px-2 py-0.5 text-xs text-[var(--color-accent)]"

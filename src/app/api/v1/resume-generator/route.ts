@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { requireApiKey } from '@/lib/api-key-auth';
 import { logApiAccess } from '@/lib/api-audit';
 import { apiSuccess, Errors } from '@/lib/api-response';
+import { xmlEscape } from '@/lib/xml-escape';
 import {
   checkGenericRateLimit,
   getClientIp,
@@ -219,7 +220,7 @@ export async function POST(req: Request) {
             messages: [
               {
                 role: 'user',
-                content: `${buildScoreContext(readinessScore)}\n\nAnalyze this job description and provide resume readiness optimization recommendations. Return ONLY valid JSON, no markdown or code blocks.\n\n<job_description>${resolvedInput.text}</job_description>`,
+                content: `${buildScoreContext(readinessScore)}\n\nAnalyze this job description and provide resume readiness optimization recommendations. Return ONLY valid JSON, no markdown or code blocks.\n\n<job_description>${xmlEscape(resolvedInput.text)}</job_description>`,
               },
             ],
           },

@@ -4,18 +4,12 @@ import { logApiAccess } from '@/lib/api-audit';
 import { apiSuccess, Errors } from '@/lib/api-response';
 import { getClientIp } from '@/lib/rate-limit';
 import type { ModifyChangeRequest, ProposedChange } from '@/lib/types/resume-generation';
+import { xmlEscape } from '@/lib/xml-escape';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 const client = new Anthropic();
-
-function xmlEscape(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

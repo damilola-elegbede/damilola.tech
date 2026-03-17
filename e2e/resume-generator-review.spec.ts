@@ -1,14 +1,149 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+/**
+ * Deterministic mock response for the resume generator API.
+ * Eliminates AI dependency — tests exercise the full UI review workflow
+ * against a fixed response shape.
+ */
+const MOCK_METADATA = {
+  wasUrl: false,
+  deterministicScore: {
+    total: 72,
+    breakdown: {
+      roleRelevance: 20,
+      claritySkimmability: 22,
+      businessImpact: 18,
+      presentationQuality: 12,
+    },
+    matchedKeywords: ['engineering', 'manager', 'cloud', 'gcp', 'leadership'],
+    missingKeywords: ['aws', 'communication'],
+    matchRate: 71.4,
+    keywordDensity: 2.3,
+  },
+};
+
+const MOCK_ANALYSIS = {
+  analysis: {
+    jdSummary: 'Software Engineering Manager role requiring cloud and leadership experience',
+    companyName: 'Test Company Inc.',
+    roleTitle: 'Software Engineering Manager',
+    department: 'Engineering',
+    topKeywords: ['engineering', 'manager', 'cloud', 'aws', 'gcp', 'leadership', 'communication'],
+    requiredSkills: ['cloud platforms', 'team leadership', 'software development'],
+    niceToHaveSkills: ['communication skills'],
+    yearsRequired: '5+',
+    teamSize: 'Not specified',
+    scopeExpected: 'Engineering team',
+    industryContext: 'Technology',
+  },
+  currentScore: {
+    total: 72,
+    breakdown: {
+      roleRelevance: 20,
+      claritySkimmability: 22,
+      businessImpact: 18,
+      presentationQuality: 12,
+    },
+    assessment: 'Strong presentation with minor refinement opportunities',
+  },
+  proposedChanges: [
+    {
+      section: 'summary',
+      original: 'Strategic engineering leader with 15+ years of experience',
+      modified: 'Cloud-focused engineering leader with 15+ years scaling infrastructure teams',
+      reason: 'Frontloaded cloud and infrastructure keywords to match JD emphasis',
+      relevanceSignals: ['cloud', 'infrastructure', 'engineering leader'],
+      impactPoints: 4,
+      impactPerSignal: 1.3,
+    },
+    {
+      section: 'experience.verily.bullet1',
+      original: 'Architected and executed enterprise-wide GCP cloud transformation',
+      modified: 'Led enterprise-wide GCP cloud transformation supporting 30+ production systems, reducing deployment time by 60%',
+      reason: 'Added quantified business impact and led with action verb from JD',
+      relevanceSignals: ['led', 'cloud'],
+      impactPoints: 3,
+      impactPerSignal: 1.5,
+    },
+    {
+      section: 'skills.cloud',
+      original: 'GCP, AWS',
+      modified: 'Google Cloud Platform (GCP), Amazon Web Services (AWS), Kubernetes, Docker',
+      reason: 'Expanded cloud skills with both acronyms and full names for recruiter findability',
+      relevanceSignals: ['kubernetes', 'docker', 'aws'],
+      impactPoints: 5,
+      impactPerSignal: 1.7,
+    },
+  ],
+  optimizedScore: {
+    total: 84,
+    breakdown: {
+      roleRelevance: 26,
+      claritySkimmability: 25,
+      businessImpact: 21,
+      presentationQuality: 12,
+    },
+    assessment: 'Strong presentation with minor refinement opportunities',
+  },
+  gaps: [
+    {
+      requirement: 'Communication skills emphasis',
+      severity: 'minor',
+      inResume: false,
+      mitigation: 'Add communication examples from cross-functional leadership experience',
+    },
+  ],
+  skillsReorder: {
+    before: ['Leadership', 'Cloud', 'DevOps'],
+    after: ['Cloud', 'Leadership', 'DevOps'],
+    reason: 'Prioritized cloud skills to match JD emphasis',
+  },
+  interviewPrep: [
+    'Prepare examples of AWS experience alongside GCP',
+    'Have specific metrics ready for cloud migration impact',
+  ],
+  scoreCeiling: {
+    maximum: 84,
+    blockers: ['No explicit AWS project experience in sources'],
+    toImprove: 'Adding AWS project work would improve cloud skills coverage',
+  },
+};
+
+/**
+ * Build the streaming response body: metadata JSON on first line, then analysis JSON.
+ */
+function buildMockResponseBody(): string {
+  return JSON.stringify(MOCK_METADATA) + '\n' + JSON.stringify(MOCK_ANALYSIS);
+}
+
+/**
+ * Intercept the resume generator API with a deterministic mock response.
+ * Returns instantly — no AI call, no timeout risk.
+ */
+async function mockResumeGeneratorApi(page: Page) {
+  await page.route('**/api/resume-generator', (route) => {
+    if (route.request().method() === 'POST') {
+      route.fulfill({
+        status: 200,
+        contentType: 'text/plain; charset=utf-8',
+        body: buildMockResponseBody(),
+      });
+    } else {
+      route.continue();
+    }
+  });
+}
 
 /**
  * E2E tests for the Resume Generator review workflow.
- * Tests the interactive change review flow: analyze → review → edit → generate
+ * Tests the interactive change review flow: analyze → review → edit → generate.
+ *
+ * Uses route interception to mock the AI response — tests are deterministic
+ * and complete in seconds, not minutes.
  */
 test.describe('Resume Generator Review Workflow', () => {
-  // Configure timeout for tests that call real AI API
-  test.describe.configure({ timeout: 120_000 });
+  test.describe.configure({ timeout: 30_000 });
 
-  // Skip all tests if no admin password is configured
   test.beforeEach(async ({ page }) => {
     const password = process.env.ADMIN_PASSWORD_PREVIEW;
     if (!password) {
@@ -25,29 +160,25 @@ test.describe('Resume Generator Review Workflow', () => {
     ]);
     await expect(page).toHaveURL('/admin/dashboard');
 
+    // Mock the AI API before navigating to the page
+    await mockResumeGeneratorApi(page);
+
     // Navigate to resume generator
     await page.goto('/admin/resume-generator');
     await expect(page.getByRole('heading', { name: 'Resume Generator' })).toBeVisible();
   });
 
   test('shows changes as pending after analysis (not auto-accepted)', async ({ page }) => {
-    // This test requires the analysis API to be working
-    // For now, we just verify the UI loads correctly
     await expect(page.getByRole('heading', { name: 'Resume Generator' })).toBeVisible();
-
-    // Check that form elements are visible
     await expect(page.getByPlaceholder(/paste.*job description/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /analyze/i })).toBeVisible();
   });
 
   test('UI shows edit and reject options for pending changes', async ({ page }) => {
-    // Mock a job description to analyze
     const jdTextarea = page.getByPlaceholder(/paste.*job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager
       Company: Test Company Inc.
-      Location: San Francisco, CA
-
       Requirements:
       - 5+ years of software development experience
       - 3+ years leading engineering teams
@@ -55,23 +186,18 @@ test.describe('Resume Generator Review Workflow', () => {
       - Strong communication skills
     `);
 
-    // Click analyze and wait for response
-    // Note: This test will be slow as it calls the real API
-    // In a real CI environment, you'd mock the API response
     await page.getByRole('button', { name: /analyze/i }).click();
 
-    // Wait for analysis to complete (up to 60 seconds for AI response)
-    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 60000 });
+    // Mock responds instantly — no 60s timeout needed
+    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 10000 });
 
-    // Verify changes are shown without being pre-accepted
-    // Changes should show Accept, Edit & Accept, and Reject buttons
+    // Verify changes are shown as pending with all action buttons
     await expect(page.getByRole('button', { name: /^accept$/i }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /edit & accept/i }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /^reject$/i }).first()).toBeVisible();
   });
 
   test('can enter edit mode and modify change text', async ({ page }) => {
-    // Fill in job description
     const jdTextarea = page.getByPlaceholder(/paste.*job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager
@@ -82,7 +208,7 @@ test.describe('Resume Generator Review Workflow', () => {
     `);
 
     await page.getByRole('button', { name: /analyze/i }).click();
-    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 10000 });
 
     // Click Edit & Accept on first change
     await page.getByRole('button', { name: /edit & accept/i }).first().click();
@@ -102,12 +228,10 @@ test.describe('Resume Generator Review Workflow', () => {
 
     // Verify change is now accepted with "Edited" badge
     await expect(page.getByText('Accepted').first()).toBeVisible();
-    // Use locator for the specific Edited badge span to avoid matching other text containing "edited"
     await expect(page.locator('span:text-is("Edited")').first()).toBeVisible();
   });
 
   test('can reject change with optional feedback', async ({ page }) => {
-    // Fill in job description
     const jdTextarea = page.getByPlaceholder(/paste.*job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager
@@ -117,7 +241,7 @@ test.describe('Resume Generator Review Workflow', () => {
     `);
 
     await page.getByRole('button', { name: /analyze/i }).click();
-    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 10000 });
 
     // Click Reject on first change
     await page.getByRole('button', { name: /^reject$/i }).first().click();
@@ -137,7 +261,6 @@ test.describe('Resume Generator Review Workflow', () => {
   });
 
   test('can revert decision back to pending', async ({ page }) => {
-    // Fill in job description
     const jdTextarea = page.getByPlaceholder(/paste.*job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager
@@ -147,7 +270,7 @@ test.describe('Resume Generator Review Workflow', () => {
     `);
 
     await page.getByRole('button', { name: /analyze/i }).click();
-    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 10000 });
 
     // Accept a change first
     await page.getByRole('button', { name: /^accept$/i }).first().click();
@@ -161,7 +284,6 @@ test.describe('Resume Generator Review Workflow', () => {
   });
 
   test('bulk accept all pending changes', async ({ page }) => {
-    // Fill in job description
     const jdTextarea = page.getByPlaceholder(/paste.*job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager at Test Company
@@ -171,12 +293,12 @@ test.describe('Resume Generator Review Workflow', () => {
     `);
 
     await page.getByRole('button', { name: /analyze/i }).click();
-    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 10000 });
 
     // Click Accept All Pending
     await page.getByRole('button', { name: /accept all pending/i }).click();
 
-    // Verify all changes show as Accepted (use retrying assertion)
+    // Verify all changes show as Accepted
     const acceptedBadges = page.getByText('Accepted');
     await expect(acceptedBadges.first()).toBeVisible();
 
@@ -186,7 +308,6 @@ test.describe('Resume Generator Review Workflow', () => {
   });
 
   test('generate PDF button disabled when no changes accepted', async ({ page }) => {
-    // Fill in job description
     const jdTextarea = page.getByPlaceholder(/paste.*job description/i);
     await jdTextarea.fill(`
       Software Engineering Manager
@@ -196,10 +317,9 @@ test.describe('Resume Generator Review Workflow', () => {
     `);
 
     await page.getByRole('button', { name: /analyze/i }).click();
-    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 10000 });
 
     // Generate PDF button should be disabled when no changes are accepted
-    // Use .first() since there may be multiple generate buttons on the page
     const generateButton = page.getByRole('button', { name: /generate pdf/i }).first();
     await expect(generateButton).toBeDisabled();
 

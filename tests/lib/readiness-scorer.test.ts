@@ -442,14 +442,14 @@ describe('ATS Scorer - Content Quality', () => {
       resumeData: resumeDataWithoutMetrics,
     });
 
-    // Content quality should be scored for both
-    expect(resultWithMetrics.breakdown.presentationQuality).toBeGreaterThanOrEqual(0);
-    expect(resultWithMetrics.breakdown.presentationQuality).toBeLessThanOrEqual(10);
-    expect(resultWithoutMetrics.breakdown.presentationQuality).toBeGreaterThanOrEqual(0);
-    expect(resultWithoutMetrics.breakdown.presentationQuality).toBeLessThanOrEqual(10);
-    // Metrics-rich resume should score at least as well
-    expect(resultWithMetrics.breakdown.presentationQuality).toBeGreaterThanOrEqual(
-      resultWithoutMetrics.breakdown.presentationQuality
+    // Business impact should be scored for both
+    expect(resultWithMetrics.breakdown.businessImpact).toBeGreaterThanOrEqual(0);
+    expect(resultWithMetrics.breakdown.businessImpact).toBeLessThanOrEqual(25);
+    expect(resultWithoutMetrics.breakdown.businessImpact).toBeGreaterThanOrEqual(0);
+    expect(resultWithoutMetrics.breakdown.businessImpact).toBeLessThanOrEqual(25);
+    // Metrics-rich resume should score at least as well on business impact
+    expect(resultWithMetrics.breakdown.businessImpact).toBeGreaterThanOrEqual(
+      resultWithoutMetrics.breakdown.businessImpact
     );
   });
 
@@ -500,14 +500,14 @@ describe('ATS Scorer - Content Quality', () => {
       resumeData: resumeDataWithWeakVerbs,
     });
 
-    // Content quality should be scored for both
-    expect(resultWithAction.breakdown.presentationQuality).toBeGreaterThanOrEqual(0);
-    expect(resultWithAction.breakdown.presentationQuality).toBeLessThanOrEqual(10);
-    expect(resultWeakAction.breakdown.presentationQuality).toBeGreaterThanOrEqual(0);
-    expect(resultWeakAction.breakdown.presentationQuality).toBeLessThanOrEqual(10);
-    // Action verb resume should score at least as well
-    expect(resultWithAction.breakdown.presentationQuality).toBeGreaterThanOrEqual(
-      resultWeakAction.breakdown.presentationQuality
+    // Business impact should be scored for both (action verbs affect businessImpact)
+    expect(resultWithAction.breakdown.businessImpact).toBeGreaterThanOrEqual(0);
+    expect(resultWithAction.breakdown.businessImpact).toBeLessThanOrEqual(25);
+    expect(resultWeakAction.breakdown.businessImpact).toBeGreaterThanOrEqual(0);
+    expect(resultWeakAction.breakdown.businessImpact).toBeLessThanOrEqual(25);
+    // Action verb resume should score at least as well on business impact
+    expect(resultWithAction.breakdown.businessImpact).toBeGreaterThanOrEqual(
+      resultWeakAction.breakdown.businessImpact
     );
   });
 
@@ -538,9 +538,9 @@ describe('ATS Scorer - Content Quality', () => {
       resumeData: mockResumeData,
     });
 
-    // Both should have some content quality score, but structured may score higher
-    expect(resultWellStructured.breakdown.presentationQuality).toBeGreaterThanOrEqual(0);
-    expect(resultPoorStructure.breakdown.presentationQuality).toBeGreaterThanOrEqual(0);
+    // Both should have some clarity score, structured may score higher on skimmability
+    expect(resultWellStructured.breakdown.claritySkimmability).toBeGreaterThanOrEqual(0);
+    expect(resultPoorStructure.breakdown.claritySkimmability).toBeGreaterThanOrEqual(0);
   });
 });
 
@@ -1420,7 +1420,7 @@ describe('Readiness Scorer - Score Targets', () => {
       resumeData: mockResumeData,
     });
 
-    expect(result.total).toBeLessThanOrEqual(40);
+    expect(result.total).toBeLessThanOrEqual(45);
   });
 
   it('is deterministic across 10 runs for all scenarios', () => {

@@ -303,14 +303,27 @@ describe('Role-fit penalty', () => {
     expect(matchingScore.total).toBeGreaterThan(mismatchedScore.total);
   });
 
-  it('experience alignment is reduced when resume title has no domain overlap', () => {
+  it('experience alignment is reduced when resume has no domain overlap', () => {
     const matched = calculateReadinessScore(makeInput());
     const mismatched = calculateReadinessScore(
       makeInput({
-        resumeData: { ...RICH_RESUME_DATA, title: 'Molecular Gastronomy Consultant' },
+        resumeData: {
+          ...RICH_RESUME_DATA,
+          title: 'Molecular Gastronomy Consultant',
+          experiences: [
+            {
+              title: 'Head Chef',
+              company: 'Fine Dining Restaurant',
+              highlights: [
+                'Managed kitchen operations and seasonal menus',
+                'Trained sous chefs on plating techniques',
+              ],
+            },
+          ],
+        },
       }),
     );
-    // experienceAlignment may be lower when title has no overlap
+    // businessImpact should be lower when experience bullets have no domain overlap
     expect(matched.breakdown.businessImpact).toBeGreaterThanOrEqual(
       mismatched.breakdown.businessImpact,
     );
@@ -379,9 +392,11 @@ describe('Max possible score consistency', () => {
     expect(result.total).toBeLessThanOrEqual(subSum + 0.5);
   });
 
-  it('isOptimized is always true (deterministic mode)', () => {
+  it('isOptimized reflects whether score meets readiness threshold', () => {
     const result = calculateReadinessScore(makeInput());
-    expect(result.isOptimized).toBe(true);
+    expect(typeof result.isOptimized).toBe('boolean');
+    // isOptimized should be true when total >= 70, false otherwise
+    expect(result.isOptimized).toBe(result.total >= 70);
   });
 });
 

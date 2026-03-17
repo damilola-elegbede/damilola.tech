@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { isIP } from 'node:net';
 import { requireApiKey } from '@/lib/api-key-auth';
+import { xmlEscape } from '@/lib/xml-escape';
 import { logApiAccess } from '@/lib/api-audit';
 import { apiSuccess, Errors } from '@/lib/api-response';
 import { FIT_ASSESSMENT_PROMPT } from '@/lib/generated/system-prompt';
@@ -285,7 +286,7 @@ export async function POST(req: Request) {
       messages: [
         {
           role: 'user',
-          content: `Generate an Executive Fit Report for this job description:\n\n<job_description>${jobDescriptionText}</job_description>`,
+          content: `Generate an Executive Fit Report for this job description:\n\n<job_description>${xmlEscape(jobDescriptionText)}</job_description>`,
         },
       ],
     });

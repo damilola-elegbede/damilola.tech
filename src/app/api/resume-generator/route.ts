@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { xmlEscape } from '@/lib/xml-escape';
 import { isIP } from 'node:net';
 import { RESUME_GENERATOR_PROMPT } from '@/lib/generated/system-prompt';
 import { logAdminEvent } from '@/lib/audit-server';
@@ -35,6 +36,7 @@ async function getDnsLookup() {
 
 // Use Node.js runtime (not edge) to allow local file fallback in development
 export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 const client = new Anthropic({
   defaultHeaders: {
@@ -607,7 +609,7 @@ export async function POST(req: Request) {
       messages: [
         {
           role: 'user',
-          content: `${scoreContext}\n\nAnalyze this job description and provide resume readiness optimization recommendations. Return ONLY valid JSON, no markdown or code blocks.\n\n<job_description>${jobDescriptionText}</job_description>`,
+          content: `${scoreContext}\n\nAnalyze this job description and provide resume readiness optimization recommendations. Return ONLY valid JSON, no markdown or code blocks.\n\n<job_description>${xmlEscape(jobDescriptionText)}</job_description>`,
         },
       ],
     });

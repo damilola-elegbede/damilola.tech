@@ -2,18 +2,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
 import { verifyToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
 import type { ModifyChangeRequest, ProposedChange } from '@/lib/types/resume-generation';
+import { xmlEscape } from '@/lib/xml-escape';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 const client = new Anthropic();
-
-function xmlEscape(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
 
 export async function POST(req: Request) {
   // Verify admin auth

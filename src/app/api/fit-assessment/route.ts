@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { isIP } from 'node:net';
 import { FIT_ASSESSMENT_PROMPT } from '@/lib/generated/system-prompt';
+import { xmlEscape } from '@/lib/xml-escape';
 import { getFitAssessmentPrompt } from '@/lib/system-prompt';
 import {
   checkGenericRateLimit,
@@ -469,7 +470,7 @@ export async function POST(req: Request) {
       messages: [
         {
           role: 'user',
-          content: `Generate an Executive Fit Report for this job description:\n\n<job_description>${jobDescriptionText}</job_description>`,
+          content: `Generate an Executive Fit Report for this job description:\n\n<job_description>${xmlEscape(jobDescriptionText)}</job_description>`,
         },
       ],
     });
