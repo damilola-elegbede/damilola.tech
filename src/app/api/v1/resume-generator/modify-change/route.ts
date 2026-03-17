@@ -104,8 +104,8 @@ Job Description (for context, truncated to 4000 chars to fit context window):
 
 Return ONLY a JSON object with the revised change (no markdown code blocks):
 {
-  "section": "${originalChange.section}",
-  "original": "${originalChange.original}",
+  "section": ${JSON.stringify(originalChange.section)},
+  "original": ${JSON.stringify(originalChange.original)},
   "modified": "YOUR REVISED TEXT HERE",
   "reason": "Updated reason explaining the change",
   "relevanceSignals": ["signal1", "signal2"],

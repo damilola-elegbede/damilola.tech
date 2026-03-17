@@ -220,7 +220,7 @@ function GenerationHistory({ history }: GenerationHistoryProps) {
 
 export default function ResumeGeneratorHistoryPage() {
   const [generations, setGenerations] = useState<ResumeGenerationSummary[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
+  const cursorRef = useRef<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -236,7 +236,7 @@ export default function ResumeGeneratorHistoryPage() {
       setIsLoading(true);
       const params = new URLSearchParams();
 
-      if (cursor && append) params.set('cursor', cursor);
+      if (cursorRef.current && append) params.set('cursor', cursorRef.current);
 
       // Add filter params
       if (currentFilters.applicationStatus) {
@@ -263,14 +263,14 @@ export default function ResumeGeneratorHistoryPage() {
 
       const data = await res.json();
       setGenerations(prev => append ? [...prev, ...data.generations] : data.generations);
-      setCursor(data.cursor);
+      cursorRef.current = data.cursor;
       setHasMore(data.hasMore);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }
-  }, [cursor]);
+  }, []);
 
   useEffect(() => {
     fetchGenerations(false, filters);
@@ -278,12 +278,12 @@ export default function ResumeGeneratorHistoryPage() {
 
   const handleFilterChange = (newFilters: ResumeGenerationFilters) => {
     setFilters(newFilters);
-    setCursor(null); // Reset pagination when filters change
+    cursorRef.current = null; // Reset pagination when filters change
   };
 
   const handleClearFilters = () => {
     setFilters({});
-    setCursor(null);
+    cursorRef.current = null;
   };
 
   const handleRowClick = async (generation: ResumeGenerationSummary) => {
