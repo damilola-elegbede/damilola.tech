@@ -5,7 +5,7 @@ import type { ApiClient } from '../lib/api-client.js';
 export function registerGenerateResume(server: McpServer, client: ApiClient) {
   server.tool(
     'generate_resume',
-    'Generate a full ATS-optimized resume response from a job description URL or text.',
+    'Generate a full optimized resume response from a job description URL or text.',
     {
       input: z.string().describe('Job description text or URL'),
     },

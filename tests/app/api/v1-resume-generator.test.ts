@@ -22,10 +22,10 @@ vi.mock('@/lib/rate-limit', () => ({
   },
 }));
 
-const mockCalculateATSScore = vi.fn();
+const mockCalculateReadinessScore = vi.fn();
 const mockResumeDataToText = vi.fn();
-vi.mock('@/lib/ats-scorer', () => ({
-  calculateATSScore: (...args: unknown[]) => mockCalculateATSScore(...args),
+vi.mock('@/lib/readiness-scorer', () => ({
+  calculateReadinessScore: (...args: unknown[]) => mockCalculateReadinessScore(...args),
   resumeDataToText: (...args: unknown[]) => mockResumeDataToText(...args),
 }));
 
@@ -67,14 +67,15 @@ describe('v1/resume-generator API route', () => {
     });
     mockCheckGenericRateLimit.mockResolvedValue({ limited: false, remaining: 9 });
     mockResumeDataToText.mockReturnValue('resume text');
-    mockCalculateATSScore.mockReturnValue({
+    mockCalculateReadinessScore.mockReturnValue({
       total: 64,
       breakdown: {
-        keywordRelevance: 25,
-        skillsQuality: 18,
-        experienceAlignment: 14,
-        contentQuality: 7,
+        roleRelevance: 25,
+        claritySkimmability: 18,
+        businessImpact: 14,
+        presentationQuality: 7,
       },
+      isOptimized: true,
       details: {
         matchedKeywords: ['cloud', 'kubernetes'],
         missingKeywords: ['terraform', 'cost optimization'],
@@ -92,19 +93,19 @@ describe('v1/resume-generator API route', () => {
           currentScore: {
             total: 64,
             breakdown: {
-              keywordRelevance: 25,
-              skillsQuality: 18,
-              experienceAlignment: 14,
-              contentQuality: 7,
+              roleRelevance: 25,
+              claritySkimmability: 18,
+              businessImpact: 14,
+              presentationQuality: 7,
             },
           },
           optimizedScore: {
             total: 83,
             breakdown: {
-              keywordRelevance: 33,
-              skillsQuality: 21,
-              experienceAlignment: 18,
-              contentQuality: 9,
+              roleRelevance: 33,
+              claritySkimmability: 21,
+              businessImpact: 18,
+              presentationQuality: 9,
             },
           },
           proposedChanges: [
@@ -113,7 +114,7 @@ describe('v1/resume-generator API route', () => {
               original: 'old',
               modified: 'new',
               reason: 'added key terms',
-              keywordsAdded: ['terraform'],
+              relevanceSignals: ['terraform'],
               impactPoints: 5,
             },
           ],

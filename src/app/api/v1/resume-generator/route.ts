@@ -8,11 +8,11 @@ import {
   RATE_LIMIT_CONFIGS,
 } from '@/lib/rate-limit';
 import {
-  calculateATSScore,
+  calculateReadinessScore,
   resumeDataToText,
-  type ATSScore,
-  type ResumeData as ATSResumeData,
-} from '@/lib/ats-scorer';
+  type ReadinessScore,
+  type ResumeData as ScorerResumeData,
+} from '@/lib/readiness-scorer';
 import { resumeData } from '@/lib/resume-data';
 import { sanitizeBreakdown, sanitizeScoreValue } from '@/lib/score-utils';
 import { getResumeGeneratorPrompt } from '@/lib/resume-generator-prompt';
@@ -30,22 +30,22 @@ const client = new Anthropic({
 const MAX_BODY_SIZE = 50 * 1024;
 const AI_REQUEST_TIMEOUT_MS = 90_000;
 
-function buildScoreContext(atsScore: ATSScore): string {
-  const { breakdown, details } = atsScore;
+function buildScoreContext(score: ReadinessScore): string {
+  const { breakdown, details } = score;
 
-  return `<pre_calculated_ats_score>
-## IMPORTANT: Pre-Calculated ATS Score
+  return `<pre_calculated_readiness_score>
+## IMPORTANT: Pre-Calculated Readiness Score
 
-The system has calculated a deterministic baseline ATS score for this job description.
+The system has calculated a deterministic baseline readiness score for this job description.
 Use this score as your "currentScore" in the response. DO NOT recalculate it.
 
-### Current Score: ${atsScore.total}/100
+### Current Score: ${score.total}/100
 
 ### Breakdown:
-- Keyword Relevance: ${breakdown.keywordRelevance}/45
-- Skills Quality: ${breakdown.skillsQuality}/25
-- Experience Alignment: ${breakdown.experienceAlignment}/20
-- Match Quality: ${breakdown.contentQuality}/10
+- Role Relevance: ${breakdown.roleRelevance}/30
+- Clarity & Skimmability: ${breakdown.claritySkimmability}/30
+- Business Impact: ${breakdown.businessImpact}/25
+- Presentation Quality: ${breakdown.presentationQuality}/15
 
 ### Keyword Analysis:
 - Match Rate: ${details.matchRate}%
@@ -55,11 +55,11 @@ Use this score as your "currentScore" in the response. DO NOT recalculate it.
 
 ### Your Task:
 1. Use the currentScore values EXACTLY as provided above
-2. Focus on incorporating MISSING KEYWORDS naturally
-3. Propose changes that will increase the score toward 90+
+2. Focus on clarity, quantified impact, and natural relevance
+3. Propose changes that improve recruiter readability
 4. Calculate optimizedScore based on your proposed changes
 5. Each change should have an impactPoints estimate
-</pre_calculated_ats_score>`;
+</pre_calculated_readiness_score>`;
 }
 
 function extractTextContent(content: Array<{ type: string; text?: string }>): string {
@@ -85,8 +85,8 @@ function parseJsonResponse(text: string): Record<string, unknown> {
   }
 }
 
-function buildAtsInput(jobDescription: string) {
-  const atsResumeData: ATSResumeData = {
+function buildScoringInput(jobDescription: string) {
+  const scorerResumeData: ScorerResumeData = {
     title: resumeData.title,
     yearsExperience: 15,
     teamSize: '13 engineers',
@@ -105,18 +105,18 @@ function buildAtsInput(jobDescription: string) {
   };
 
   const resumeText = resumeDataToText({
-    ...atsResumeData,
+    ...scorerResumeData,
     name: resumeData.name,
     summary: resumeData.brandingStatement,
   });
 
-  const atsScore = calculateATSScore({
+  const readinessScore = calculateReadinessScore({
     jobDescription,
     resumeText,
-    resumeData: atsResumeData,
+    resumeData: scorerResumeData,
   });
 
-  return { atsScore };
+  return { readinessScore };
 }
 
 function normalizeChanges(changes: unknown): Array<Record<string, unknown>> {
@@ -133,8 +133,8 @@ function normalizeChanges(changes: unknown): Array<Record<string, unknown>> {
         original: typeof value.original === 'string' ? value.original : '',
         modified: typeof value.modified === 'string' ? value.modified : '',
         reason: typeof value.reason === 'string' ? value.reason : '',
-        keywordsAdded: Array.isArray(value.keywordsAdded)
-          ? value.keywordsAdded.filter((keyword) => typeof keyword === 'string')
+        relevanceSignals: Array.isArray(value.relevanceSignals)
+          ? value.relevanceSignals.filter((signal) => typeof signal === 'string')
           : [],
         impactPoints: sanitizeScoreValue(value.impactPoints, 0, 100),
       };
@@ -200,7 +200,7 @@ export async function POST(req: Request) {
     );
 
     const systemPrompt = await getResumeGeneratorPrompt();
-    const { atsScore } = buildAtsInput(resolvedInput.text);
+    const { readinessScore } = buildScoringInput(resolvedInput.text);
 
     const message = await (async () => {
       try {
@@ -219,7 +219,7 @@ export async function POST(req: Request) {
             messages: [
               {
                 role: 'user',
-                content: `${buildScoreContext(atsScore)}\n\nAnalyze this job description and provide ATS optimization recommendations for the resume. Return ONLY valid JSON, no markdown or code blocks.\n\n<job_description>${resolvedInput.text}</job_description>`,
+                content: `${buildScoreContext(readinessScore)}\n\nAnalyze this job description and provide resume readiness optimization recommendations. Return ONLY valid JSON, no markdown or code blocks.\n\n<job_description>${resolvedInput.text}</job_description>`,
               },
             ],
           },
@@ -258,12 +258,12 @@ export async function POST(req: Request) {
       : {};
 
     const optimizedScore = {
-      total: sanitizeScoreValue(optimizedScoreInput.total, atsScore.total, 100),
+      total: sanitizeScoreValue(optimizedScoreInput.total, readinessScore.total, 100),
       breakdown: sanitizeBreakdown({
-        keywordRelevance: sanitizeScoreValue(optimizedBreakdownInput.keywordRelevance, 0, 45),
-        skillsQuality: sanitizeScoreValue(optimizedBreakdownInput.skillsQuality, 0, 25),
-        experienceAlignment: sanitizeScoreValue(optimizedBreakdownInput.experienceAlignment, 0, 20),
-        contentQuality: sanitizeScoreValue(optimizedBreakdownInput.contentQuality, 0, 10),
+        roleRelevance: sanitizeScoreValue(optimizedBreakdownInput.roleRelevance, 0, 30),
+        claritySkimmability: sanitizeScoreValue(optimizedBreakdownInput.claritySkimmability, 0, 30),
+        businessImpact: sanitizeScoreValue(optimizedBreakdownInput.businessImpact, 0, 25),
+        presentationQuality: sanitizeScoreValue(optimizedBreakdownInput.presentationQuality, 0, 15),
       }),
     };
 
@@ -274,7 +274,7 @@ export async function POST(req: Request) {
     );
 
     const maxPossibleScore = Math.max(
-      atsScore.total,
+      readinessScore.total,
       optimizedScore.total,
       maxFromResponse
     );
@@ -288,14 +288,12 @@ export async function POST(req: Request) {
         ? analysis.roleTitle
         : (typeof parsed.roleTitle === 'string' ? parsed.roleTitle : 'Unknown'),
       currentScore: {
-        total: atsScore.total,
-        coreTotal: atsScore.coreTotal,
-        calibration: atsScore.calibration,
-        breakdown: sanitizeBreakdown(atsScore.breakdown),
-        matchedKeywords: atsScore.details.matchedKeywords,
-        missingKeywords: atsScore.details.missingKeywords,
-        matchRate: atsScore.details.matchRate,
-        keywordDensity: atsScore.details.keywordDensity,
+        total: readinessScore.total,
+        breakdown: sanitizeBreakdown(readinessScore.breakdown),
+        matchedKeywords: readinessScore.details.matchedKeywords,
+        missingKeywords: readinessScore.details.missingKeywords,
+        matchRate: readinessScore.details.matchRate,
+        keywordDensity: readinessScore.details.keywordDensity,
       },
       optimizedScore,
       maxPossibleScore,

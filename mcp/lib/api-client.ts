@@ -250,7 +250,7 @@ export class ApiClient {
       original: string;
       modified: string;
       reason: string;
-      keywordsAdded: string[];
+      relevanceSignals: string[];
       impactPoints: number;
     };
     modifyPrompt: string;

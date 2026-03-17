@@ -18,34 +18,34 @@ describe('Resume Generation Types', () => {
   describe('ScoreBreakdown', () => {
     it('should have all required fields', () => {
       const breakdown: ScoreBreakdown = {
-        keywordRelevance: 28,
-        skillsQuality: 18,
-        experienceAlignment: 16,
-        contentQuality: 8,
+        roleRelevance: 28,
+        claritySkimmability: 18,
+        businessImpact: 16,
+        presentationQuality: 8,
       };
 
-      expect(breakdown.keywordRelevance).toBe(28);
-      expect(breakdown.skillsQuality).toBe(18);
-      expect(breakdown.experienceAlignment).toBe(16);
-      expect(breakdown.contentQuality).toBe(8);
+      expect(breakdown.roleRelevance).toBe(28);
+      expect(breakdown.claritySkimmability).toBe(18);
+      expect(breakdown.businessImpact).toBe(16);
+      expect(breakdown.presentationQuality).toBe(8);
 
       // Total should be 0-100
-      const total = breakdown.keywordRelevance + breakdown.skillsQuality +
-                   breakdown.experienceAlignment + breakdown.contentQuality;
+      const total = breakdown.roleRelevance + breakdown.claritySkimmability +
+                   breakdown.businessImpact + breakdown.presentationQuality;
       expect(total).toBeLessThanOrEqual(100);
     });
 
     it('should enforce max values per component', () => {
       const maxBreakdown: ScoreBreakdown = {
-        keywordRelevance: 45,
-        skillsQuality: 25,
-        experienceAlignment: 20,
-        contentQuality: 10,
+        roleRelevance: 30,
+        claritySkimmability: 30,
+        businessImpact: 25,
+        presentationQuality: 15,
       };
 
       // Max possible score is 100
-      const total = maxBreakdown.keywordRelevance + maxBreakdown.skillsQuality +
-                   maxBreakdown.experienceAlignment + maxBreakdown.contentQuality;
+      const total = maxBreakdown.roleRelevance + maxBreakdown.claritySkimmability +
+                   maxBreakdown.businessImpact + maxBreakdown.presentationQuality;
       expect(total).toBe(100);
     });
   });
@@ -56,10 +56,10 @@ describe('Resume Generation Types', () => {
         before: 72,
         after: 86,
         breakdown: {
-          keywordRelevance: 36,
-          skillsQuality: 22,
-          experienceAlignment: 18,
-          contentQuality: 8,
+          roleRelevance: 36,
+          claritySkimmability: 22,
+          businessImpact: 18,
+          presentationQuality: 8,
         },
       };
 
@@ -74,13 +74,13 @@ describe('Resume Generation Types', () => {
         original: 'Original text',
         modified: 'Modified text with keywords',
         reason: 'Added keywords',
-        keywordsAdded: ['keyword1', 'keyword2'],
+        relevanceSignals: ['keyword1', 'keyword2'],
         impactPoints: 4,
       };
 
       expect(change.section).toBe('summary');
       expect(change.modified).not.toBe(change.original);
-      expect(change.keywordsAdded.length).toBeGreaterThan(0);
+      expect(change.relevanceSignals.length).toBeGreaterThan(0);
       expect(change.impactPoints).toBeGreaterThan(0);
     });
   });
@@ -126,10 +126,10 @@ describe('Resume Generation Types', () => {
           before: 72,
           after: 86,
           breakdown: {
-            keywordRelevance: 36,
-            skillsQuality: 22,
-            experienceAlignment: 18,
-            contentQuality: 8,
+            roleRelevance: 36,
+            claritySkimmability: 22,
+            businessImpact: 18,
+            presentationQuality: 8,
           },
         },
         changesAccepted: [],
@@ -160,10 +160,10 @@ describe('Resume Generation Types', () => {
           before: 72,
           after: 86,
           breakdown: {
-            keywordRelevance: 36,
-            skillsQuality: 22,
-            experienceAlignment: 18,
-            contentQuality: 8,
+            roleRelevance: 36,
+            claritySkimmability: 22,
+            businessImpact: 18,
+            presentationQuality: 8,
           },
         },
         changesAccepted: [],
@@ -227,7 +227,7 @@ describe('Resume Generation Types', () => {
       original: 'Original text',
       modified: 'Modified text',
       reason: 'Added keywords',
-      keywordsAdded: ['cloud', 'kubernetes'],
+      relevanceSignals: ['cloud', 'kubernetes'],
       impactPoints: 5,
     };
 
@@ -277,7 +277,7 @@ describe('Resume Generation Types', () => {
         original: 'Original text',
         modified: 'Modified text',
         reason: 'Added keywords',
-        keywordsAdded: ['cloud'],
+        relevanceSignals: ['cloud'],
         impactPoints: 5,
         wasEdited: false,
       };
@@ -293,7 +293,7 @@ describe('Resume Generation Types', () => {
         original: 'Original text',
         modified: 'User edited text', // This is what the user changed it to
         reason: 'Added keywords',
-        keywordsAdded: ['cloud'],
+        relevanceSignals: ['cloud'],
         impactPoints: 5,
         wasEdited: true,
         originalModified: 'AI proposed text', // What AI originally proposed
@@ -310,7 +310,7 @@ describe('Resume Generation Types', () => {
         original: 'Original bullet',
         modified: 'Proposed bullet', // AI's proposal
         reason: 'Added metrics',
-        keywordsAdded: ['scale'],
+        relevanceSignals: ['scale'],
         impactPoints: 3,
         wasEdited: false,
         rejectionFeedback: 'Does not match my actual experience',
@@ -326,7 +326,7 @@ describe('Resume Generation Types', () => {
       original: 'Original summary text',
       modified: 'AI proposed summary text',
       reason: 'Added keywords',
-      keywordsAdded: ['cloud', 'leadership'],
+      relevanceSignals: ['cloud', 'leadership'],
       impactPoints: 5,
     };
 
@@ -351,13 +351,13 @@ describe('Resume Generation Types', () => {
           original: 'Original summary text',
           modified: 'Revised summary with metrics: led 50+ engineers',
           reason: 'Added metrics per user request',
-          keywordsAdded: ['cloud', 'leadership', 'engineers'],
+          relevanceSignals: ['cloud', 'leadership', 'engineers'],
           impactPoints: 5,
         },
       };
 
       expect(response.revisedChange.modified).toContain('50+ engineers');
-      expect(response.revisedChange.keywordsAdded).toContain('engineers');
+      expect(response.revisedChange.relevanceSignals).toContain('engineers');
     });
   });
 });

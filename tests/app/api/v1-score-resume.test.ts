@@ -22,10 +22,10 @@ vi.mock('@/lib/rate-limit', () => ({
   },
 }));
 
-const mockCalculateATSScore = vi.fn();
+const mockCalculateReadinessScore = vi.fn();
 const mockResumeDataToText = vi.fn();
-vi.mock('@/lib/ats-scorer', () => ({
-  calculateATSScore: (...args: unknown[]) => mockCalculateATSScore(...args),
+vi.mock('@/lib/readiness-scorer', () => ({
+  calculateReadinessScore: (...args: unknown[]) => mockCalculateReadinessScore(...args),
   resumeDataToText: (...args: unknown[]) => mockResumeDataToText(...args),
 }));
 
@@ -70,14 +70,15 @@ describe('v1/score-resume API route', () => {
     });
     mockCheckGenericRateLimit.mockResolvedValue({ limited: false, remaining: 9 });
     mockResumeDataToText.mockReturnValue('resume text');
-    mockCalculateATSScore.mockReturnValue({
+    mockCalculateReadinessScore.mockReturnValue({
       total: 64,
       breakdown: {
-        keywordRelevance: 25,
-        skillsQuality: 18,
-        experienceAlignment: 14,
-        contentQuality: 7,
+        roleRelevance: 25,
+        claritySkimmability: 18,
+        businessImpact: 14,
+        presentationQuality: 7,
       },
+      isOptimized: true,
       details: {
         matchedKeywords: ['cloud', 'kubernetes'],
         missingKeywords: ['terraform', 'cost optimization'],
@@ -159,7 +160,7 @@ describe('v1/score-resume API route', () => {
     expect(data.data.currentScore.total).toBe(64);
     expect(data.data.maxPossibleScore).toBe(89);
     expect(data.data.recommendation).toBe('full_generation_recommended');
-    expect(mockCalculateATSScore).toHaveBeenCalledTimes(1);
+    expect(mockCalculateReadinessScore).toHaveBeenCalledTimes(1);
     expect(mockCreate).toHaveBeenCalledTimes(1);
     expect(mockLogApiAccess).toHaveBeenCalledWith(
       'api_score_resume',

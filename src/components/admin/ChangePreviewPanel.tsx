@@ -252,11 +252,11 @@ function ChangeCard({
             )}
 
             {/* Keywords Added (only in view mode for pending) */}
-            {mode === 'view' && change.keywordsAdded.length > 0 && (
+            {mode === 'view' && change.relevanceSignals.length > 0 && (
               <div>
                 <p className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">Keywords Added</p>
                 <div className="flex flex-wrap gap-1">
-                  {change.keywordsAdded.map((keyword, i) => (
+                  {change.relevanceSignals.map((keyword, i) => (
                     <span
                       key={i}
                       className="rounded-full bg-[var(--color-accent)]/10 px-2 py-0.5 text-xs text-[var(--color-accent)]"
@@ -559,7 +559,7 @@ export function ChangePreviewPanel({
                 <strong>Blockers:</strong> {scoreCeiling.blockers.join(', ')}
               </p>
               <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                <strong>To reach 90+:</strong> {scoreCeiling.toReach90}
+                <strong>To improve:</strong> {scoreCeiling.toImprove}
               </p>
             </div>
           )}

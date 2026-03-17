@@ -35,8 +35,8 @@ function isValidProposedChange(value: unknown): value is ProposedChange {
     isNonEmptyString(value.original) &&
     isNonEmptyString(value.modified) &&
     isNonEmptyString(value.reason) &&
-    Array.isArray(value.keywordsAdded) &&
-    value.keywordsAdded.every((keyword) => typeof keyword === 'string') &&
+    Array.isArray(value.relevanceSignals) &&
+    value.relevanceSignals.every((signal) => typeof signal === 'string') &&
     typeof value.impactPoints === 'number'
   );
 }
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     const { originalChange, modifyPrompt, jobDescription } = parsedBody;
 
     // Wrap user input in XML tags for prompt injection mitigation
-    const prompt = `You are revising a single resume change for ATS optimization.
+    const prompt = `You are revising a single resume change for readability and relevance optimization.
 
 <original_change>
 Section: ${xmlEscape(originalChange.section)}
@@ -108,7 +108,7 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
   "original": "${originalChange.original}",
   "modified": "YOUR REVISED TEXT HERE",
   "reason": "Updated reason explaining the change",
-  "keywordsAdded": ["keyword1", "keyword2"],
+  "relevanceSignals": ["signal1", "signal2"],
   "impactPoints": ${originalChange.impactPoints}
 }`;
 
@@ -145,7 +145,7 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
       !revisedChange.original ||
       !revisedChange.modified ||
       !revisedChange.reason ||
-      !Array.isArray(revisedChange.keywordsAdded) ||
+      !Array.isArray(revisedChange.relevanceSignals) ||
       typeof revisedChange.impactPoints !== 'number'
     ) {
       return Errors.internalError('Invalid response structure from AI');
@@ -162,7 +162,7 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
     logApiAccess('api_modify_change', authResult.apiKey, {
       section: originalChange.section,
       impactPoints: revisedChange.impactPoints,
-      keywordCount: revisedChange.keywordsAdded.length,
+      signalCount: revisedChange.relevanceSignals.length,
     }, ip).catch((err) => console.warn('[api/v1/resume-generator/modify-change] Failed to log audit:', err));
 
     return apiSuccess({ revisedChange });

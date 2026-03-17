@@ -92,7 +92,7 @@ describe('ResumeGenerationsTable', () => {
       );
 
       expect(screen.getByText('No resume generations yet')).toBeInTheDocument();
-      expect(screen.getByText('Generate your first ATS-optimized resume to see it here')).toBeInTheDocument();
+      expect(screen.getByText('Generate your first optimized resume to see it here')).toBeInTheDocument();
     });
 
     it('shows document icon in empty state', () => {

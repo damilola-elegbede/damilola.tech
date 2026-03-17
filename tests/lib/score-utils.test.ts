@@ -12,17 +12,17 @@ describe('score-utils', () => {
 
   it('sanitizes breakdown values within category limits', () => {
     const sanitized = sanitizeBreakdown({
-      keywordRelevance: 70,
-      skillsQuality: Number.NaN,
-      experienceAlignment: -4,
-      contentQuality: 12,
+      roleRelevance: 70,
+      claritySkimmability: Number.NaN,
+      businessImpact: -4,
+      presentationQuality: 20,
     });
 
     expect(sanitized).toEqual({
-      keywordRelevance: 45,
-      skillsQuality: 0,
-      experienceAlignment: 0,
-      contentQuality: 10,
+      roleRelevance: 30,
+      claritySkimmability: 0,
+      businessImpact: 0,
+      presentationQuality: 15,
     });
   });
 
@@ -30,15 +30,15 @@ describe('score-utils', () => {
     const result = computeCappedScore(47.6, 50, {
       maximum: 78,
       blockers: [],
-      toReach90: '',
+      toImprove: '',
     });
     expect(result).toBe(78);
   });
 
   it('computes possible max score from all proposed impacts', () => {
     const changes: ProposedChange[] = [
-      { section: 'summary', original: 'a', modified: 'b', reason: '', keywordsAdded: [], impactPoints: 4 },
-      { section: 'skills.core', original: 'c', modified: 'd', reason: '', keywordsAdded: [], impactPoints: 6.2 },
+      { section: 'summary', original: 'a', modified: 'b', reason: '', relevanceSignals: [], impactPoints: 4 },
+      { section: 'skills.core', original: 'c', modified: 'd', reason: '', relevanceSignals: [], impactPoints: 6.2 },
     ];
 
     const result = computePossibleMaxScore(60, changes, undefined);

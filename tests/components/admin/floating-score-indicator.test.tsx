@@ -23,7 +23,7 @@ describe('FloatingScoreIndicator', () => {
     render(<FloatingScoreIndicator {...defaultProps} />);
 
     expect(screen.getByRole('button')).toBeInTheDocument();
-    expect(screen.getByText('ATS Score')).toBeInTheDocument();
+    expect(screen.getByText('Readiness Score')).toBeInTheDocument();
   });
 
   it('displays initial and current scores with arrow when there is improvement', () => {

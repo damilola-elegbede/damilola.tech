@@ -4,10 +4,10 @@ import { CompatibilityScoreCard } from '@/components/admin/CompatibilityScoreCar
 import type { ScoreBreakdown } from '@/lib/types/resume-generation';
 
 const mockBreakdown: ScoreBreakdown = {
-  keywordRelevance: 28,
-  skillsQuality: 18,
-  experienceAlignment: 16,
-  contentQuality: 8,
+  roleRelevance: 28,
+  claritySkimmability: 18,
+  businessImpact: 16,
+  presentationQuality: 8,
 };
 
 describe('CompatibilityScoreCard', () => {
@@ -134,10 +134,10 @@ describe('CompatibilityScoreCard', () => {
       />
     );
 
-    expect(screen.getByText('Keyword Relevance')).toBeInTheDocument();
-    expect(screen.getByText('Skills Quality')).toBeInTheDocument();
-    expect(screen.getByText('Experience Alignment')).toBeInTheDocument();
-    expect(screen.getByText('Match Quality')).toBeInTheDocument();
+    expect(screen.getByText('Role Relevance')).toBeInTheDocument();
+    expect(screen.getByText('Clarity & Skimmability')).toBeInTheDocument();
+    expect(screen.getByText('Business Impact')).toBeInTheDocument();
+    expect(screen.getByText('Presentation Quality')).toBeInTheDocument();
   });
 
   it('displays breakdown values with max values', () => {
@@ -150,18 +150,18 @@ describe('CompatibilityScoreCard', () => {
       />
     );
 
-    expect(screen.getByText('28/45')).toBeInTheDocument();
-    expect(screen.getByText('18/25')).toBeInTheDocument();
-    expect(screen.getByText('16/20')).toBeInTheDocument();
-    expect(screen.getByText('8/10')).toBeInTheDocument();
+    expect(screen.getByText('28/30')).toBeInTheDocument();
+    expect(screen.getByText('18/30')).toBeInTheDocument();
+    expect(screen.getByText('16/25')).toBeInTheDocument();
+    expect(screen.getByText('8/15')).toBeInTheDocument();
   });
 
   it('handles edge case of 0 score', () => {
     const zeroBreakdown: ScoreBreakdown = {
-      keywordRelevance: 0,
-      skillsQuality: 0,
-      experienceAlignment: 0,
-      contentQuality: 0,
+      roleRelevance: 0,
+      claritySkimmability: 0,
+      businessImpact: 0,
+      presentationQuality: 0,
     };
 
     render(
@@ -179,10 +179,10 @@ describe('CompatibilityScoreCard', () => {
 
   it('handles edge case of 100 score', () => {
     const perfectBreakdown: ScoreBreakdown = {
-      keywordRelevance: 45,
-      skillsQuality: 25,
-      experienceAlignment: 20,
-      contentQuality: 10,
+      roleRelevance: 30,
+      claritySkimmability: 30,
+      businessImpact: 25,
+      presentationQuality: 15,
     };
 
     render(
@@ -200,10 +200,10 @@ describe('CompatibilityScoreCard', () => {
 
   it('renders undefined breakdown values as 0 not blank', () => {
     const partialBreakdown = {
-      keywordRelevance: 28,
-      skillsQuality: 18,
-      experienceAlignment: 16,
-      contentQuality: undefined as unknown as number,
+      roleRelevance: 28,
+      claritySkimmability: 18,
+      businessImpact: 16,
+      presentationQuality: undefined as unknown as number,
     };
 
     render(
@@ -215,15 +215,15 @@ describe('CompatibilityScoreCard', () => {
       />
     );
 
-    expect(screen.getByText('0/10')).toBeInTheDocument();
+    expect(screen.getByText('0/15')).toBeInTheDocument();
   });
 
   it('renders non-finite breakdown values as 0', () => {
     const nonFiniteBreakdown = {
-      keywordRelevance: Number.NaN,
-      skillsQuality: Number.POSITIVE_INFINITY,
-      experienceAlignment: Number.NEGATIVE_INFINITY,
-      contentQuality: Number.NaN,
+      roleRelevance: Number.NaN,
+      claritySkimmability: Number.POSITIVE_INFINITY,
+      businessImpact: Number.NEGATIVE_INFINITY,
+      presentationQuality: Number.NaN,
     } as unknown as ScoreBreakdown;
 
     render(
@@ -235,10 +235,9 @@ describe('CompatibilityScoreCard', () => {
       />
     );
 
-    expect(screen.getByText('0/45')).toBeInTheDocument();
+    expect(screen.getAllByText('0/30')).toHaveLength(2);
     expect(screen.getByText('0/25')).toBeInTheDocument();
-    expect(screen.getByText('0/20')).toBeInTheDocument();
-    expect(screen.getByText('0/10')).toBeInTheDocument();
+    expect(screen.getByText('0/15')).toBeInTheDocument();
   });
 
   it('rounds floating point scores to one decimal place', () => {

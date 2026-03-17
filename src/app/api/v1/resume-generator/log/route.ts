@@ -67,10 +67,10 @@ function normalizeEstimatedCompatibility(input: unknown): EstimatedCompatibility
     after,
     possibleMax,
     breakdown: {
-      keywordRelevance: sanitizeScoreValue(breakdown.keywordRelevance, 0, 45),
-      skillsQuality: sanitizeScoreValue(breakdown.skillsQuality, 0, 25),
-      experienceAlignment: sanitizeScoreValue(breakdown.experienceAlignment, 0, 20),
-      contentQuality: sanitizeScoreValue(breakdown.contentQuality, 0, 10),
+      roleRelevance: sanitizeScoreValue(breakdown.roleRelevance, 0, 30),
+      claritySkimmability: sanitizeScoreValue(breakdown.claritySkimmability, 0, 30),
+      businessImpact: sanitizeScoreValue(breakdown.businessImpact, 0, 25),
+      presentationQuality: sanitizeScoreValue(breakdown.presentationQuality, 0, 15),
     },
   };
 }

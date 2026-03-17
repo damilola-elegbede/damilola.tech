@@ -395,7 +395,7 @@ export default function ResumeGeneratorHistoryPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text)]">Resume Generation History</h1>
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-            Track your ATS-optimized resume generations and application status
+            Track your optimized resume generations and application status
           </p>
         </div>
         <Link

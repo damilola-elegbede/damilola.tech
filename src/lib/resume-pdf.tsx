@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * ATS-friendly resume PDF generator using @react-pdf/renderer.
+ * Resume PDF generator using @react-pdf/renderer.
  *
- * Creates native text-based PDFs (not image-based) that ATS systems can parse.
+ * Creates native text-based PDFs (not image-based) for maximum readability.
  * Design matches the original Damilola Elegbede resume format:
  * - Helvetica font (PDF built-in)
  * - Black text on white background
@@ -552,8 +552,8 @@ function ResumePDF({ data, analysis, acceptedIndices, effectiveChanges, showFoot
         {showFooter && (
           <View style={styles.footer}>
             <Text>
-              ATS Optimized for: {analysis.analysis.roleTitle} at {analysis.analysis.companyName} |
-              Compatibility Score: {analysis.optimizedScore.total}/100 |
+              Optimized for: {analysis.analysis.roleTitle} at {analysis.analysis.companyName} |
+              Readiness Score: {analysis.optimizedScore.total}/100 |
               Changes Applied: {acceptedChanges.length} |
               Generated: {new Date().toLocaleDateString()}
             </Text>

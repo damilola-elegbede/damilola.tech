@@ -5,7 +5,7 @@ import type { ApiClient } from '../lib/api-client.js';
 export function registerScoreResume(server: McpServer, client: ApiClient) {
   server.tool(
     'score_resume',
-    'Run ATS scoring plus AI gap analysis for a job description URL or text.',
+    'Run resume readiness scoring plus gap analysis for a job description URL or text.',
     {
       input: z.string().describe('Job description text or URL'),
     },

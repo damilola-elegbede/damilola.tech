@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     }
 
     // Wrap user input in XML tags for prompt injection mitigation
-    const prompt = `You are revising a single resume change for ATS optimization.
+    const prompt = `You are revising a single resume change for readability and relevance optimization.
 
 <original_change>
 Section: ${originalChange.section}
@@ -47,7 +47,7 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
   "original": "${originalChange.original}",
   "modified": "YOUR REVISED TEXT HERE",
   "reason": "Updated reason explaining the change",
-  "keywordsAdded": ["keyword1", "keyword2"],
+  "relevanceSignals": ["signal1", "signal2"],
   "impactPoints": ${originalChange.impactPoints}
 }`;
 
@@ -84,7 +84,7 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
       !revisedChange.original ||
       !revisedChange.modified ||
       !revisedChange.reason ||
-      !Array.isArray(revisedChange.keywordsAdded) ||
+      !Array.isArray(revisedChange.relevanceSignals) ||
       typeof revisedChange.impactPoints !== 'number'
     ) {
       return Response.json({ error: 'Invalid response structure from AI' }, { status: 500 });

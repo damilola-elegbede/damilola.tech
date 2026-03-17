@@ -1,25 +1,68 @@
 /**
- * Types for the ATS Resume Generator feature.
+ * Types for the Resume Generator feature.
  *
- * Scoring methodology is research-backed:
- * - Keyword Relevance (45%): 99.7% of recruiters use keyword filters (Jobscan)
- * - Skills Quality (25%): 76.4% of recruiters start with skills (Jobscan)
- * - Experience Alignment (20%): Years, scope, title, education matching
- * - Content Quality (10%): Metrics, action verbs, bullet structure
+ * Scoring rubric (Readiness Score 0-100):
+ * - Role Relevance (30): JD keywords findable in resume, title alignment, skills coverage
+ * - Clarity & Skimmability (30): Summary quality, section structure, bullet conciseness, frontloading
+ * - Business Impact (25): Quantified achievements, outcomes over duties, metric-rich bullets
+ * - Presentation Quality (15): Natural keyword embedding, title bridging, professional structure
  */
 
 // Re-export job ID types for convenience
 export type { JobId, JobIdentifier } from '@/lib/job-id';
 
 export interface ScoreBreakdown {
-  /** Keyword matching score (0-45) */
+  /** Role relevance score — JD keywords, title alignment, skills coverage (0-30) */
+  roleRelevance: number;
+  /** Clarity & skimmability — structure, conciseness, frontloading (0-30) */
+  claritySkimmability: number;
+  /** Business impact — quantified achievements, outcomes over duties (0-25) */
+  businessImpact: number;
+  /** Presentation quality — natural keyword use, title bridging, completeness (0-15) */
+  presentationQuality: number;
+}
+
+/**
+ * Legacy score breakdown field names (V1/V2 logs).
+ * Used for reading old stored data before migration.
+ */
+export interface LegacyScoreBreakdown {
   keywordRelevance: number;
-  /** Skills section quality (0-25) */
   skillsQuality: number;
-  /** Experience alignment (0-20) */
   experienceAlignment: number;
-  /** Content quality score (0-10) */
   contentQuality: number;
+}
+
+/**
+ * Proportionally scale old breakdown (45/25/20/10) to new (30/30/25/15).
+ */
+export function migrateBreakdownToV3(old: LegacyScoreBreakdown): ScoreBreakdown {
+  return {
+    roleRelevance: Math.round((old.keywordRelevance / 45) * 30 * 10) / 10,
+    claritySkimmability: Math.round((old.skillsQuality / 25) * 30 * 10) / 10,
+    businessImpact: Math.round((old.experienceAlignment / 20) * 25 * 10) / 10,
+    presentationQuality: Math.round((old.contentQuality / 10) * 15 * 10) / 10,
+  };
+}
+
+/**
+ * Type guard to detect legacy breakdown shape.
+ */
+export function isLegacyBreakdown(b: unknown): b is LegacyScoreBreakdown {
+  if (!b || typeof b !== 'object') return false;
+  const obj = b as Record<string, unknown>;
+  return 'keywordRelevance' in obj && 'skillsQuality' in obj &&
+    'experienceAlignment' in obj && 'contentQuality' in obj;
+}
+
+/**
+ * Normalize a breakdown, converting legacy format if needed.
+ */
+export function normalizeBreakdown(b: ScoreBreakdown | LegacyScoreBreakdown): ScoreBreakdown {
+  if (isLegacyBreakdown(b)) {
+    return migrateBreakdownToV3(b);
+  }
+  return b as ScoreBreakdown;
 }
 
 export interface EstimatedCompatibility {
@@ -40,14 +83,14 @@ export interface ProposedChange {
   original: string;
   /** Proposed modified content */
   modified: string;
-  /** Explanation of why this change improves ATS compatibility */
+  /** Explanation of why this change improves readability and relevance */
   reason: string;
-  /** Keywords from JD that were incorporated */
-  keywordsAdded: string[];
+  /** Relevance signals from JD that were incorporated */
+  relevanceSignals: string[];
   /** Estimated points gained from this change */
   impactPoints: number;
-  /** Points per keyword for edit-aware rescoring (impactPoints / keywordsAdded.length) */
-  impactPerKeyword?: number;
+  /** Points per signal for edit-aware rescoring (impactPoints / relevanceSignals.length) */
+  impactPerSignal?: number;
 }
 
 /**
@@ -134,16 +177,16 @@ export interface SkillsReorder {
 }
 
 /**
- * Score ceiling information when 90+ is not achievable.
- * Documents the maximum possible score and what would be needed to reach 90+.
+ * Score ceiling information when maximum readiness is constrained.
+ * Documents the maximum possible score and what would improve it.
  */
 export interface ScoreCeiling {
-  /** Maximum achievable score given the content gaps */
+  /** Maximum achievable readiness score given the content gaps */
   maximum: number;
-  /** Specific gaps blocking 90+ achievement */
+  /** Specific gaps blocking higher readiness */
   blockers: string[];
-  /** What additions would enable reaching 90+ */
-  toReach90: string;
+  /** What additions would improve the readiness score */
+  toImprove: string;
 }
 
 /**
@@ -205,9 +248,9 @@ export interface GenerationHistoryEntry {
   generatedAt: string;
   /** URL of the PDF for this generation */
   pdfUrl: string;
-  /** ATS score before optimization */
+  /** Readiness score before optimization */
   scoreBefore: number;
-  /** ATS score after optimization */
+  /** Readiness score after optimization */
   scoreAfter: number;
   /** Number of proposed changes that were accepted */
   changesAccepted: number;
@@ -352,10 +395,28 @@ export interface ResumeGenerationLogV2 {
 }
 
 /**
- * Union type for all resume generation log versions.
- * Used for reading - code should handle both versions.
+ * V3 resume generation log with readiness scoring.
+ * Uses new scoring rubric: Role Relevance / Clarity / Business Impact / Presentation.
  */
-export type ResumeGenerationLog = ResumeGenerationLogV1 | ResumeGenerationLogV2;
+export interface ResumeGenerationLogV3 extends Omit<ResumeGenerationLogV2, 'version'> {
+  /** Schema version */
+  version: 3;
+  /** Whether this resume is optimized for human readability */
+  isOptimized: boolean;
+}
+
+/**
+ * Union type for all resume generation log versions.
+ * Used for reading - code should handle all versions.
+ */
+export type ResumeGenerationLog = ResumeGenerationLogV1 | ResumeGenerationLogV2 | ResumeGenerationLogV3;
+
+/**
+ * Type guard to check if a log is V3.
+ */
+export function isV3Log(log: ResumeGenerationLog): log is ResumeGenerationLogV3 {
+  return log.version === 3;
+}
 
 /**
  * Type guard to check if a log is V2.
@@ -394,9 +455,9 @@ export interface ResumeGenerationSummary {
   scoreAfter: number;
   /** Maximum possible score if all proposed changes are accepted */
   scorePossibleMax?: number;
-  /** Canonical current score for ATS calculations */
+  /** Canonical current readiness score */
   currentScore?: number;
-  /** Canonical possible max score for ATS calculations */
+  /** Canonical possible max readiness score */
   possibleMaxScore?: number;
   /** Application status */
   applicationStatus: ApplicationStatus;

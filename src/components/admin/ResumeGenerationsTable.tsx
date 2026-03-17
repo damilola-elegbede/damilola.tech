@@ -220,7 +220,7 @@ export function ResumeGenerationsTable({
         </svg>
         <p className="mt-4 text-[var(--color-text-muted)]">No resume generations yet</p>
         <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-          Generate your first ATS-optimized resume to see it here
+          Generate your first optimized resume to see it here
         </p>
       </div>
     );

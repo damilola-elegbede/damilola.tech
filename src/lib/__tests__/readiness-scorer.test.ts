@@ -17,12 +17,12 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  calculateATSScore,
+  calculateReadinessScore,
   formatScoreAssessment,
   resumeDataToText,
   type ScoringInput,
   type ResumeData,
-} from '../ats-scorer';
+} from '../readiness-scorer';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -132,30 +132,25 @@ const RICH_RESUME_DATA: ResumeData = {
 
 describe('Score ceiling', () => {
   it('total is never greater than 100 for a well-matched resume', () => {
-    const result = calculateATSScore(makeInput());
+    const result = calculateReadinessScore(makeInput());
     expect(result.total).toBeLessThanOrEqual(100);
   });
 
-  it('coreTotal is never greater than 100', () => {
-    const result = calculateATSScore(makeInput());
-    expect(result.coreTotal).toBeLessThanOrEqual(100);
-  });
-
   it('individual breakdown scores respect their sub-ceilings', () => {
-    const result = calculateATSScore(makeInput());
-    expect(result.breakdown.keywordRelevance).toBeLessThanOrEqual(45);
-    expect(result.breakdown.skillsQuality).toBeLessThanOrEqual(25);
-    expect(result.breakdown.experienceAlignment).toBeLessThanOrEqual(20);
-    expect(result.breakdown.contentQuality).toBeLessThanOrEqual(10);
+    const result = calculateReadinessScore(makeInput());
+    expect(result.breakdown.roleRelevance).toBeLessThanOrEqual(30);
+    expect(result.breakdown.claritySkimmability).toBeLessThanOrEqual(30);
+    expect(result.breakdown.businessImpact).toBeLessThanOrEqual(25);
+    expect(result.breakdown.presentationQuality).toBeLessThanOrEqual(15);
   });
 
   it('total <= sum of sub-ceilings (45+25+20+10 = 100)', () => {
-    const result = calculateATSScore(makeInput());
+    const result = calculateReadinessScore(makeInput());
     const maxPossible =
-      result.breakdown.keywordRelevance +
-      result.breakdown.skillsQuality +
-      result.breakdown.experienceAlignment +
-      result.breakdown.contentQuality;
+      result.breakdown.roleRelevance +
+      result.breakdown.claritySkimmability +
+      result.breakdown.businessImpact +
+      result.breakdown.presentationQuality;
     // total is derived from sub-scores, so it cannot exceed their sum
     expect(result.total).toBeLessThanOrEqual(maxPossible + 0.1); // tiny float tolerance
   });
@@ -165,7 +160,7 @@ describe('Score ceiling', () => {
     const stuffedText =
       (RICH_RESUME_TEXT + '\n').repeat(20) +
       'TypeScript Go Python Kubernetes Docker '.repeat(50);
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ resumeText: stuffedText }),
     );
     expect(result.total).toBeLessThanOrEqual(100);
@@ -178,12 +173,12 @@ describe('Score ceiling', () => {
 
 describe('Score floor', () => {
   it('total is never negative for a well-matched resume', () => {
-    const result = calculateATSScore(makeInput());
+    const result = calculateReadinessScore(makeInput());
     expect(result.total).toBeGreaterThanOrEqual(0);
   });
 
   it('total is never negative for a completely unrelated resume', () => {
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({
         resumeText: 'I bake bread and grow tomatoes in my garden.',
         resumeData: {
@@ -197,16 +192,16 @@ describe('Score floor', () => {
   });
 
   it('breakdown sub-scores are never negative', () => {
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({
         resumeText: 'No relevant content whatsoever.',
         resumeData: {},
       }),
     );
-    expect(result.breakdown.keywordRelevance).toBeGreaterThanOrEqual(0);
-    expect(result.breakdown.skillsQuality).toBeGreaterThanOrEqual(0);
-    expect(result.breakdown.experienceAlignment).toBeGreaterThanOrEqual(0);
-    expect(result.breakdown.contentQuality).toBeGreaterThanOrEqual(0);
+    expect(result.breakdown.roleRelevance).toBeGreaterThanOrEqual(0);
+    expect(result.breakdown.claritySkimmability).toBeGreaterThanOrEqual(0);
+    expect(result.breakdown.businessImpact).toBeGreaterThanOrEqual(0);
+    expect(result.breakdown.presentationQuality).toBeGreaterThanOrEqual(0);
   });
 });
 
@@ -218,7 +213,7 @@ describe('Keyword matching', () => {
   it('exact keyword match produces a non-zero score and appears in matchedKeywords', () => {
     const jd = 'We need an expert in TypeScript and Kubernetes.';
     const resume = 'I am skilled in TypeScript and Kubernetes.';
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ jobDescription: jd, resumeText: resume, resumeData: { title: 'Engineer' } }),
     );
     const matched = result.details.matchedKeywords.map((k) => k.toLowerCase());
@@ -229,25 +224,25 @@ describe('Keyword matching', () => {
   it('no keyword match produces zero matched keywords', () => {
     const jd = 'Looking for expertise in COBOL and mainframe systems.';
     const resume = 'I specialise in pastry and sourdough techniques.';
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ jobDescription: jd, resumeText: resume, resumeData: {} }),
     );
     expect(result.details.matchedKeywords).toHaveLength(0);
   });
 
   it('no keyword match yields a lower score than a strong match', () => {
-    const noMatch = calculateATSScore(
+    const noMatch = calculateReadinessScore(
       makeInput({
         resumeText: 'I have no relevant experience for this role whatsoever.',
         resumeData: {},
       }),
     );
-    const strongMatch = calculateATSScore(makeInput());
+    const strongMatch = calculateReadinessScore(makeInput());
     expect(strongMatch.total).toBeGreaterThan(noMatch.total);
   });
 
   it('matchedKeywords are a subset of the all extracted keywords', () => {
-    const result = calculateATSScore(makeInput());
+    const result = calculateReadinessScore(makeInput());
     const allExtracted = new Set(
       result.details.extractedKeywords.all.map((k) => k.toLowerCase()),
     );
@@ -257,7 +252,7 @@ describe('Keyword matching', () => {
   });
 
   it('missingKeywords + matchedKeywords = extractedKeywords.all (no overlap)', () => {
-    const result = calculateATSScore(makeInput());
+    const result = calculateReadinessScore(makeInput());
     const matched = new Set(result.details.matchedKeywords.map((k) => k.toLowerCase()));
     const missing = new Set(result.details.missingKeywords.map((k) => k.toLowerCase()));
     const all = new Set(result.details.extractedKeywords.all.map((k) => k.toLowerCase()));
@@ -274,7 +269,7 @@ describe('Keyword matching', () => {
   });
 
   it('match rate is between 0 and 100', () => {
-    const result = calculateATSScore(makeInput());
+    const result = calculateReadinessScore(makeInput());
     expect(result.details.matchRate).toBeGreaterThanOrEqual(0);
     expect(result.details.matchRate).toBeLessThanOrEqual(100);
   });
@@ -286,9 +281,9 @@ describe('Keyword matching', () => {
 
 describe('Role-fit penalty', () => {
   it('a completely unrelated title results in a lower score than a matching title', () => {
-    const matchingScore = calculateATSScore(makeInput());
+    const matchingScore = calculateReadinessScore(makeInput());
 
-    const mismatchedScore = calculateATSScore(
+    const mismatchedScore = calculateReadinessScore(
       makeInput({
         resumeData: {
           ...RICH_RESUME_DATA,
@@ -309,15 +304,15 @@ describe('Role-fit penalty', () => {
   });
 
   it('experience alignment is reduced when resume title has no domain overlap', () => {
-    const matched = calculateATSScore(makeInput());
-    const mismatched = calculateATSScore(
+    const matched = calculateReadinessScore(makeInput());
+    const mismatched = calculateReadinessScore(
       makeInput({
         resumeData: { ...RICH_RESUME_DATA, title: 'Molecular Gastronomy Consultant' },
       }),
     );
     // experienceAlignment may be lower when title has no overlap
-    expect(matched.breakdown.experienceAlignment).toBeGreaterThanOrEqual(
-      mismatched.breakdown.experienceAlignment,
+    expect(matched.breakdown.businessImpact).toBeGreaterThanOrEqual(
+      mismatched.breakdown.businessImpact,
     );
   });
 });
@@ -328,10 +323,10 @@ describe('Role-fit penalty', () => {
 
 describe('Keyword cap', () => {
   it('repeating keywords 100× does not exceed the score of a clean resume', () => {
-    const cleanResult = calculateATSScore(makeInput());
+    const cleanResult = calculateReadinessScore(makeInput());
 
     const stuffed = 'TypeScript Kubernetes Docker Go Python '.repeat(200);
-    const stuffedResult = calculateATSScore(
+    const stuffedResult = calculateReadinessScore(
       makeInput({ resumeText: RICH_RESUME_TEXT + '\n' + stuffed }),
     );
 
@@ -345,11 +340,11 @@ describe('Keyword cap', () => {
 
   it('keyword density does not get wildly inflated by stuffing', () => {
     const stuffed = 'TypeScript '.repeat(500);
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ resumeText: RICH_RESUME_TEXT + '\n' + stuffed }),
     );
     // Density may be high, but score must remain bounded
-    expect(result.breakdown.keywordRelevance).toBeLessThanOrEqual(45);
+    expect(result.breakdown.roleRelevance).toBeLessThanOrEqual(30);
     expect(result.total).toBeLessThanOrEqual(100);
   });
 });
@@ -359,41 +354,34 @@ describe('Keyword cap', () => {
 // ---------------------------------------------------------------------------
 
 describe('Max possible score consistency', () => {
-  it('calculateATSScore is deterministic — same inputs yield same outputs', () => {
-    const first = calculateATSScore(makeInput());
-    const second = calculateATSScore(makeInput());
+  it('calculateReadinessScore is deterministic — same inputs yield same outputs', () => {
+    const first = calculateReadinessScore(makeInput());
+    const second = calculateReadinessScore(makeInput());
     expect(first.total).toBe(second.total);
     expect(first.breakdown).toEqual(second.breakdown);
     expect(first.details.matchedKeywords).toEqual(second.details.matchedKeywords);
   });
 
   it('running the same input 5 times always returns the same total', () => {
-    const results = Array.from({ length: 5 }, () => calculateATSScore(makeInput()));
+    const results = Array.from({ length: 5 }, () => calculateReadinessScore(makeInput()));
     const totals = results.map((r) => r.total);
     expect(new Set(totals).size).toBe(1);
   });
 
   it('breakdown sub-score sum equals or exceeds total (no hidden penalty)', () => {
-    const result = calculateATSScore(makeInput());
+    const result = calculateReadinessScore(makeInput());
     const subSum =
-      result.breakdown.keywordRelevance +
-      result.breakdown.skillsQuality +
-      result.breakdown.experienceAlignment +
-      result.breakdown.contentQuality;
+      result.breakdown.roleRelevance +
+      result.breakdown.claritySkimmability +
+      result.breakdown.businessImpact +
+      result.breakdown.presentationQuality;
     // total is rounded/capped from subSum, so it should always be ≤ subSum + ε
     expect(result.total).toBeLessThanOrEqual(subSum + 0.5);
   });
 
-  it('isATSOptimized is always true (deterministic mode)', () => {
-    const result = calculateATSScore(makeInput());
-    expect(result.isATSOptimized).toBe(true);
-  });
-
-  it('calibration is always disabled in deterministic mode', () => {
-    const result = calculateATSScore(makeInput());
-    expect(result.calibration.applied).toBe(false);
-    expect(result.calibration.profile).toBe('none');
-    expect(result.calibration.uplift).toBe(0);
+  it('isOptimized is always true (deterministic mode)', () => {
+    const result = calculateReadinessScore(makeInput());
+    expect(result.isOptimized).toBe(true);
   });
 });
 
@@ -403,7 +391,7 @@ describe('Max possible score consistency', () => {
 
 describe('Edge cases', () => {
   it('empty jobDescription returns total = 0', () => {
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ jobDescription: '' }),
     );
     expect(result.total).toBe(0);
@@ -411,14 +399,14 @@ describe('Edge cases', () => {
   });
 
   it('whitespace-only jobDescription returns total = 0', () => {
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ jobDescription: '   \n\t  ' }),
     );
     expect(result.total).toBe(0);
   });
 
   it('empty resumeText returns total = 0', () => {
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ resumeText: '' }),
     );
     expect(result.total).toBe(0);
@@ -426,46 +414,46 @@ describe('Edge cases', () => {
   });
 
   it('whitespace-only resumeText returns total = 0', () => {
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ resumeText: '   \n   ' }),
     );
     expect(result.total).toBe(0);
   });
 
   it('empty jobDescription result has all breakdown sub-scores = 0', () => {
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ jobDescription: '' }),
     );
-    expect(result.breakdown.keywordRelevance).toBe(0);
-    expect(result.breakdown.skillsQuality).toBe(0);
-    expect(result.breakdown.experienceAlignment).toBe(0);
-    expect(result.breakdown.contentQuality).toBe(0);
+    expect(result.breakdown.roleRelevance).toBe(0);
+    expect(result.breakdown.claritySkimmability).toBe(0);
+    expect(result.breakdown.businessImpact).toBe(0);
+    expect(result.breakdown.presentationQuality).toBe(0);
   });
 
   it('empty resumeText result has all breakdown sub-scores = 0', () => {
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ resumeText: '' }),
     );
-    expect(result.breakdown.keywordRelevance).toBe(0);
-    expect(result.breakdown.skillsQuality).toBe(0);
-    expect(result.breakdown.experienceAlignment).toBe(0);
-    expect(result.breakdown.contentQuality).toBe(0);
+    expect(result.breakdown.roleRelevance).toBe(0);
+    expect(result.breakdown.claritySkimmability).toBe(0);
+    expect(result.breakdown.businessImpact).toBe(0);
+    expect(result.breakdown.presentationQuality).toBe(0);
   });
 
   it('empty resumeData (no fields) does not throw', () => {
     expect(() =>
-      calculateATSScore(makeInput({ resumeData: {} })),
+      calculateReadinessScore(makeInput({ resumeData: {} })),
     ).not.toThrow();
   });
 
   it('minimal resumeData with only a title does not throw', () => {
     expect(() =>
-      calculateATSScore(makeInput({ resumeData: { title: 'Engineer' } })),
+      calculateReadinessScore(makeInput({ resumeData: { title: 'Engineer' } })),
     ).not.toThrow();
   });
 
   it('handles missing optional fields in resumeData gracefully', () => {
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({
         resumeData: {
           // only mandatory-ish field; all arrays absent
@@ -479,14 +467,12 @@ describe('Edge cases', () => {
   });
 
   it('returns a well-formed ATSScore object for a minimal valid input', () => {
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ jobDescription: 'JavaScript developer', resumeText: 'JavaScript', resumeData: {} }),
     );
     // Shape checks
     expect(typeof result.total).toBe('number');
-    expect(typeof result.coreTotal).toBe('number');
-    expect(typeof result.isATSOptimized).toBe('boolean');
-    expect(result.calibration).toBeDefined();
+    expect(typeof result.isOptimized).toBe('boolean');
     expect(result.breakdown).toBeDefined();
     expect(result.details).toBeDefined();
     expect(Array.isArray(result.details.matchedKeywords)).toBe(true);
@@ -495,7 +481,7 @@ describe('Edge cases', () => {
   });
 
   it('empty resume with non-empty JD lists all extracted keywords as missing', () => {
-    const result = calculateATSScore(makeInput({ resumeText: '' }));
+    const result = calculateReadinessScore(makeInput({ resumeText: '' }));
     // All extracted keywords should end up as missing
     const allKws = result.details.extractedKeywords.all;
     expect(allKws.length).toBeGreaterThan(0);
@@ -509,40 +495,40 @@ describe('Edge cases', () => {
 // ---------------------------------------------------------------------------
 
 describe('formatScoreAssessment', () => {
-  it('returns "Excellent match" for score >= 85', () => {
-    expect(formatScoreAssessment(85)).toContain('Excellent');
-    expect(formatScoreAssessment(100)).toContain('Excellent');
-    expect(formatScoreAssessment(90)).toContain('Excellent');
+  it('returns "Interview-ready" for score >= 85', () => {
+    expect(formatScoreAssessment(85)).toContain('Interview-ready');
+    expect(formatScoreAssessment(100)).toContain('Interview-ready');
+    expect(formatScoreAssessment(90)).toContain('Interview-ready');
   });
 
-  it('returns "Good match" for score 70–84', () => {
-    expect(formatScoreAssessment(70)).toContain('Good');
-    expect(formatScoreAssessment(84)).toContain('Good');
-    expect(formatScoreAssessment(77)).toContain('Good');
+  it('returns "Strong presentation" for score 70–84', () => {
+    expect(formatScoreAssessment(70)).toContain('Strong presentation');
+    expect(formatScoreAssessment(84)).toContain('Strong presentation');
+    expect(formatScoreAssessment(77)).toContain('Strong presentation');
   });
 
-  it('returns "Fair match" for score 55–69', () => {
-    expect(formatScoreAssessment(55)).toContain('Fair');
-    expect(formatScoreAssessment(69)).toContain('Fair');
-    expect(formatScoreAssessment(62)).toContain('Fair');
+  it('returns "Decent foundation" for score 55–69', () => {
+    expect(formatScoreAssessment(55)).toContain('Decent foundation');
+    expect(formatScoreAssessment(69)).toContain('Decent foundation');
+    expect(formatScoreAssessment(62)).toContain('Decent foundation');
   });
 
-  it('returns "Weak match" for score < 55', () => {
-    expect(formatScoreAssessment(54)).toContain('Weak');
-    expect(formatScoreAssessment(0)).toContain('Weak');
-    expect(formatScoreAssessment(30)).toContain('Weak');
+  it('returns "Significant gaps" for score < 55', () => {
+    expect(formatScoreAssessment(54)).toContain('Significant gaps');
+    expect(formatScoreAssessment(0)).toContain('Significant gaps');
+    expect(formatScoreAssessment(30)).toContain('Significant gaps');
   });
 
-  it('boundary: exactly 85 is "Excellent"', () => {
-    expect(formatScoreAssessment(85)).toContain('Excellent');
+  it('boundary: exactly 85 is "Interview-ready"', () => {
+    expect(formatScoreAssessment(85)).toContain('Interview-ready');
   });
 
-  it('boundary: exactly 70 is "Good"', () => {
-    expect(formatScoreAssessment(70)).toContain('Good');
+  it('boundary: exactly 70 is "Strong presentation"', () => {
+    expect(formatScoreAssessment(70)).toContain('Strong presentation');
   });
 
-  it('boundary: exactly 55 is "Fair"', () => {
-    expect(formatScoreAssessment(55)).toContain('Fair');
+  it('boundary: exactly 55 is "Decent foundation"', () => {
+    expect(formatScoreAssessment(55)).toContain('Decent foundation');
   });
 
   it('always returns a non-empty string', () => {
@@ -747,10 +733,10 @@ const MASTERS_RESUME_DATA: ResumeData = {
   experiences: [{ title: 'ML Engineer', company: 'Corp', highlights: ['Training models'] }],
 };
 
-describe('Integration: resumeDataToText → calculateATSScore', () => {
+describe('Integration: resumeDataToText → calculateReadinessScore', () => {
   it('text generated from structured data scores above zero against its JD', () => {
     const generatedText = resumeDataToText({ ...RICH_RESUME_DATA, name: 'Jane Smith' });
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ resumeText: generatedText }),
     );
     expect(result.total).toBeGreaterThan(0);
@@ -760,8 +746,8 @@ describe('Integration: resumeDataToText → calculateATSScore', () => {
     const sparseText = resumeDataToText({ title: 'Engineer', yearsExperience: 5 });
     const richText = resumeDataToText({ ...RICH_RESUME_DATA, name: 'Jane Smith' });
 
-    const sparseResult = calculateATSScore(makeInput({ resumeText: sparseText, resumeData: { title: 'Engineer' } }));
-    const richResult = calculateATSScore(makeInput({ resumeText: richText }));
+    const sparseResult = calculateReadinessScore(makeInput({ resumeText: sparseText, resumeData: { title: 'Engineer' } }));
+    const richResult = calculateReadinessScore(makeInput({ resumeText: richText }));
 
     expect(richResult.total).toBeGreaterThanOrEqual(sparseResult.total);
   });
@@ -773,7 +759,7 @@ describe('Integration: resumeDataToText → calculateATSScore', () => {
 
 describe('Management role detection', () => {
   it('detects a management JD and scores a matching manager resume above zero', () => {
-    const result = calculateATSScore({
+    const result = calculateReadinessScore({
       jobDescription: MGMT_JD,
       resumeText: resumeDataToText({ ...MGMT_RESUME_DATA, name: 'Bob Mgr' }),
       resumeData: MGMT_RESUME_DATA,
@@ -783,13 +769,13 @@ describe('Management role detection', () => {
   });
 
   it('management resume with matching team size scores higher than undersized team', () => {
-    const matchingResult = calculateATSScore({
+    const matchingResult = calculateReadinessScore({
       jobDescription: MGMT_JD,
       resumeText: resumeDataToText(MGMT_RESUME_DATA),
       resumeData: MGMT_RESUME_DATA,
     });
 
-    const undersizedResult = calculateATSScore({
+    const undersizedResult = calculateReadinessScore({
       jobDescription: MGMT_JD,
       resumeText: resumeDataToText({ ...MGMT_RESUME_DATA, teamSize: '2 engineers' }),
       resumeData: { ...MGMT_RESUME_DATA, teamSize: '2 engineers' },
@@ -799,7 +785,7 @@ describe('Management role detection', () => {
   });
 
   it('large team requirement with no resume team size still returns a valid score', () => {
-    const result = calculateATSScore({
+    const result = calculateReadinessScore({
       jobDescription: MGMT_JD_BIG_TEAM,
       resumeText: 'Senior Engineer with leadership experience in Java and AWS.',
       resumeData: { title: 'Senior Engineer', yearsExperience: 8, skills: ['Java', 'AWS'] },
@@ -809,7 +795,7 @@ describe('Management role detection', () => {
   });
 
   it('openToRoles field is used for domain-relevance when primary title does not match', () => {
-    const withRoles = calculateATSScore({
+    const withRoles = calculateReadinessScore({
       jobDescription: MGMT_JD,
       resumeText: resumeDataToText(MGMT_RESUME_DATA),
       resumeData: {
@@ -829,7 +815,7 @@ describe('Management role detection', () => {
 
 describe('IC role branch', () => {
   it('IC JD with explicit years requirement scores correctly', () => {
-    const result = calculateATSScore({
+    const result = calculateReadinessScore({
       jobDescription: IC_JD_YEARS,
       resumeText: 'Python developer with 5 years experience. REST APIs, PostgreSQL.',
       resumeData: {
@@ -847,7 +833,7 @@ describe('IC role branch', () => {
   });
 
   it('resume with fewer years than JD requires still scores non-negative', () => {
-    const result = calculateATSScore({
+    const result = calculateReadinessScore({
       jobDescription: IC_JD_YEARS,
       resumeText: 'Python developer. REST APIs.',
       resumeData: {
@@ -860,7 +846,7 @@ describe('IC role branch', () => {
   });
 
   it('overqualified resume (years >> JD requirement) still stays within ceiling', () => {
-    const result = calculateATSScore({
+    const result = calculateReadinessScore({
       jobDescription: IC_JD_YEARS,
       resumeText: 'Python expert. 20 years. REST APIs, PostgreSQL.',
       resumeData: {
@@ -880,12 +866,12 @@ describe('IC role branch', () => {
 
 describe('Education matching', () => {
   it('PhD holder against PhD-required JD scores >= bachelor holder', () => {
-    const phdResult = calculateATSScore({
+    const phdResult = calculateReadinessScore({
       jobDescription: PHD_JD,
       resumeText: resumeDataToText(PHD_RESUME_DATA),
       resumeData: PHD_RESUME_DATA,
     });
-    const bachelorResult = calculateATSScore({
+    const bachelorResult = calculateReadinessScore({
       jobDescription: PHD_JD,
       resumeText: resumeDataToText(BACHELOR_RESUME_DATA),
       resumeData: BACHELOR_RESUME_DATA,
@@ -908,12 +894,12 @@ describe('Education matching', () => {
       ],
     };
 
-    const phdResult = calculateATSScore({
+    const phdResult = calculateReadinessScore({
       jobDescription: PHD_JD,
       resumeText: resumeDataToText({ ...sharedData, education: [{ degree: 'PhD in Computer Science', institution: 'Stanford' }] }),
       resumeData: { ...sharedData, education: [{ degree: 'PhD in Computer Science', institution: 'Stanford' }] },
     });
-    const mastersResult = calculateATSScore({
+    const mastersResult = calculateReadinessScore({
       jobDescription: PHD_JD,
       resumeText: resumeDataToText({ ...sharedData, education: MASTERS_RESUME_DATA.education }),
       resumeData: { ...sharedData, education: MASTERS_RESUME_DATA.education },
@@ -929,7 +915,7 @@ describe('Education matching', () => {
   });
 
   it('resume with no education against JD without education requirement still works', () => {
-    const result = calculateATSScore({
+    const result = calculateReadinessScore({
       jobDescription: IC_JD_YEARS,
       resumeText: 'Python developer. REST APIs.',
       resumeData: {
@@ -943,7 +929,7 @@ describe('Education matching', () => {
   });
 
   it('resume with education but JD has no requirement gives a small bonus', () => {
-    const withEdu = calculateATSScore({
+    const withEdu = calculateReadinessScore({
       jobDescription: IC_JD_YEARS,
       resumeText: 'Python developer. REST APIs. BS Computer Science.',
       resumeData: {
@@ -964,7 +950,7 @@ describe('Keyword density compliance', () => {
   it('resume with very low keyword density scores non-negatively', () => {
     const lowDensityText = 'I once used Python. That is my entire experience. ' +
       'Lots of filler text to dilute. '.repeat(100);
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ resumeText: lowDensityText }),
     );
     expect(result.total).toBeGreaterThanOrEqual(0);
@@ -974,14 +960,14 @@ describe('Keyword density compliance', () => {
   it('resume with extremely high keyword density stays within bounds', () => {
     // Very short text with many keyword repetitions → high density
     const highDensityText = 'TypeScript Kubernetes Docker Go Python TypeScript Kubernetes Docker'.repeat(3);
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ resumeText: highDensityText }),
     );
     expect(result.total).toBeGreaterThanOrEqual(0);
     expect(result.total).toBeLessThanOrEqual(100);
   });
 
-  it('optimal density range resume (2-8%) scores contentQuality > 0', () => {
+  it('optimal density range resume (2-8%) scores presentationQuality > 0', () => {
     // Use a text length and keyword frequency that should land in 2-8%
     const optimalText =
       'TypeScript developer experienced in Kubernetes and Docker. ' +
@@ -989,7 +975,7 @@ describe('Keyword density compliance', () => {
       'REST APIs and PostgreSQL are core skills. GitHub Actions for CI/CD. ' +
       'Proficient in GraphQL, Redis, and Kafka. ArgoCD deployment experience. ' +
       'Prometheus and Grafana for observability. GCP cloud platform.';
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({ resumeText: optimalText }),
     );
     expect(result.total).toBeGreaterThan(0);
@@ -1002,7 +988,7 @@ describe('Keyword density compliance', () => {
 
 describe('ResumeData skills coverage', () => {
   it('skills listed only via skillsByCategory are picked up for scoring', () => {
-    const result = calculateATSScore({
+    const result = calculateReadinessScore({
       jobDescription: RICH_JD,
       resumeText: resumeDataToText({
         title: 'Senior Software Engineer',
@@ -1033,19 +1019,19 @@ describe('ResumeData skills coverage', () => {
         education: [{ degree: 'Bachelor of Science in Computer Science', institution: 'Uni' }],
       },
     });
-    expect(result.breakdown.skillsQuality).toBeGreaterThan(0);
+    expect(result.breakdown.claritySkimmability).toBeGreaterThan(0);
     expect(result.total).toBeGreaterThan(0);
   });
 
-  it('resume with no skills sections gets zero or minimal skillsQuality', () => {
-    const result = calculateATSScore({
+  it('resume with no skills sections gets zero or minimal claritySkimmability', () => {
+    const result = calculateReadinessScore({
       jobDescription: RICH_JD,
       resumeText: 'Engineer with experience in software development.',
       resumeData: { title: 'Engineer', yearsExperience: 5 },
     });
     // Can't assert exact zero (text may partially match), but should be bounded
-    expect(result.breakdown.skillsQuality).toBeLessThanOrEqual(25);
-    expect(result.breakdown.skillsQuality).toBeGreaterThanOrEqual(0);
+    expect(result.breakdown.claritySkimmability).toBeLessThanOrEqual(30);
+    expect(result.breakdown.claritySkimmability).toBeGreaterThanOrEqual(0);
   });
 });
 
@@ -1055,16 +1041,16 @@ describe('ResumeData skills coverage', () => {
 
 describe('Section completeness', () => {
   it('fully populated resume gets maximum possible completeness contribution', () => {
-    const full = calculateATSScore(makeInput());
-    const empty = calculateATSScore(makeInput({ resumeData: {} }));
-    // Full data should produce a higher or equal contentQuality
-    expect(full.breakdown.contentQuality).toBeGreaterThanOrEqual(
-      empty.breakdown.contentQuality,
+    const full = calculateReadinessScore(makeInput());
+    const empty = calculateReadinessScore(makeInput({ resumeData: {} }));
+    // Full data should produce a higher or equal presentationQuality
+    expect(full.breakdown.presentationQuality).toBeGreaterThanOrEqual(
+      empty.breakdown.presentationQuality,
     );
   });
 
   it('resume with experiences but no highlights still counts toward completeness', () => {
-    const result = calculateATSScore(
+    const result = calculateReadinessScore(
       makeInput({
         resumeData: {
           title: 'Engineer',
@@ -1081,19 +1067,20 @@ describe('Section completeness', () => {
 // ---------------------------------------------------------------------------
 
 describe('Score structure invariants', () => {
-  it('total always equals coreTotal in deterministic mode (no calibration)', () => {
-    const result = calculateATSScore(makeInput());
-    expect(result.total).toBe(result.coreTotal);
+  it('total is a valid number in deterministic mode', () => {
+    const result = calculateReadinessScore(makeInput());
+    expect(result.total).toBeGreaterThanOrEqual(0);
+    expect(result.total).toBeLessThanOrEqual(100);
   });
 
   it('keywordDensity in details is a non-negative number', () => {
-    const result = calculateATSScore(makeInput());
+    const result = calculateReadinessScore(makeInput());
     expect(result.details.keywordDensity).toBeGreaterThanOrEqual(0);
     expect(typeof result.details.keywordDensity).toBe('number');
   });
 
   it('extractedKeywords has all required fields', () => {
-    const result = calculateATSScore(makeInput());
+    const result = calculateReadinessScore(makeInput());
     const kws = result.details.extractedKeywords;
     expect(Array.isArray(kws.all)).toBe(true);
     expect(Array.isArray(kws.fromTitle)).toBe(true);
@@ -1103,7 +1090,7 @@ describe('Score structure invariants', () => {
   });
 
   it('matchDetails entries have keyword and matchType fields', () => {
-    const result = calculateATSScore(makeInput());
+    const result = calculateReadinessScore(makeInput());
     for (const detail of result.details.matchDetails) {
       expect(typeof detail.keyword).toBe('string');
       expect(['exact', 'stem', 'synonym']).toContain(detail.matchType);

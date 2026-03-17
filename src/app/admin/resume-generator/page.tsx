@@ -71,21 +71,21 @@ function calculateDynamicBreakdown(
 
     // Map section to breakdown category and distribute impact
     if (change.section === 'summary') {
-      // Summary changes primarily affect keyword relevance
-      result.keywordRelevance = Math.min(45, result.keywordRelevance + Math.ceil(effectiveImpact * 0.7));
-      result.experienceAlignment = Math.min(20, result.experienceAlignment + Math.floor(effectiveImpact * 0.3));
+      // Summary changes affect role relevance and clarity
+      result.roleRelevance = Math.min(30, result.roleRelevance + Math.ceil(effectiveImpact * 0.5));
+      result.claritySkimmability = Math.min(30, result.claritySkimmability + Math.floor(effectiveImpact * 0.5));
     } else if (change.section.startsWith('experience.')) {
-      // Experience bullets affect keyword relevance, alignment, and content quality
-      result.keywordRelevance = Math.min(45, result.keywordRelevance + Math.ceil(effectiveImpact * 0.5));
-      result.experienceAlignment = Math.min(20, result.experienceAlignment + Math.round(effectiveImpact * 0.3));
-      result.contentQuality = Math.min(10, result.contentQuality + Math.floor(effectiveImpact * 0.2));
+      // Experience bullets affect business impact, role relevance, and presentation
+      result.businessImpact = Math.min(25, result.businessImpact + Math.ceil(effectiveImpact * 0.4));
+      result.roleRelevance = Math.min(30, result.roleRelevance + Math.round(effectiveImpact * 0.3));
+      result.presentationQuality = Math.min(15, result.presentationQuality + Math.floor(effectiveImpact * 0.3));
     } else if (change.section.startsWith('skills.')) {
-      // Skills changes primarily affect skills quality
-      result.skillsQuality = Math.min(25, result.skillsQuality + Math.ceil(effectiveImpact * 0.8));
-      result.keywordRelevance = Math.min(45, result.keywordRelevance + Math.floor(effectiveImpact * 0.2));
+      // Skills changes primarily affect role relevance
+      result.roleRelevance = Math.min(30, result.roleRelevance + Math.ceil(effectiveImpact * 0.7));
+      result.presentationQuality = Math.min(15, result.presentationQuality + Math.floor(effectiveImpact * 0.3));
     } else if (change.section.startsWith('education.')) {
-      // Education changes affect alignment
-      result.experienceAlignment = Math.min(20, result.experienceAlignment + effectiveImpact);
+      // Education changes affect presentation quality
+      result.presentationQuality = Math.min(15, result.presentationQuality + effectiveImpact);
     }
   }
 
@@ -614,9 +614,9 @@ export default function ResumeGeneratorPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text)]">ATS Resume Generator</h1>
+          <h1 className="text-2xl font-bold text-[var(--color-text)]">Resume Generator</h1>
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-            Optimize your resume for ATS compatibility
+            Optimize your resume for recruiter readability
           </p>
         </div>
         <Link
@@ -791,7 +791,7 @@ export default function ResumeGeneratorPage() {
           </svg>
           <h2 className="mt-4 text-xl font-semibold text-[var(--color-text)]">Resume Generated!</h2>
           <p className="mt-2 text-[var(--color-text-muted)]">
-            Your ATS-optimized resume for {analysisResult.analysis.companyName} is ready
+            Your optimized resume for {analysisResult.analysis.companyName} is ready
           </p>
           <div className="mt-6 flex justify-center gap-4">
             {generatedPdfUrl && (

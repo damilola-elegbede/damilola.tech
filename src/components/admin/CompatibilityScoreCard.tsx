@@ -110,28 +110,28 @@ export function CompatibilityScoreCard({
 
       <div className="mt-6 space-y-3">
         <ScoreBar
-          label="Keyword Relevance"
-          value={safeBreakdown.keywordRelevance}
-          maxValue={45}
-          description="Matching JD keywords in resume (45 pts max)"
+          label="Role Relevance"
+          value={safeBreakdown.roleRelevance}
+          maxValue={30}
+          description="JD keywords and title alignment (30 pts max)"
         />
         <ScoreBar
-          label="Skills Quality"
-          value={safeBreakdown.skillsQuality}
+          label="Clarity & Skimmability"
+          value={safeBreakdown.claritySkimmability}
+          maxValue={30}
+          description="Structure, conciseness, and frontloading (30 pts max)"
+        />
+        <ScoreBar
+          label="Business Impact"
+          value={safeBreakdown.businessImpact}
           maxValue={25}
-          description="Skills section completeness and organization (25 pts max)"
+          description="Quantified outcomes and achievement framing (25 pts max)"
         />
         <ScoreBar
-          label="Experience Alignment"
-          value={safeBreakdown.experienceAlignment}
-          maxValue={20}
-          description="Years, scope, title, and education match (20 pts max)"
-        />
-        <ScoreBar
-          label="Match Quality"
-          value={safeBreakdown.contentQuality}
-          maxValue={10}
-          description="Exact match ratio, keyword density, and section completeness (10 pts max)"
+          label="Presentation Quality"
+          value={safeBreakdown.presentationQuality}
+          maxValue={15}
+          description="Natural keyword use, title bridging, and professional format (15 pts max)"
         />
       </div>
     </div>

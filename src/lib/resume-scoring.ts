@@ -27,24 +27,24 @@ function keywordInText(text: string, keyword: string): boolean {
  * @returns The adjusted impact points based on retained keywords
  */
 export function calculateEditedImpact(change: ProposedChange, editedText: string): number {
-  if (change.keywordsAdded.length === 0) {
+  if (change.relevanceSignals.length === 0) {
     return change.impactPoints;
   }
 
-  // Count how many keywords are retained in the edited text
-  const retainedKeywords = change.keywordsAdded.filter((keyword) =>
-    keywordInText(editedText, keyword)
+  // Count how many signals are retained in the edited text
+  const retainedSignals = change.relevanceSignals.filter((signal) =>
+    keywordInText(editedText, signal)
   );
 
-  // Use impactPerKeyword if available, otherwise calculate from impactPoints
-  const impactPerKeyword = change.impactPerKeyword
-    ?? change.impactPoints / change.keywordsAdded.length;
+  // Use impactPerSignal if available, otherwise calculate from impactPoints
+  const impactPerSignal = change.impactPerSignal
+    ?? change.impactPoints / change.relevanceSignals.length;
 
-  return Math.round(retainedKeywords.length * impactPerKeyword);
+  return Math.round(retainedSignals.length * impactPerSignal);
 }
 
 /**
- * Proportionally scale each change's impactPoints (and impactPerKeyword) so their
+ * Proportionally scale each change's impactPoints (and impactPerSignal) so their
  * sum equals the achievable score delta (budget). This prevents the projected score
  * from exceeding the score ceiling when Claude's per-change estimates are inflated.
  *
@@ -78,13 +78,13 @@ export function normalizeImpactPoints(
   // Uses floor to avoid overshoot; remainder is distributed via round to the largest change.
   const scaledChanges = result.proposedChanges.map((change) => {
     const scaledImpact = Math.floor(change.impactPoints * scaleFactor * 100) / 100;
-    const scaledPerKeyword = change.impactPerKeyword !== undefined
-      ? Math.floor(change.impactPerKeyword * scaleFactor * 100) / 100
+    const scaledPerSignal = change.impactPerSignal !== undefined
+      ? Math.floor(change.impactPerSignal * scaleFactor * 100) / 100
       : undefined;
     return {
       ...change,
       impactPoints: scaledImpact,
-      ...(scaledPerKeyword !== undefined ? { impactPerKeyword: scaledPerKeyword } : {}),
+      ...(scaledPerSignal !== undefined ? { impactPerSignal: scaledPerSignal } : {}),
     };
   });
 

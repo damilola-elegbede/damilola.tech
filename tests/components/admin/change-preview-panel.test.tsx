@@ -9,7 +9,7 @@ const mockChanges: ProposedChange[] = [
     original: 'Technology executive with 10+ years of experience',
     modified: 'Cloud infrastructure leader with 10+ years driving digital transformation',
     reason: 'Added cloud keywords to match JD requirements',
-    keywordsAdded: ['cloud', 'infrastructure', 'digital transformation'],
+    relevanceSignals: ['cloud', 'infrastructure', 'digital transformation'],
     impactPoints: 4,
   },
   {
@@ -17,7 +17,7 @@ const mockChanges: ProposedChange[] = [
     original: 'Led engineering teams across multiple projects',
     modified: 'Spearheaded cross-functional engineering teams delivering healthcare AI solutions',
     reason: 'Added healthcare AI context and action verb',
-    keywordsAdded: ['healthcare', 'AI', 'cross-functional'],
+    relevanceSignals: ['healthcare', 'AI', 'cross-functional'],
     impactPoints: 3,
   },
   {
@@ -25,7 +25,7 @@ const mockChanges: ProposedChange[] = [
     original: 'Managed platform development',
     modified: 'Architected scalable platform serving 100M+ users with 99.9% uptime',
     reason: 'Added metrics and scale',
-    keywordsAdded: ['scalable', 'platform'],
+    relevanceSignals: ['scalable', 'platform'],
     impactPoints: 5,
   },
 ];
