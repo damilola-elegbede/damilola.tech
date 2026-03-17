@@ -92,13 +92,28 @@ Bullets must be ≤150 characters. Use exact titles from source data — never f
       Array.isArray(revisedChange.relevanceSignals) &&
       revisedChange.relevanceSignals.every((s: unknown) => typeof s === 'string');
 
+    const bd = revisedChange.impactBreakdown;
+    const validImpactBreakdown =
+      bd === undefined ||
+      (bd !== null &&
+        typeof bd === 'object' &&
+        Number.isFinite(bd.roleRelevance) && bd.roleRelevance >= 0 &&
+        Number.isFinite(bd.claritySkimmability) && bd.claritySkimmability >= 0 &&
+        Number.isFinite(bd.businessImpact) && bd.businessImpact >= 0 &&
+        Number.isFinite(bd.presentationQuality) && bd.presentationQuality >= 0 &&
+        Math.abs(
+          bd.roleRelevance + bd.claritySkimmability + bd.businessImpact + bd.presentationQuality -
+          revisedChange.impactPoints
+        ) <= 1);
+
     if (
       !revisedChange.section ||
       !revisedChange.original ||
       !revisedChange.modified ||
       !revisedChange.reason ||
       !validRelevanceSignals ||
-      !Number.isFinite(revisedChange.impactPoints)
+      !Number.isFinite(revisedChange.impactPoints) ||
+      !validImpactBreakdown
     ) {
       return Response.json({ error: 'Invalid response structure from AI' }, { status: 500 });
     }

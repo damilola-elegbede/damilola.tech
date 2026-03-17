@@ -45,14 +45,28 @@ export function migrateBreakdownToV3(old: LegacyScoreBreakdown): ScoreBreakdown 
   };
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function clampScore(value: unknown, min: number, max: number): number {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) return min;
+  return Math.round(Math.max(min, Math.min(max, numeric)));
+}
+
 /**
  * Type guard to detect legacy breakdown shape.
  */
 export function isLegacyBreakdown(b: unknown): b is LegacyScoreBreakdown {
   if (!b || typeof b !== 'object') return false;
   const obj = b as Record<string, unknown>;
-  return 'keywordRelevance' in obj && 'skillsQuality' in obj &&
-    'experienceAlignment' in obj && 'contentQuality' in obj;
+  return (
+    isFiniteNumber(obj.keywordRelevance) &&
+    isFiniteNumber(obj.skillsQuality) &&
+    isFiniteNumber(obj.experienceAlignment) &&
+    isFiniteNumber(obj.contentQuality)
+  );
 }
 
 /**
@@ -62,7 +76,13 @@ export function normalizeBreakdown(b: ScoreBreakdown | LegacyScoreBreakdown): Sc
   if (isLegacyBreakdown(b)) {
     return migrateBreakdownToV3(b);
   }
-  return b as ScoreBreakdown;
+  const obj = (b ?? {}) as Record<string, unknown>;
+  return {
+    roleRelevance: clampScore(obj.roleRelevance, 0, 30),
+    claritySkimmability: clampScore(obj.claritySkimmability, 0, 30),
+    businessImpact: clampScore(obj.businessImpact, 0, 25),
+    presentationQuality: clampScore(obj.presentationQuality, 0, 15),
+  };
 }
 
 export interface EstimatedCompatibility {
