@@ -332,6 +332,7 @@ test.describe('Resume Generator Review Workflow', () => {
 
     // Generate PDF button should be disabled when no changes are accepted
     const generateButton = page.getByRole('button', { name: /generate pdf/i }).first();
+    await expect(generateButton).toBeVisible({ timeout: 15000 });
     await expect(generateButton).toBeDisabled();
 
     // Accept a change

@@ -472,8 +472,16 @@ describe('Readiness Scorer - Positional Relevance Scoring', () => {
       - Platform engineering
     `;
 
+    const buildResumeText = (bullets: string[]) => `
+      Platform Engineer
+      CurrentCo
+      ${bullets.join('\n')}
+      Senior Engineer
+      PriorCo
+      Maintained legacy systems
+    `;
+
     const frontloadedResumeData: ResumeData = {
-      title: 'Platform Engineer',
       experiences: [
         {
           title: 'Platform Engineer',
@@ -493,7 +501,6 @@ describe('Readiness Scorer - Positional Relevance Scoring', () => {
     };
 
     const buriedResumeData: ResumeData = {
-      title: 'Platform Engineer',
       experiences: [
         {
           title: 'Platform Engineer',
@@ -514,13 +521,13 @@ describe('Readiness Scorer - Positional Relevance Scoring', () => {
 
     const frontloadedResult = calculateReadinessScore({
       jobDescription: bulletJD,
-      resumeText: resumeDataToText(frontloadedResumeData),
+      resumeText: buildResumeText(frontloadedResumeData.experiences?.[0]?.highlights || []),
       resumeData: frontloadedResumeData,
     });
 
     const buriedResult = calculateReadinessScore({
       jobDescription: bulletJD,
-      resumeText: resumeDataToText(buriedResumeData),
+      resumeText: buildResumeText(buriedResumeData.experiences?.[0]?.highlights || []),
       resumeData: buriedResumeData,
     });
 
@@ -574,9 +581,9 @@ describe('Readiness Scorer - Title Bridging Detection', () => {
       resumeData: unbridgedResumeData,
     });
 
-    expect(bridged.breakdown.claritySkimmability).toBeGreaterThan(
-      unbridged.breakdown.claritySkimmability
-    );
+    const clarityDelta = bridged.breakdown.claritySkimmability
+      - unbridged.breakdown.claritySkimmability;
+    expect(clarityDelta).toBeGreaterThanOrEqual(2);
   });
 
   it('awards full points when titles already match', () => {
@@ -596,7 +603,9 @@ describe('Readiness Scorer - Title Bridging Detection', () => {
       resumeData: { ...mockResumeData, title: 'Engineering Manager' },
     });
 
-    expect(exact.breakdown.claritySkimmability).toBeGreaterThan(partial.breakdown.claritySkimmability);
+    const clarityDelta = exact.breakdown.claritySkimmability
+      - partial.breakdown.claritySkimmability;
+    expect(clarityDelta).toBeGreaterThanOrEqual(2);
   });
 });
 

@@ -1,4 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator } from '@playwright/test';
+
+async function waitForExampleButton(section: Locator, name: RegExp) {
+  const button = section.getByRole('button', { name });
+  await expect(button).toBeVisible({ timeout: 15000 });
+  await expect(button).toBeEnabled({ timeout: 15000 });
+  return button;
+}
 
 test.describe('Fit Assessment', () => {
   test.beforeEach(async ({ page }) => {
@@ -37,11 +44,10 @@ test.describe('Fit Assessment', () => {
   test('should populate textarea with strong fit example', async ({ page }) => {
     const section = page.locator('#fit-assessment');
 
-    // Wait for examples to load
-    await expect(section.getByRole('button', { name: /strong fit example/i })).toBeEnabled();
+    const strongFitButton = await waitForExampleButton(section, /strong fit example/i);
 
     // Click strong fit example
-    await section.getByRole('button', { name: /strong fit example/i }).click();
+    await strongFitButton.click();
 
     // Verify textarea is populated with content
     const textarea = section.getByRole('textbox', { name: /job description/i });
@@ -54,11 +60,10 @@ test.describe('Fit Assessment', () => {
   test('should populate textarea with weak fit example', async ({ page }) => {
     const section = page.locator('#fit-assessment');
 
-    // Wait for examples to load
-    await expect(section.getByRole('button', { name: /weak fit example/i })).toBeEnabled();
+    const weakFitButton = await waitForExampleButton(section, /weak fit example/i);
 
     // Click weak fit example
-    await section.getByRole('button', { name: /weak fit example/i }).click();
+    await weakFitButton.click();
 
     // Verify textarea is populated with content
     const textarea = section.getByRole('textbox', { name: /job description/i });

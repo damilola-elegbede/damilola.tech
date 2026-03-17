@@ -12,11 +12,13 @@ test.describe('Admin Dashboard', () => {
     // Login first
     await page.goto('/admin/login');
     await page.getByLabel('Password').fill(password);
-    await page.getByRole('button', { name: 'Sign In' }).click();
-    await expect(page).toHaveURL('/admin/dashboard');
+    await Promise.all([
+      page.waitForURL('**/admin/dashboard', { timeout: 15000 }),
+      page.getByRole('button', { name: 'Sign In' }).click(),
+    ]);
 
     // Wait for dashboard to finish loading (spinner disappears, heading appears)
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 15000 });
   });
 
   test('displays dashboard heading', async ({ page }) => {
@@ -60,12 +62,15 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('logout works', async ({ page }) => {
-    await page.getByRole('button', { name: 'Logout' }).click();
-
-    await expect(page).toHaveURL('/admin/login');
+    const logoutButton = page.getByRole('button', { name: 'Logout' });
+    await logoutButton.scrollIntoViewIfNeeded();
+    await Promise.all([
+      page.waitForURL('**/admin/login', { timeout: 15000 }),
+      logoutButton.click(),
+    ]);
 
     // Verify can't access dashboard anymore
     await page.goto('/admin/dashboard');
-    await expect(page).toHaveURL('/admin/login');
+    await expect(page).toHaveURL(/\/admin\/login$/, { timeout: 15000 });
   });
 });

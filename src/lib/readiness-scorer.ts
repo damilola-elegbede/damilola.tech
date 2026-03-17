@@ -172,12 +172,29 @@ function getSummarySegments(resumeText: string, resumeData: ResumeData): {
   firstSummaryLine: string;
 } {
   const lines = getResumeLines(resumeText);
+  if (lines.length === 0) {
+    return {
+      firstTwoSentences: '',
+      remainingSentences: '',
+      firstSummaryLine: '',
+    };
+  }
+
   const titleLower = resumeData.title?.trim().toLowerCase();
-  const contentLines = titleLower
-    ? lines.filter((line, index) => !(index === 0 && line.toLowerCase() === titleLower))
-    : lines;
-  const summaryLines = contentLines.slice(0, 5);
-  const summaryText = summaryLines.join(' ');
+  const contentLines = [...lines];
+  if (titleLower) {
+    const titleIndex = contentLines.findIndex(
+      (line, index) => index < 3 && line.toLowerCase() === titleLower
+    );
+
+    if (titleIndex >= 0) {
+      // Drop leading header lines (name/title) so summary detection starts at content.
+      contentLines.splice(0, titleIndex + 1);
+    }
+  }
+
+  const summaryLines = contentLines.filter(Boolean).slice(0, 5);
+  const summaryText = summaryLines.join('\n');
   const sentences = splitIntoSentences(summaryText);
 
   return {
@@ -292,7 +309,10 @@ function calculateSkillsOrderingScore(
   extractedKeywords: ExtractedKeywords
 ): number {
   const categories = resumeData.skillsByCategory;
-  if (!categories || categories.length < 2) {
+  if (!categories || categories.length === 0) {
+    return 0;
+  }
+  if (categories.length === 1) {
     return 1;
   }
 
