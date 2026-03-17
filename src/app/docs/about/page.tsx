@@ -113,10 +113,10 @@ export default function AboutSitePage() {
                 </p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-[var(--color-text)]">ATS-Optimized Resume Generator</h3>
+                <h3 className="text-sm font-medium text-[var(--color-text)]">Recruiter-Ready Resume Generator</h3>
                 <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                  Generate tailored resumes optimized for specific job descriptions with
-                  keyword matching and ATS compatibility scoring.
+                  Generate tailored resumes optimized for human readability and role relevance,
+                  with recruiter-focused scoring across clarity, impact, and fit.
                 </p>
               </div>
               <div>

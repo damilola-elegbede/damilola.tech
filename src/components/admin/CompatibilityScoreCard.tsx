@@ -113,7 +113,7 @@ export function CompatibilityScoreCard({
           label="Role Relevance"
           value={safeBreakdown.roleRelevance}
           maxValue={30}
-          description="JD keywords and title alignment (30 pts max)"
+          description="Recruiter-visible signals: role terms, title clarity, skills coverage (30 pts max)"
         />
         <ScoreBar
           label="Clarity & Skimmability"

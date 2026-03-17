@@ -95,7 +95,7 @@ Review AI-generated role fit assessments created by visitors.
 
 ### Resume Generator
 
-Generate ATS-optimized resumes tailored to specific job descriptions.
+Generate recruiter-ready resumes optimized for human readability and relevance.
 
 **Features:**
 
@@ -495,7 +495,7 @@ List all generated resumes.
 
 #### POST /api/admin/resume/generate
 
-Generate ATS-optimized resume for job description.
+Generate recruiter-ready resume for job description.
 
 **Request:**
 

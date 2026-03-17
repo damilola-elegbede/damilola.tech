@@ -22,7 +22,7 @@ Comprehensive documentation for the damilola.tech personal career landing page a
 - [Dashboard](./admin-portal.md#dashboard) - Analytics and metrics
 - [Traffic Analytics](./admin-portal.md#traffic-analytics) - Visitor source analysis
 - [Chat Archive](./admin-portal.md#chat-archive) - Conversation history
-- [Resume Generator](./admin-portal.md#resume-generator) - ATS-optimized resumes
+- [Resume Generator](./admin-portal.md#resume-generator) - Recruiter-ready resumes
 - [Audit Log](./admin-portal.md#audit-log) - Complete event trail
 
 ## Technical Documentation

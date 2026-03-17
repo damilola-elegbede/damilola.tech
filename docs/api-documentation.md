@@ -478,7 +478,7 @@ List generated resumes.
 
 #### POST /api/admin/resume/generate
 
-Generate ATS-optimized resume for job description.
+Generate recruiter-ready resume for job description.
 
 **Request Body:**
 
