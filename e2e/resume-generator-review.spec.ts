@@ -174,8 +174,12 @@ test.describe('Resume Generator Review Workflow', () => {
     await page.getByRole('button', { name: /analyze/i }).click();
     await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 10000 });
 
-    // Verify changes start in pending state (Accept buttons visible, not pre-accepted)
-    await expect(page.getByRole('button', { name: /^accept$/i }).first()).toBeVisible();
+    // Verify ALL changes start in pending state — none auto-accepted
+    const acceptButtons = page.getByRole('button', { name: /^accept$/i });
+    await expect(acceptButtons).toHaveCount(MOCK_ANALYSIS.proposedChanges.length);
+
+    // No "Accepted" badges should be present
+    await expect(page.getByText('Accepted')).toHaveCount(0);
   });
 
   test('UI shows edit and reject options for pending changes', async ({ page }) => {
