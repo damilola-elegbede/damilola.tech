@@ -18,7 +18,6 @@ const mockPutResult = (url: string): PutBlobResult => ({
   pathname: url.split('/').pop() ?? '',
   contentType: 'application/json',
   contentDisposition: 'inline',
-  etag: 'test-etag',
 });
 
 // Helper to create mock HeadBlobResult
@@ -31,7 +30,6 @@ const mockHeadResult = (url: string): HeadBlobResult => ({
   size: 1024,
   uploadedAt: new Date(),
   cacheControl: 'public, max-age=31536000',
-  etag: 'test-etag',
 });
 
 describe('calculateCost', () => {

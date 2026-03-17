@@ -678,7 +678,7 @@ function fallbackSectionParsing(jd: string): ParsedSection[] {
  * Extract job title from JD text.
  * Scans first 5 lines, scores candidates, checks for explicit labels.
  */
-function extractJobTitle(jd: string): string | null {
+export function extractJobTitle(jd: string): string | null {
   const lines = jd.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
   // Expanded role words for title detection

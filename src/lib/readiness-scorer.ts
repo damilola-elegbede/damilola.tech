@@ -13,6 +13,7 @@
 
 import {
   extractKeywords,
+  extractJobTitle,
   matchKeywords,
   calculateMatchRate,
   calculateActualKeywordDensity,
@@ -134,6 +135,193 @@ function uniqueKeywords(values: string[]): string[] {
   return [...new Set(values.map(v => v.toLowerCase().trim()).filter(Boolean))];
 }
 
+const TITLE_BRIDGING_STOPWORDS = new Set([
+  'and',
+  'or',
+  'the',
+  'for',
+  'with',
+  'from',
+  'into',
+  'of',
+  'to',
+  'in',
+  'on',
+  'at',
+  'by',
+  '&',
+]);
+
+function getResumeLines(resumeText: string): string[] {
+  return resumeText
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+function splitIntoSentences(text: string): string[] {
+  return text
+    .split(/[.!?\n]+/)
+    .map(sentence => sentence.trim())
+    .filter(Boolean);
+}
+
+function getSummarySegments(resumeText: string, resumeData: ResumeData): {
+  firstTwoSentences: string;
+  remainingSentences: string;
+  firstSummaryLine: string;
+} {
+  const lines = getResumeLines(resumeText);
+  const titleLower = resumeData.title?.trim().toLowerCase();
+  const contentLines = titleLower
+    ? lines.filter((line, index) => !(index === 0 && line.toLowerCase() === titleLower))
+    : lines;
+  const summaryLines = contentLines.slice(0, 5);
+  const summaryText = summaryLines.join(' ');
+  const sentences = splitIntoSentences(summaryText);
+
+  return {
+    firstTwoSentences: sentences.slice(0, 2).join('. ').toLowerCase(),
+    remainingSentences: sentences.slice(2).join('. ').toLowerCase(),
+    firstSummaryLine: summaryLines[0]?.toLowerCase() || '',
+  };
+}
+
+function keywordAppearsInText(keyword: string, text: string): boolean {
+  if (!keyword || !text.trim()) {
+    return false;
+  }
+
+  return matchKeywords([keyword], text, {
+    allowStem: true,
+    allowSynonyms: true,
+  }).matched.length > 0;
+}
+
+/**
+ * Determine the highest-value position where a keyword appears in the resume.
+ */
+function getPositionalMultiplier(
+  keyword: string,
+  resumeText: string,
+  resumeData: ResumeData
+): number {
+  const { firstTwoSentences, remainingSentences } = getSummarySegments(resumeText, resumeData);
+  const firstRoleBullets = resumeData.experiences?.[0]?.highlights || [];
+  const firstRoleFirstThree = firstRoleBullets.slice(0, 3).join(' ');
+  const firstRoleRemaining = firstRoleBullets.slice(3).join(' ');
+  const otherRoleBullets = (resumeData.experiences || [])
+    .slice(1)
+    .flatMap(experience => experience.highlights || [])
+    .join(' ');
+  const skillsText = [
+    ...(resumeData.skills || []),
+    ...(resumeData.skillsByCategory || []).flatMap(category => [category.category, ...category.items]),
+  ].join(' ');
+
+  if (keywordAppearsInText(keyword, firstTwoSentences)) return 1.5;
+  if (keywordAppearsInText(keyword, remainingSentences)) return 1.2;
+  if (keywordAppearsInText(keyword, firstRoleFirstThree)) return 1.3;
+  if (keywordAppearsInText(keyword, firstRoleRemaining)) return 1.0;
+  if (keywordAppearsInText(keyword, otherRoleBullets)) return 1.0;
+  if (keywordAppearsInText(keyword, skillsText)) return 0.7;
+
+  return 1.0;
+}
+
+function getMeaningfulTitleTerms(title: string): string[] {
+  return uniqueKeywords(
+    title
+      .toLowerCase()
+      .split(/[\s,()/&-]+/)
+      .filter(term => term.length > 2 && !TITLE_BRIDGING_STOPWORDS.has(term))
+  );
+}
+
+/**
+ * Check whether the resume bridges differentiating title terms from the JD.
+ * Returns 0-3 points.
+ */
+function calculateTitleBridgingScore(
+  resumeText: string,
+  resumeData: ResumeData,
+  jobDescription: string
+): number {
+  const jdTitle = extractJobTitle(jobDescription);
+  if (!jdTitle) return 1.5;
+
+  const resumeTitle = resumeData.title?.trim() || '';
+  if (!resumeTitle) return 0;
+
+  const jdTerms = getMeaningfulTitleTerms(jdTitle);
+  if (jdTerms.length === 0) return 1.5;
+
+  const resumeTitleTerms = getMeaningfulTitleTerms(resumeTitle);
+  const resumeTitleStems = new Set(resumeTitleTerms.map(stemWord));
+  const differentiatingTerms = jdTerms.filter(term => (
+    !resumeTitleTerms.includes(term) && !resumeTitleStems.has(stemWord(term))
+  ));
+
+  if (differentiatingTerms.length === 0) {
+    return 3;
+  }
+
+  const parentheticalText = (resumeTitle.match(/\(([^)]+)\)/)?.[1] || '').toLowerCase();
+  const { firstSummaryLine } = getSummarySegments(resumeText, resumeData);
+
+  let bridgedCount = 0;
+  for (const term of differentiatingTerms) {
+    if (
+      containsExactTerm(parentheticalText, term) ||
+      containsExactTerm(firstSummaryLine, term) ||
+      containsExactTerm(resumeTitle.toLowerCase(), term)
+    ) {
+      bridgedCount++;
+    }
+  }
+
+  return (bridgedCount / differentiatingTerms.length) * 3;
+}
+
+/**
+ * Check whether the most JD-relevant skill category is listed first.
+ * Returns 0-2 points.
+ */
+function calculateSkillsOrderingScore(
+  resumeData: ResumeData,
+  extractedKeywords: ExtractedKeywords
+): number {
+  const categories = resumeData.skillsByCategory;
+  if (!categories || categories.length < 2) {
+    return 1;
+  }
+
+  const categoryScores = categories.map(category => {
+    const categoryText = [category.category, ...category.items].join(' ');
+    let relevance = 0;
+
+    for (const keyword of extractedKeywords.all) {
+      if (keywordAppearsInText(keyword, categoryText)) {
+        relevance++;
+      }
+    }
+
+    return relevance;
+  });
+
+  const maxRelevance = Math.max(...categoryScores);
+  if (maxRelevance === 0) {
+    return 1;
+  }
+
+  const firstCategoryScore = categoryScores[0];
+  if (firstCategoryScore >= maxRelevance) {
+    return 2;
+  }
+
+  return (firstCategoryScore / maxRelevance) * 2;
+}
+
 // ─── Sub-scorers ────────────────────────────────────────────────────────
 
 /**
@@ -156,10 +344,16 @@ function calculateRoleRelevance(
   const hardSkills = uniqueKeywords(extractedKeywords.technologies);
   const allKeywords = uniqueKeywords(extractedKeywords.all);
 
-  // Coverage-based: what fraction of JD keywords are findable in resume?
+  // Position-weighted keyword findability
   if (allKeywords.length > 0) {
-    const matchRate = matchResult.matched.length / allKeywords.length;
-    score += matchRate * 15;
+    let weightedSum = 0;
+    for (const keyword of matchResult.matched) {
+      weightedSum += getPositionalMultiplier(keyword, resumeText, resumeData);
+    }
+
+    const maxPossible = allKeywords.length * 1.5;
+    const positionalRate = weightedSum / maxPossible;
+    score += positionalRate * 15;
   }
 
   // Title alignment (8 pts)
@@ -207,17 +401,20 @@ function calculateRoleRelevance(
  * Calculate Clarity & Skimmability score (0-30).
  *
  * - Summary presence & quality (8): Has summary? Under 3 lines? Frontloads relevant title?
- * - Section structure (7): Standard sections present?
+ * - Section structure (5): Standard sections present?
+ * - Skills ordering (2): Most JD-relevant skill category appears first
  * - Bullet quality (8): Concise, action-verb-led, 3-5 per role?
- * - Frontloading (7): Most recent/relevant experience first? Best achievement in first bullet?
+ * - Frontloading (4): Most recent/relevant experience first? Best achievement in first bullet?
+ * - Title bridging (3): Resume title bridges to target role language
  */
 function calculateClaritySkimmability(
   resumeText: string,
   resumeData: ResumeData,
-  extractedKeywords: ExtractedKeywords
+  extractedKeywords: ExtractedKeywords,
+  jobDescription: string
 ): number {
   let score = 0;
-  const lines = resumeText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const lines = getResumeLines(resumeText);
 
   // Summary presence & quality (8 pts)
   const firstLines = lines.slice(0, 5).join(' ').toLowerCase();
@@ -236,14 +433,17 @@ function calculateClaritySkimmability(
     }
   }
 
-  // Section structure (7 pts)
+  // Section structure (5 pts)
   let sectionPoints = 0;
-  if (resumeData.title) sectionPoints += 1.5;
+  if (resumeData.title) sectionPoints += 1;
   const hasSkills = (resumeData.skills?.length || 0) + (resumeData.skillsByCategory?.length || 0) > 0;
-  if (hasSkills) sectionPoints += 2;
-  if (resumeData.experiences && resumeData.experiences.length > 0) sectionPoints += 2;
-  if (resumeData.education && resumeData.education.length > 0) sectionPoints += 1.5;
-  score += Math.min(7, sectionPoints);
+  if (hasSkills) sectionPoints += 1.5;
+  if (resumeData.experiences && resumeData.experiences.length > 0) sectionPoints += 1.5;
+  if (resumeData.education && resumeData.education.length > 0) sectionPoints += 1;
+  score += Math.min(5, sectionPoints);
+
+  // Skills ordering (2 pts)
+  score += calculateSkillsOrderingScore(resumeData, extractedKeywords);
 
   // Bullet quality (8 pts)
   if (resumeData.experiences) {
@@ -269,21 +469,22 @@ function calculateClaritySkimmability(
     }
   }
 
-  // Frontloading (7 pts)
+  // Frontloading (4 pts)
   if (resumeData.experiences && resumeData.experiences.length > 0) {
-    // Most recent experience has highlights?
     const firstExp = resumeData.experiences[0];
     if (firstExp.highlights && firstExp.highlights.length > 0) {
-      score += 3.5;
-      // First bullet has a quantified result?
+      score += 2;
       const firstBullet = firstExp.highlights[0];
       if (/\d/.test(firstBullet)) {
-        score += 3.5;
+        score += 2;
       } else {
-        score += 1;
+        score += 0.5;
       }
     }
   }
+
+  // Title bridging (3 pts)
+  score += calculateTitleBridgingScore(resumeText, resumeData, jobDescription);
 
   return Math.min(30, Math.round(score * 10) / 10);
 }
@@ -511,7 +712,12 @@ export function calculateReadinessScore(input: ScoringInput): ReadinessScore {
 
   // 3. Calculate each sub-score
   const roleRelevance = calculateRoleRelevance(matchResult, extractedKeywords, resumeData, resumeText);
-  const claritySkimmability = calculateClaritySkimmability(resumeText, resumeData, extractedKeywords);
+  const claritySkimmability = calculateClaritySkimmability(
+    resumeText,
+    resumeData,
+    extractedKeywords,
+    jobDescription
+  );
   const businessImpact = calculateBusinessImpact(resumeData);
   const presentationQualityScore = calculatePresentationQuality(matchResult, resumeText, resumeData, extractedKeywords);
 
