@@ -80,13 +80,17 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
     const revisedChange: ProposedChange = JSON.parse(jsonText);
 
     // Validate the response has all required fields
+    const validRelevanceSignals =
+      Array.isArray(revisedChange.relevanceSignals) &&
+      revisedChange.relevanceSignals.every((s: unknown) => typeof s === 'string');
+
     if (
       !revisedChange.section ||
       !revisedChange.original ||
       !revisedChange.modified ||
       !revisedChange.reason ||
-      !Array.isArray(revisedChange.relevanceSignals) ||
-      typeof revisedChange.impactPoints !== 'number'
+      !validRelevanceSignals ||
+      !Number.isFinite(revisedChange.impactPoints)
     ) {
       return Response.json({ error: 'Invalid response structure from AI' }, { status: 500 });
     }

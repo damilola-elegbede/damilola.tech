@@ -139,8 +139,9 @@ Return ONLY a JSON object with the revised change (no markdown code blocks):
       !revisedChange.original ||
       !revisedChange.modified ||
       !revisedChange.reason ||
-      !Array.isArray(revisedChange.relevanceSignals) ||
-      typeof revisedChange.impactPoints !== 'number'
+      !(Array.isArray(revisedChange.relevanceSignals) &&
+        revisedChange.relevanceSignals.every((s: unknown) => typeof s === 'string')) ||
+      !Number.isFinite(revisedChange.impactPoints)
     ) {
       return Errors.internalError('Invalid response structure from AI');
     }

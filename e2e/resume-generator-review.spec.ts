@@ -169,9 +169,13 @@ test.describe('Resume Generator Review Workflow', () => {
   });
 
   test('shows changes as pending after analysis (not auto-accepted)', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Resume Generator' })).toBeVisible();
-    await expect(page.getByPlaceholder(/paste.*job description/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /analyze/i })).toBeVisible();
+    const jdTextarea = page.getByPlaceholder(/paste.*job description/i);
+    await jdTextarea.fill('Software Engineering Manager with cloud and leadership requirements');
+    await page.getByRole('button', { name: /analyze/i }).click();
+    await expect(page.getByText(/Proposed Changes/i)).toBeVisible({ timeout: 10000 });
+
+    // Verify changes start in pending state (Accept buttons visible, not pre-accepted)
+    await expect(page.getByRole('button', { name: /^accept$/i }).first()).toBeVisible();
   });
 
   test('UI shows edit and reject options for pending changes', async ({ page }) => {
