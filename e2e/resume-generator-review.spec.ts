@@ -179,7 +179,7 @@ test.describe('Resume Generator Review Workflow', () => {
     await expect(acceptButtons).toHaveCount(MOCK_ANALYSIS.proposedChanges.length);
 
     // No "Accepted" badges should be present
-    await expect(page.getByText('Accepted')).toHaveCount(0);
+    await expect(page.getByText('Accepted', { exact: true })).toHaveCount(0);
   });
 
   test('UI shows edit and reject options for pending changes', async ({ page }) => {
@@ -235,7 +235,7 @@ test.describe('Resume Generator Review Workflow', () => {
     await page.getByRole('button', { name: /save & accept/i }).click();
 
     // Verify change is now accepted with "Edited" badge
-    await expect(page.getByText('Accepted').first()).toBeVisible();
+    await expect(page.getByText('Accepted', { exact: true }).first()).toBeVisible();
     await expect(page.locator('span:text-is("Edited")').first()).toBeVisible();
   });
 
@@ -282,7 +282,7 @@ test.describe('Resume Generator Review Workflow', () => {
 
     // Accept a change first
     await page.getByRole('button', { name: /^accept$/i }).first().click();
-    await expect(page.getByText('Accepted').first()).toBeVisible();
+    await expect(page.getByText('Accepted', { exact: true }).first()).toBeVisible();
 
     // Now revert it
     await page.getByRole('button', { name: /revert to pending/i }).click();
@@ -307,7 +307,7 @@ test.describe('Resume Generator Review Workflow', () => {
     await page.getByRole('button', { name: /accept all pending/i }).click();
 
     // Verify all changes show as Accepted
-    const acceptedBadges = page.getByText('Accepted');
+    const acceptedBadges = page.getByText('Accepted', { exact: true });
     await expect(acceptedBadges.first()).toBeVisible();
 
     // No more Accept buttons should be visible for individual changes
