@@ -40,18 +40,24 @@ export interface UsageSession {
   };
 }
 
-// Claude Sonnet 4 pricing (per million tokens)
+// Claude model pricing (per million tokens)
 const PRICING: Record<string, {
   inputPerMillion: number;
   outputPerMillion: number;
   cacheWritePerMillion: number;
   cacheReadPerMillion: number;
 }> = {
-  'claude-sonnet-4-20250514': {
+  'claude-sonnet-4-6': {
     inputPerMillion: 3.0,       // $3/M input tokens
     outputPerMillion: 15.0,     // $15/M output tokens
     cacheWritePerMillion: 6.0,  // $6/M cache write (1-hour TTL)
     cacheReadPerMillion: 0.3,   // $0.30/M cache read (90% discount)
+  },
+  'claude-opus-4-6': {
+    inputPerMillion: 15.0,      // $15/M input tokens
+    outputPerMillion: 75.0,     // $75/M output tokens
+    cacheWritePerMillion: 30.0, // $30/M cache write (1-hour TTL)
+    cacheReadPerMillion: 1.5,   // $1.50/M cache read (90% discount)
   },
 };
 
@@ -68,7 +74,7 @@ export function calculateCost(request: {
   const pricing = PRICING[request.model];
   if (!pricing) {
     // Fallback to Claude Sonnet 4 pricing for unknown models
-    const fallback = PRICING['claude-sonnet-4-20250514'];
+    const fallback = PRICING['claude-sonnet-4-6'];
     return calculateCostWithPricing(request, fallback);
   }
   return calculateCostWithPricing(request, pricing);
@@ -103,7 +109,7 @@ export function calculateCostSavings(request: {
   model: string;
   cacheRead: number;
 }): number {
-  const pricing = PRICING[request.model] || PRICING['claude-sonnet-4-20250514'];
+  const pricing = PRICING[request.model] || PRICING['claude-sonnet-4-6'];
   const fullCost = (request.cacheRead / 1_000_000) * pricing.inputPerMillion;
   const cachedCost = (request.cacheRead / 1_000_000) * pricing.cacheReadPerMillion;
   return Math.round((fullCost - cachedCost) * 1_000_000) / 1_000_000;
@@ -414,7 +420,7 @@ export async function getAggregatedStats(options?: AggregateOptions): Promise<{
 
   // Calculate net cost savings from caching
   // Net savings = read savings - write overhead
-  const pricing = PRICING['claude-sonnet-4-20250514'];
+  const pricing = PRICING['claude-sonnet-4-6'];
   const readSavings = (totalCacheReadTokens / 1_000_000) *
     (pricing.inputPerMillion - pricing.cacheReadPerMillion);
   const writeOverhead = (totalCacheCreationTokens / 1_000_000) *

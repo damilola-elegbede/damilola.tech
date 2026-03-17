@@ -273,7 +273,7 @@ export async function POST(req: Request) {
 
     // Non-streaming API call for JSON response
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       temperature: 0,
       system: [
@@ -300,7 +300,7 @@ export async function POST(req: Request) {
       timestamp: new Date().toISOString(),
       sessionId: fitSessionId,
       endpoint: 'fit-assessment-api',
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       inputTokens: usage.input_tokens,
       outputTokens: usage.output_tokens,
       cacheCreation: usage.cache_creation_input_tokens ?? 0,
@@ -309,7 +309,7 @@ export async function POST(req: Request) {
 
     logUsage(fitSessionId, {
       endpoint: 'fit-assessment-api',
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       inputTokens: usage.input_tokens,
       outputTokens: usage.output_tokens,
       cacheCreation: usage.cache_creation_input_tokens ?? 0,

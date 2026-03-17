@@ -89,7 +89,7 @@ export async function POST(req: Request) {
 
     // Non-streaming API call for JSON response
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 512,
       system: [
         {
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
       timestamp: new Date().toISOString(),
       sessionId: chatSessionId,
       endpoint: 'chat-api',
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       inputTokens: usage.input_tokens,
       outputTokens: usage.output_tokens,
       cacheCreation: usage.cache_creation_input_tokens ?? 0,
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
 
     logUsage(chatSessionId, {
       endpoint: 'chat-api',
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       inputTokens: usage.input_tokens,
       outputTokens: usage.output_tokens,
       cacheCreation: usage.cache_creation_input_tokens ?? 0,

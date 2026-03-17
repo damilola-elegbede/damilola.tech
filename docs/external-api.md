@@ -216,7 +216,7 @@ Or with raw job description text:
   "success": true,
   "data": {
     "assessment": "## Executive Fit Report\n\n...",
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-4-6",
     "usage": {
       "inputTokens": 5000,
       "outputTokens": 2000,
@@ -330,7 +330,7 @@ POST /api/v1/chat
       "role": "assistant",
       "content": "I have extensive experience with AWS..."
     },
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-4-6",
     "usage": {
       "inputTokens": 3000,
       "outputTokens": 150,

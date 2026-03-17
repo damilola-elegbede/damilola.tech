@@ -201,11 +201,9 @@ Monitor usage in Upstash dashboard.
 
 ### Model Configuration
 
-Application uses `claude-sonnet-4-20250514` for:
-
-- Chat conversations (streaming)
-- Fit assessments (streaming, temperature 0)
-- Resume generation (streaming)
+Application uses:
+- `claude-sonnet-4-6` for chat conversations and fit assessments
+- `claude-opus-4-6` for resume generation and scoring
 
 ### Pricing
 

@@ -596,7 +596,7 @@ export async function POST(req: Request) {
     // Use temperature: 0 for deterministic, consistent scoring across runs
     // Enable prompt caching for the system prompt (90% cost reduction on cache hits)
     const stream = client.messages.stream({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-6',
       max_tokens: 8192,
       temperature: 0,
       system: [
@@ -658,7 +658,7 @@ export async function POST(req: Request) {
                 timestamp: new Date().toISOString(),
                 sessionId: resumeSessionId,
                 endpoint: 'resume-generator',
-                model: 'claude-sonnet-4-20250514',
+                model: 'claude-opus-4-6',
                 inputTokens: usage.input_tokens,
                 outputTokens: usage.output_tokens,
                 cacheCreation: usage.cache_creation_input_tokens ?? 0,
@@ -668,7 +668,7 @@ export async function POST(req: Request) {
               // Log to Vercel Blob for usage dashboard (fire-and-forget)
               logUsage(resumeSessionId, {
                 endpoint: 'resume-generator',
-                model: 'claude-sonnet-4-20250514',
+                model: 'claude-opus-4-6',
                 inputTokens: usage.input_tokens,
                 outputTokens: usage.output_tokens,
                 cacheCreation: usage.cache_creation_input_tokens ?? 0,

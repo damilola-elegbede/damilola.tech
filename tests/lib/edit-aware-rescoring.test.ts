@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { ProposedChange, ResumeAnalysisResult, ScoreCeiling } from '@/lib/types/resume-generation';
-import { calculateEditedImpact, normalizeImpactPoints } from '@/lib/resume-scoring';
+import type { ProposedChange, ResumeAnalysisResult, ScoreCeiling, ImpactBreakdown } from '@/lib/types/resume-generation';
+import { calculateEditedImpact, calculateEditedImpactBreakdown, normalizeImpactPoints } from '@/lib/resume-scoring';
 
 describe('calculateEditedImpact', () => {
   describe('with impactPerSignal provided', () => {
@@ -270,6 +270,82 @@ describe('calculateEditedImpact', () => {
   });
 });
 
+describe('calculateEditedImpactBreakdown', () => {
+  it('returns undefined when change has no impactBreakdown', () => {
+    const change: ProposedChange = {
+      section: 'summary',
+      original: 'Old',
+      modified: 'New with cloud',
+      reason: 'Test',
+      relevanceSignals: ['cloud'],
+      impactPoints: 4,
+    };
+    expect(calculateEditedImpactBreakdown(change, 'New with cloud')).toBeUndefined();
+  });
+
+  it('returns full breakdown when all signals retained', () => {
+    const change: ProposedChange = {
+      section: 'summary',
+      original: 'Old',
+      modified: 'New with cloud and k8s',
+      reason: 'Test',
+      relevanceSignals: ['cloud', 'kubernetes'],
+      impactPoints: 4,
+      impactBreakdown: { roleRelevance: 2, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 },
+    };
+    const result = calculateEditedImpactBreakdown(change, 'New with cloud and kubernetes');
+    expect(result).toEqual({ roleRelevance: 2, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 });
+  });
+
+  it('scales breakdown proportionally when signals removed', () => {
+    const change: ProposedChange = {
+      section: 'summary',
+      original: 'Old',
+      modified: 'New with cloud and k8s',
+      reason: 'Test',
+      relevanceSignals: ['cloud', 'kubernetes'],
+      impactPoints: 4,
+      impactBreakdown: { roleRelevance: 2, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 },
+    };
+    const result = calculateEditedImpactBreakdown(change, 'New with cloud only');
+    // 50% retained: each value halved and rounded
+    expect(result).toEqual({ roleRelevance: 1, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 });
+  });
+
+  it('returns all zeros when no signals retained', () => {
+    const change: ProposedChange = {
+      section: 'summary',
+      original: 'Old',
+      modified: 'New with cloud',
+      reason: 'Test',
+      relevanceSignals: ['cloud', 'kubernetes'],
+      impactPoints: 4,
+      impactBreakdown: { roleRelevance: 2, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 },
+    };
+    const result = calculateEditedImpactBreakdown(change, 'Something completely different');
+    expect(result).toEqual({ roleRelevance: 0, claritySkimmability: 0, businessImpact: 0, presentationQuality: 0 });
+  });
+
+  it('returns integer values only', () => {
+    const change: ProposedChange = {
+      section: 'summary',
+      original: 'Old',
+      modified: 'New',
+      reason: 'Test',
+      relevanceSignals: ['a', 'b', 'c'],
+      impactPoints: 5,
+      impactBreakdown: { roleRelevance: 3, claritySkimmability: 1, businessImpact: 1, presentationQuality: 0 },
+    };
+    // 1 of 3 retained = 33%
+    const result = calculateEditedImpactBreakdown(change, 'a only');
+    expect(result).toBeDefined();
+    expect(Number.isInteger(result!.roleRelevance)).toBe(true);
+    expect(Number.isInteger(result!.claritySkimmability)).toBe(true);
+    expect(Number.isInteger(result!.businessImpact)).toBe(true);
+    expect(Number.isInteger(result!.presentationQuality)).toBe(true);
+  });
+});
+
 describe('projected score calculation', () => {
   /**
    * Simulates the projected score calculation from the page.
@@ -531,6 +607,55 @@ describe('normalizeImpactPoints', () => {
 
     expect(normalized.proposedChanges[0].impactPoints).toBe(0);
     expect(normalized.proposedChanges[1].impactPoints).toBe(0);
+  });
+
+  it('scales impactBreakdown proportionally when present', () => {
+    const changes: ProposedChange[] = [
+      {
+        section: 'summary', original: 'Old', modified: 'New', reason: 'Test',
+        relevanceSignals: ['k1'],
+        impactPoints: 20,
+        impactBreakdown: { roleRelevance: 8, claritySkimmability: 6, businessImpact: 4, presentationQuality: 2 },
+      },
+    ];
+    // sum = 20, budget = min(100, 75) - 65 = 10, scaleFactor = 0.5
+    const result = makeResult(65, 75, changes);
+    const normalized = normalizeImpactPoints(result);
+
+    expect(normalized.proposedChanges[0].impactBreakdown).toEqual({
+      roleRelevance: 4,
+      claritySkimmability: 3,
+      businessImpact: 2,
+      presentationQuality: 1,
+    });
+  });
+
+  it('all impact values are integers after normalization', () => {
+    const changes: ProposedChange[] = [
+      {
+        section: 'a', original: 'O', modified: 'N', reason: 'T',
+        relevanceSignals: ['k1'], impactPoints: 7,
+        impactBreakdown: { roleRelevance: 3, claritySkimmability: 2, businessImpact: 1, presentationQuality: 1 },
+      },
+      {
+        section: 'b', original: 'O', modified: 'N', reason: 'T',
+        relevanceSignals: ['k2'], impactPoints: 7,
+        impactBreakdown: { roleRelevance: 2, claritySkimmability: 3, businessImpact: 1, presentationQuality: 1 },
+      },
+    ];
+    // sum = 14, budget = min(100, 75) - 65 = 10
+    const result = makeResult(65, 75, changes);
+    const normalized = normalizeImpactPoints(result);
+
+    for (const change of normalized.proposedChanges) {
+      expect(Number.isInteger(change.impactPoints)).toBe(true);
+      if (change.impactBreakdown) {
+        expect(Number.isInteger(change.impactBreakdown.roleRelevance)).toBe(true);
+        expect(Number.isInteger(change.impactBreakdown.claritySkimmability)).toBe(true);
+        expect(Number.isInteger(change.impactBreakdown.businessImpact)).toBe(true);
+        expect(Number.isInteger(change.impactBreakdown.presentationQuality)).toBe(true);
+      }
+    }
   });
 
   it('rounding does not cause sum to exceed budget', () => {

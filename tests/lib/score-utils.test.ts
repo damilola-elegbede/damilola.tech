@@ -35,13 +35,19 @@ describe('score-utils', () => {
     expect(result).toBe(78);
   });
 
+  it('returns integer scores (no fractional values)', () => {
+    expect(sanitizeScoreValue(47.6, 0, 100)).toBe(48);
+    expect(sanitizeScoreValue(3.3, 0, 30)).toBe(3);
+    expect(computeCappedScore(48, 10, undefined)).toBe(58);
+  });
+
   it('computes possible max score from all proposed impacts', () => {
     const changes: ProposedChange[] = [
       { section: 'summary', original: 'a', modified: 'b', reason: '', relevanceSignals: [], impactPoints: 4 },
-      { section: 'skills.core', original: 'c', modified: 'd', reason: '', relevanceSignals: [], impactPoints: 6.2 },
+      { section: 'skills.core', original: 'c', modified: 'd', reason: '', relevanceSignals: [], impactPoints: 6 },
     ];
 
     const result = computePossibleMaxScore(60, changes, undefined);
-    expect(result).toBe(70.2);
+    expect(result).toBe(70);
   });
 });

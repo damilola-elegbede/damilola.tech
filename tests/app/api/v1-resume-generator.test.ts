@@ -84,7 +84,7 @@ describe('v1/resume-generator API route', () => {
       },
     });
     mockCreate.mockResolvedValue({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-6',
       usage: { input_tokens: 10, output_tokens: 10 },
       content: [{
         type: 'text',

@@ -8,7 +8,7 @@ import { FloatingScoreIndicator } from '@/components/admin/FloatingScoreIndicato
 import { ChangePreviewPanel } from '@/components/admin/ChangePreviewPanel';
 import { trackEvent } from '@/lib/audit-client';
 import { generateJobId, extractDatePosted } from '@/lib/job-id';
-import { calculateEditedImpact, normalizeImpactPoints } from '@/lib/resume-scoring';
+import { calculateEditedImpact, calculateEditedImpactBreakdown, normalizeImpactPoints } from '@/lib/resume-scoring';
 import { computeCappedScore, computePossibleMaxScore, sanitizeBreakdown, sanitizeScoreValue } from '@/lib/score-utils';
 import type { ResumeAnalysisResult, ReviewedChange, ProposedChange, LoggedChange, ScoreBreakdown } from '@/lib/types/resume-generation';
 import type { ResumeData } from '@/lib/resume-pdf';
@@ -62,29 +62,37 @@ function calculateDynamicBreakdown(
   for (const [index, change] of proposedChanges.entries()) {
     if (!acceptedIndices.has(index)) continue;
 
-    // Calculate effective impact (accounting for user edits)
     const review = reviewedChanges?.get(index);
+
+    // When AI-provided impactBreakdown is present, use it directly
+    if (change.impactBreakdown) {
+      const breakdown = review?.editedText !== undefined
+        ? calculateEditedImpactBreakdown(change, review.editedText) ?? change.impactBreakdown
+        : change.impactBreakdown;
+      result.roleRelevance = Math.min(30, result.roleRelevance + breakdown.roleRelevance);
+      result.claritySkimmability = Math.min(30, result.claritySkimmability + breakdown.claritySkimmability);
+      result.businessImpact = Math.min(25, result.businessImpact + breakdown.businessImpact);
+      result.presentationQuality = Math.min(15, result.presentationQuality + breakdown.presentationQuality);
+      continue;
+    }
+
+    // Fallback: section-based heuristic for old logs without impactBreakdown
     const rawImpact = review?.editedText !== undefined
       ? calculateEditedImpact(change, review.editedText)
       : change.impactPoints;
     const effectiveImpact = sanitizeScoreValue(rawImpact, 0, 100);
 
-    // Map section to breakdown category and distribute impact
     if (change.section === 'summary') {
-      // Summary changes affect role relevance and clarity
-      result.roleRelevance = Math.min(30, result.roleRelevance + Math.ceil(effectiveImpact * 0.5));
-      result.claritySkimmability = Math.min(30, result.claritySkimmability + Math.floor(effectiveImpact * 0.5));
+      result.roleRelevance = Math.min(30, result.roleRelevance + Math.round(effectiveImpact * 0.5));
+      result.claritySkimmability = Math.min(30, result.claritySkimmability + Math.round(effectiveImpact * 0.5));
     } else if (change.section.startsWith('experience.')) {
-      // Experience bullets affect business impact, role relevance, and presentation
-      result.businessImpact = Math.min(25, result.businessImpact + Math.ceil(effectiveImpact * 0.4));
+      result.businessImpact = Math.min(25, result.businessImpact + Math.round(effectiveImpact * 0.4));
       result.roleRelevance = Math.min(30, result.roleRelevance + Math.round(effectiveImpact * 0.3));
-      result.presentationQuality = Math.min(15, result.presentationQuality + Math.floor(effectiveImpact * 0.3));
+      result.presentationQuality = Math.min(15, result.presentationQuality + Math.round(effectiveImpact * 0.3));
     } else if (change.section.startsWith('skills.')) {
-      // Skills changes primarily affect role relevance
-      result.roleRelevance = Math.min(30, result.roleRelevance + Math.ceil(effectiveImpact * 0.7));
-      result.presentationQuality = Math.min(15, result.presentationQuality + Math.floor(effectiveImpact * 0.3));
+      result.roleRelevance = Math.min(30, result.roleRelevance + Math.round(effectiveImpact * 0.7));
+      result.presentationQuality = Math.min(15, result.presentationQuality + Math.round(effectiveImpact * 0.3));
     } else if (change.section.startsWith('education.')) {
-      // Education changes affect presentation quality
       result.presentationQuality = Math.min(15, result.presentationQuality + effectiveImpact);
     }
   }

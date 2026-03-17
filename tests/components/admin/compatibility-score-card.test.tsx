@@ -254,7 +254,7 @@ describe('CompatibilityScoreCard', () => {
     expect(screen.queryByText('88.99999')).not.toBeInTheDocument();
   });
 
-  it('rounds floating point targetScore to one decimal place', () => {
+  it('rounds floating point targetScore to integer', () => {
     render(
       <CompatibilityScoreCard
         title="Test"
@@ -265,7 +265,7 @@ describe('CompatibilityScoreCard', () => {
       />
     );
 
-    expect(screen.getByText('84.6')).toBeInTheDocument();
+    expect(screen.getByText('85')).toBeInTheDocument();
     expect(screen.queryByText('84.55555')).not.toBeInTheDocument();
   });
 });

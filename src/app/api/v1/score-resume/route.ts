@@ -156,7 +156,7 @@ export async function POST(req: Request) {
     const currentScore = buildScorePayload(readinessScore);
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-6',
       max_tokens: 1200,
       temperature: 0,
       system: [

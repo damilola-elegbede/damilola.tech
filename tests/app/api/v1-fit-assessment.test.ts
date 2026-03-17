@@ -114,7 +114,7 @@ describe('v1/fit-assessment API route', () => {
     it('runs assessment with valid text input', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: '## Fit Assessment\n\nStrong match...' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: {
           input_tokens: 1000,
           output_tokens: 500,
@@ -141,7 +141,7 @@ describe('v1/fit-assessment API route', () => {
     it('returns JSON (not streaming)', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Assessment result' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: {
           input_tokens: 1000,
           output_tokens: 500,
@@ -166,7 +166,7 @@ describe('v1/fit-assessment API route', () => {
     it('includes usage information in response', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Assessment' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: {
           input_tokens: 1000,
           output_tokens: 500,
@@ -192,7 +192,7 @@ describe('v1/fit-assessment API route', () => {
     it('includes model info in response', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Assessment' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: {
           input_tokens: 1000,
           output_tokens: 500,
@@ -207,13 +207,13 @@ describe('v1/fit-assessment API route', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(data.data.model).toBe('claude-sonnet-4-20250514');
+      expect(data.data.model).toBe('claude-sonnet-4-6');
     });
 
     it('accepts "prompt" field as alternative to "input"', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Assessment' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: { input_tokens: 1000, output_tokens: 500 },
       });
 
@@ -336,7 +336,7 @@ describe('v1/fit-assessment API route', () => {
     it('logs api_fit_assessment audit event with correct parameters', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Assessment result' }],
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         usage: {
           input_tokens: 1000,
           output_tokens: 500,

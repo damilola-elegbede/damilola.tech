@@ -5,7 +5,7 @@ export function sanitizeScoreValue(value: unknown, min: number, max: number): nu
   if (!Number.isFinite(numeric)) {
     return min;
   }
-  return Math.max(min, Math.min(max, numeric));
+  return Math.round(Math.max(min, Math.min(max, numeric)));
 }
 
 export function sanitizeBreakdown(breakdown: ScoreBreakdown): ScoreBreakdown {
@@ -37,7 +37,7 @@ export function computeCappedScore(
   const base = sanitizeScoreValue(currentScore, 0, 100);
   const increment = sanitizeScoreValue(delta, 0, 100);
   const ceiling = sanitizeScoreValue(scoreCeiling?.maximum ?? 100, 0, 100);
-  return Math.round(Math.min(ceiling, base + increment) * 10) / 10;
+  return Math.round(Math.min(ceiling, base + increment));
 }
 
 export function computePossibleMaxScore(

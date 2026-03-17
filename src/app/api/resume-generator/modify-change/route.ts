@@ -42,18 +42,26 @@ Reason: ${xmlEscape(originalChange.reason)}
 Job Description (for context, truncated to 4000 chars to fit context window):
 <job_description>${xmlEscape(jobDescription.slice(0, 4000))}</job_description>
 
-Return ONLY a JSON object with the revised change (no markdown code blocks):
+Return ONLY a JSON object with the revised change (no markdown code blocks).
+All point values MUST be non-negative integers. impactPoints MUST equal the sum of impactBreakdown values.
+Bullets must be ≤150 characters. Use exact titles from source data — never fabricate skills or experience.
 {
   "section": ${JSON.stringify(originalChange.section)},
   "original": ${JSON.stringify(originalChange.original)},
   "modified": "YOUR REVISED TEXT HERE",
   "reason": "Updated reason explaining the change",
   "relevanceSignals": ["signal1", "signal2"],
-  "impactPoints": ${originalChange.impactPoints}
+  "impactPoints": ${originalChange.impactPoints},
+  "impactBreakdown": {
+    "roleRelevance": 0,
+    "claritySkimmability": 0,
+    "businessImpact": 0,
+    "presentationQuality": 0
+  }
 }`;
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-6',
       max_tokens: 1000,
       temperature: 0,
       messages: [

@@ -138,17 +138,34 @@ function ChangeCard({
           <span className="rounded-md bg-[var(--color-accent)]/10 px-2 py-1 text-xs font-medium text-[var(--color-accent)]">
             {change.section}
           </span>
-          <span className="text-sm text-[var(--color-text)]">
-            {hasReducedImpact ? (
-              <>
-                <span className="text-[var(--color-text-muted)] line-through">+{change.impactPoints}</span>
-                {' '}
-                <span className="text-blue-400">+{adjustedImpact} pts</span>
-              </>
-            ) : (
-              `+${change.impactPoints} pts`
-            )}
-          </span>
+          {change.impactBreakdown && !hasReducedImpact ? (
+            <span className="flex items-center gap-1 text-sm">
+              {change.impactBreakdown.roleRelevance > 0 && (
+                <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-xs text-blue-400">+{change.impactBreakdown.roleRelevance} Role</span>
+              )}
+              {change.impactBreakdown.claritySkimmability > 0 && (
+                <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs text-emerald-400">+{change.impactBreakdown.claritySkimmability} Clarity</span>
+              )}
+              {change.impactBreakdown.businessImpact > 0 && (
+                <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-xs text-amber-400">+{change.impactBreakdown.businessImpact} Impact</span>
+              )}
+              {change.impactBreakdown.presentationQuality > 0 && (
+                <span className="rounded bg-purple-500/20 px-1.5 py-0.5 text-xs text-purple-400">+{change.impactBreakdown.presentationQuality} Presentation</span>
+              )}
+            </span>
+          ) : (
+            <span className="text-sm text-[var(--color-text)]">
+              {hasReducedImpact ? (
+                <>
+                  <span className="text-[var(--color-text-muted)] line-through">+{change.impactPoints}</span>
+                  {' '}
+                  <span className="text-blue-400">+{adjustedImpact} pts</span>
+                </>
+              ) : (
+                `+${change.impactPoints} pts`
+              )}
+            </span>
+          )}
           {isAccepted && (
             <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-green-400">
               Accepted

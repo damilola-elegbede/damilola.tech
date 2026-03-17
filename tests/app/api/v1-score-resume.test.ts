@@ -87,7 +87,7 @@ describe('v1/score-resume API route', () => {
       },
     });
     mockCreate.mockResolvedValue({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-6',
       usage: { input_tokens: 10, output_tokens: 10 },
       content: [{ type: 'text', text: '{"gapAnalysis":"Needs stronger infra depth.","maxPossibleScore":89,"recommendation":"full_generation_recommended"}' }],
     });

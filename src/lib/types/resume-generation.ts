@@ -38,10 +38,10 @@ export interface LegacyScoreBreakdown {
  */
 export function migrateBreakdownToV3(old: LegacyScoreBreakdown): ScoreBreakdown {
   return {
-    roleRelevance: Math.round((old.keywordRelevance / 45) * 30 * 10) / 10,
-    claritySkimmability: Math.round((old.skillsQuality / 25) * 30 * 10) / 10,
-    businessImpact: Math.round((old.experienceAlignment / 20) * 25 * 10) / 10,
-    presentationQuality: Math.round((old.contentQuality / 10) * 15 * 10) / 10,
+    roleRelevance: Math.round((old.keywordRelevance / 45) * 30),
+    claritySkimmability: Math.round((old.skillsQuality / 25) * 30),
+    businessImpact: Math.round((old.experienceAlignment / 20) * 25),
+    presentationQuality: Math.round((old.contentQuality / 10) * 15),
   };
 }
 
@@ -76,6 +76,21 @@ export interface EstimatedCompatibility {
   breakdown: ScoreBreakdown;
 }
 
+/**
+ * Per-category impact breakdown for a proposed change.
+ * Values are non-negative integers that sum to impactPoints.
+ */
+export interface ImpactBreakdown {
+  /** Role relevance impact (0-30, integer) */
+  roleRelevance: number;
+  /** Clarity & skimmability impact (0-30, integer) */
+  claritySkimmability: number;
+  /** Business impact (0-25, integer) */
+  businessImpact: number;
+  /** Presentation quality impact (0-15, integer) */
+  presentationQuality: number;
+}
+
 export interface ProposedChange {
   /** Section being modified (e.g., "summary", "experience.verily.bullet1") */
   section: string;
@@ -91,6 +106,8 @@ export interface ProposedChange {
   impactPoints: number;
   /** Points per signal for edit-aware rescoring (impactPoints / relevanceSignals.length) */
   impactPerSignal?: number;
+  /** Per-category impact breakdown (optional for backward compat with V1/V2/V3 logs) */
+  impactBreakdown?: ImpactBreakdown;
 }
 
 /**
