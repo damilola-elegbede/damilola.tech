@@ -464,27 +464,18 @@ describe('Readiness Scorer - Positional Relevance Scoring', () => {
 
   it('scores first-role-first-three bullets higher than later-role bullets', () => {
     const bulletJD = `
-      Platform Engineer
-
       Requirements:
       - Kubernetes
       - Terraform
       - Platform engineering
     `;
 
-    const buildResumeText = (bullets: string[]) => `
-      Platform Engineer
-      CurrentCo
-      ${bullets.join('\n')}
-      Senior Engineer
-      PriorCo
-      Maintained legacy systems
-    `;
+    const buildResumeText = (resumeData: ResumeData) => resumeDataToText(resumeData);
 
     const frontloadedResumeData: ResumeData = {
       experiences: [
         {
-          title: 'Platform Engineer',
+          title: 'Engineer',
           company: 'CurrentCo',
           highlights: [
             'Architected Kubernetes clusters for platform engineering teams',
@@ -503,7 +494,7 @@ describe('Readiness Scorer - Positional Relevance Scoring', () => {
     const buriedResumeData: ResumeData = {
       experiences: [
         {
-          title: 'Platform Engineer',
+          title: 'Engineer',
           company: 'CurrentCo',
           highlights: [
             'Built deployment tooling',
@@ -521,13 +512,13 @@ describe('Readiness Scorer - Positional Relevance Scoring', () => {
 
     const frontloadedResult = calculateReadinessScore({
       jobDescription: bulletJD,
-      resumeText: buildResumeText(frontloadedResumeData.experiences?.[0]?.highlights || []),
+      resumeText: buildResumeText(frontloadedResumeData),
       resumeData: frontloadedResumeData,
     });
 
     const buriedResult = calculateReadinessScore({
       jobDescription: bulletJD,
-      resumeText: buildResumeText(buriedResumeData.experiences?.[0]?.highlights || []),
+      resumeText: buildResumeText(buriedResumeData),
       resumeData: buriedResumeData,
     });
 
