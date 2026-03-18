@@ -11,8 +11,11 @@ vi.mock('@vercel/blob', () => ({
 import { calculateCost, calculateCostSavings, logUsage } from '@/lib/usage-logger';
 import * as blobModule from '@vercel/blob';
 
+type PutBlobResultWithEtag = PutBlobResult & { etag?: string };
+type HeadBlobResultWithEtag = HeadBlobResult & { etag?: string };
+
 // Helper to create mock PutBlobResult
-const mockPutResult = (url: string): PutBlobResult => ({
+const mockPutResult = (url: string): PutBlobResultWithEtag => ({
   url,
   downloadUrl: url,
   pathname: url.split('/').pop() ?? '',
@@ -22,7 +25,7 @@ const mockPutResult = (url: string): PutBlobResult => ({
 });
 
 // Helper to create mock HeadBlobResult
-const mockHeadResult = (url: string): HeadBlobResult => ({
+const mockHeadResult = (url: string): HeadBlobResultWithEtag => ({
   url,
   downloadUrl: url,
   pathname: url.split('/').pop() ?? '',

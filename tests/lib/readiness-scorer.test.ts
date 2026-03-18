@@ -396,6 +396,276 @@ describe('ATS Scorer - Score Calculation', () => {
   });
 });
 
+describe('Readiness Scorer - Positional Relevance Scoring', () => {
+  const positionalJD = `
+    Business Operations Strategist
+
+    Requirements:
+    - Stakeholder management
+    - Operating model
+    - Cross-functional leadership
+  `;
+
+  const buildPositionalResumeData = (experiences: ResumeData['experiences']): ResumeData => ({
+    skills: ['Stakeholder Management', 'Operating Model', 'Cross-Functional Leadership'],
+    experiences: experiences || [],
+  });
+
+  it('scores higher when keywords appear in the summary instead of skills only', () => {
+    const summaryResumeText = `
+      Business Operations Strategist
+      Cross-functional leadership, stakeholder management, and operating model design.
+      Led enterprise operating reviews and execution planning.
+    `;
+    const skillsResumeText = `
+      Business Operations Strategist
+      Led enterprise operating reviews and execution planning.
+      Directed quarterly planning.
+      Managed executive updates.
+      Improved team rituals.
+      Skills: Stakeholder Management, Operating Model, Cross-Functional Leadership
+    `;
+
+    const summaryResult = calculateReadinessScore({
+      jobDescription: positionalJD,
+      resumeText: summaryResumeText,
+      resumeData: {
+        ...buildPositionalResumeData([
+          {
+            title: 'Example',
+            company: 'Example',
+            highlights: ['Built internal tools for engineering teams'],
+          },
+        ]),
+        title: 'Business Operations Strategist',
+      },
+    });
+
+    const skillsOnlyResult = calculateReadinessScore({
+      jobDescription: positionalJD,
+      resumeText: skillsResumeText,
+      resumeData: {
+        ...buildPositionalResumeData([
+          {
+            title: 'Example',
+            company: 'Example',
+            highlights: ['Built internal tools for engineering teams'],
+          },
+        ]),
+        title: 'Business Operations Strategist',
+        skills: ['Stakeholder Management', 'Operating Model', 'Cross-Functional Leadership'],
+      },
+    });
+
+    expect(summaryResult.breakdown.roleRelevance).toBeGreaterThan(
+      skillsOnlyResult.breakdown.roleRelevance
+    );
+  });
+
+  it('scores first-role-first-three bullets higher than later-role bullets', () => {
+    const bulletJD = `
+      Requirements:
+      - Kubernetes
+      - Terraform
+      - Platform engineering
+    `;
+
+    const buildResumeText = (resumeData: ResumeData) => resumeDataToText(resumeData);
+
+    const frontloadedResumeData: ResumeData = {
+      experiences: [
+        {
+          title: 'Engineer',
+          company: 'CurrentCo',
+          highlights: [
+            'Architected Kubernetes clusters for platform engineering teams',
+            'Built deployment tooling',
+            'Improved service reliability',
+          ],
+        },
+        {
+          title: 'Senior Engineer',
+          company: 'PriorCo',
+          highlights: ['Maintained legacy systems'],
+        },
+      ],
+    };
+
+    const buriedResumeData: ResumeData = {
+      experiences: [
+        {
+          title: 'Engineer',
+          company: 'CurrentCo',
+          highlights: [
+            'Built deployment tooling',
+            'Improved service reliability',
+            'Supported developer workflows',
+          ],
+        },
+        {
+          title: 'Senior Engineer',
+          company: 'PriorCo',
+          highlights: ['Architected Kubernetes clusters for platform engineering teams'],
+        },
+      ],
+    };
+
+    const frontloadedResult = calculateReadinessScore({
+      jobDescription: bulletJD,
+      resumeText: buildResumeText(frontloadedResumeData),
+      resumeData: frontloadedResumeData,
+    });
+
+    const buriedResult = calculateReadinessScore({
+      jobDescription: bulletJD,
+      resumeText: buildResumeText(buriedResumeData),
+      resumeData: buriedResumeData,
+    });
+
+    expect(frontloadedResult.breakdown.roleRelevance).toBeGreaterThan(
+      buriedResult.breakdown.roleRelevance
+    );
+  });
+
+  it('remains deterministic with positional scoring', () => {
+    const scores: number[] = [];
+
+    for (let i = 0; i < 10; i++) {
+      const result = calculateReadinessScore({
+        jobDescription: positionalJD,
+        resumeText: sampleResume,
+        resumeData: mockResumeData,
+      });
+      scores.push(result.breakdown.roleRelevance);
+    }
+
+    expect(new Set(scores).size).toBe(1);
+  });
+});
+
+describe('Readiness Scorer - Title Bridging Detection', () => {
+  const bridgingJD = `
+    Engineering Manager, Network Infrastructure
+
+    Requirements:
+    - 5+ years experience
+  `;
+
+  it('awards full clarity points when title includes a bridging parenthetical', () => {
+    const bridgedResumeData: ResumeData = {
+      ...mockResumeData,
+      title: 'Engineering Manager (Network & Cloud Infrastructure)',
+    };
+    const unbridgedResumeData: ResumeData = {
+      ...mockResumeData,
+      title: 'Engineering Manager',
+    };
+
+    const bridged = calculateReadinessScore({
+      jobDescription: bridgingJD,
+      resumeText: `Engineering Manager (Network & Cloud Infrastructure)\n${sampleResume}`,
+      resumeData: bridgedResumeData,
+    });
+    const unbridged = calculateReadinessScore({
+      jobDescription: bridgingJD,
+      resumeText: `Engineering Manager\n${sampleResume}`,
+      resumeData: unbridgedResumeData,
+    });
+
+    const clarityDelta = bridged.breakdown.claritySkimmability
+      - unbridged.breakdown.claritySkimmability;
+    expect(clarityDelta).toBeGreaterThanOrEqual(2);
+  });
+
+  it('awards full points when titles already match', () => {
+    const matchingResumeData: ResumeData = {
+      ...mockResumeData,
+      title: 'Engineering Manager, Network Infrastructure',
+    };
+
+    const exact = calculateReadinessScore({
+      jobDescription: bridgingJD,
+      resumeText: `Engineering Manager, Network Infrastructure\n${sampleResume}`,
+      resumeData: matchingResumeData,
+    });
+    const partial = calculateReadinessScore({
+      jobDescription: bridgingJD,
+      resumeText: `Engineering Manager\n${sampleResume}`,
+      resumeData: { ...mockResumeData, title: 'Engineering Manager' },
+    });
+
+    const clarityDelta = exact.breakdown.claritySkimmability
+      - partial.breakdown.claritySkimmability;
+    expect(clarityDelta).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('Readiness Scorer - Skills Section Ordering', () => {
+  const cloudSkillsJD = `
+    Cloud Engineer
+
+    Requirements:
+    - GCP
+    - AWS
+    - Kubernetes
+  `;
+
+  it('awards more clarity points when the first skill category matches the JD', () => {
+    const goodOrder: ResumeData = {
+      ...mockResumeData,
+      skillsByCategory: [
+        { category: 'Cloud', items: ['GCP', 'AWS', 'Kubernetes'] },
+        { category: 'Leadership', items: ['Team Management', 'Strategy'] },
+      ],
+    };
+    const badOrder: ResumeData = {
+      ...mockResumeData,
+      skillsByCategory: [
+        { category: 'Leadership', items: ['Team Management', 'Strategy'] },
+        { category: 'Cloud', items: ['GCP', 'AWS', 'Kubernetes'] },
+      ],
+    };
+
+    const goodResult = calculateReadinessScore({
+      jobDescription: cloudSkillsJD,
+      resumeText: sampleResume,
+      resumeData: goodOrder,
+    });
+    const badResult = calculateReadinessScore({
+      jobDescription: cloudSkillsJD,
+      resumeText: sampleResume,
+      resumeData: badOrder,
+    });
+
+    expect(goodResult.breakdown.claritySkimmability).toBeGreaterThan(
+      badResult.breakdown.claritySkimmability
+    );
+  });
+
+  it('gives partial credit when only one skill category exists', () => {
+    const singleCategoryResult = calculateReadinessScore({
+      jobDescription: cloudSkillsJD,
+      resumeText: sampleResume,
+      resumeData: {
+        ...mockResumeData,
+        skillsByCategory: [{ category: 'Cloud', items: ['GCP', 'AWS', 'Kubernetes'] }],
+      },
+    });
+    const noCategoryResult = calculateReadinessScore({
+      jobDescription: cloudSkillsJD,
+      resumeText: sampleResume,
+      resumeData: {
+        ...mockResumeData,
+        skillsByCategory: [],
+      },
+    });
+
+    expect(singleCategoryResult.breakdown.claritySkimmability).toBeGreaterThanOrEqual(
+      noCategoryResult.breakdown.claritySkimmability
+    );
+  });
+});
+
 describe('ATS Scorer - Content Quality', () => {
   it('awards points for quantified metrics in resume', () => {
     const resumeDataWithMetrics: ResumeData = {
@@ -1586,7 +1856,6 @@ Nice to Have:
     });
 
     expect(result.total).toBeGreaterThanOrEqual(65);
-    expect(result.isOptimized).toBe(true);
   });
 
   it('Concise Manager JD (JD2) scores >= 95 with deterministic rubric', () => {

@@ -28,12 +28,24 @@ import {
   fetchAiContext,
   fetchResumeGeneratorInstructionsRequired,
 } from '@/lib/blob';
+import type { ListBlobResult, ListBlobResultBlob } from '@vercel/blob';
 import { list } from '@vercel/blob';
 import * as fsPromises from 'fs/promises';
 
 // Get typed mock functions
 const mockList = vi.mocked(list);
 const mockReadFile = vi.mocked(fsPromises.readFile);
+
+type BlobResultWithEtag = ListBlobResultBlob & { etag?: string };
+
+const createBlobResult = (pathname: string, url: string): BlobResultWithEtag => ({
+  pathname,
+  url,
+  downloadUrl: url,
+  size: 100,
+  uploadedAt: new Date(),
+  etag: 'test-etag',
+});
 
 describe('fetchBlob', () => {
   const originalEnv = { ...process.env };
@@ -59,14 +71,7 @@ describe('fetchBlob', () => {
       // First call
       mockList.mockResolvedValue({
         blobs: [
-          {
-            pathname: 'damilola.tech/content/test.md',
-            url: 'https://blob.vercel-storage.com/test.md',
-            downloadUrl: 'https://blob.vercel-storage.com/test.md',
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
+          createBlobResult('damilola.tech/content/test.md', 'https://blob.vercel-storage.com/test.md'),
         ],
         hasMore: false,
         cursor: undefined,
@@ -92,14 +97,7 @@ describe('fetchBlob', () => {
 
       mockList.mockResolvedValue({
         blobs: [
-          {
-            pathname: 'damilola.tech/content/test.md',
-            url: 'https://blob.vercel-storage.com/test.md',
-            downloadUrl: 'https://blob.vercel-storage.com/test.md',
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
+          createBlobResult('damilola.tech/content/test.md', 'https://blob.vercel-storage.com/test.md'),
         ],
         hasMore: false,
         cursor: undefined,
@@ -133,14 +131,7 @@ describe('fetchBlob', () => {
 
       mockList.mockResolvedValue({
         blobs: [
-          {
-            pathname: 'damilola.tech/content/test.md',
-            url: 'https://blob.vercel-storage.com/test.md',
-            downloadUrl: 'https://blob.vercel-storage.com/test.md',
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
+          createBlobResult('damilola.tech/content/test.md', 'https://blob.vercel-storage.com/test.md'),
         ],
         hasMore: false,
         cursor: undefined,
@@ -169,14 +160,7 @@ describe('fetchBlob', () => {
 
       mockList.mockResolvedValue({
         blobs: [
-          {
-            pathname: 'damilola.tech/content/subdir/file.json',
-            url: 'https://blob.vercel-storage.com/file.json',
-            downloadUrl: 'https://blob.vercel-storage.com/file.json',
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
+          createBlobResult('damilola.tech/content/subdir/file.json', 'https://blob.vercel-storage.com/file.json'),
         ],
         hasMore: false,
         cursor: undefined,
@@ -200,30 +184,9 @@ describe('fetchBlob', () => {
 
       mockList.mockResolvedValue({
         blobs: [
-          {
-            pathname: 'damilola.tech/content/test.md',
-            url: 'https://blob.vercel-storage.com/test.md',
-            downloadUrl: 'https://blob.vercel-storage.com/test.md',
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
-          {
-            pathname: 'damilola.tech/content/test.md.backup',
-            url: 'https://blob.vercel-storage.com/test.md.backup',
-            downloadUrl: 'https://blob.vercel-storage.com/test.md.backup',
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
-          {
-            pathname: 'damilola.tech/content/test-other.md',
-            url: 'https://blob.vercel-storage.com/test-other.md',
-            downloadUrl: 'https://blob.vercel-storage.com/test-other.md',
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
+          createBlobResult('damilola.tech/content/test.md', 'https://blob.vercel-storage.com/test.md'),
+          createBlobResult('damilola.tech/content/test.md.backup', 'https://blob.vercel-storage.com/test.md.backup'),
+          createBlobResult('damilola.tech/content/test-other.md', 'https://blob.vercel-storage.com/test-other.md'),
         ],
         hasMore: false,
         cursor: undefined,
@@ -314,14 +277,7 @@ describe('fetchBlob', () => {
 
       mockList.mockResolvedValue({
         blobs: [
-          {
-            pathname: 'damilola.tech/content/test.md',
-            url: 'https://blob.vercel-storage.com/test.md',
-            downloadUrl: 'https://blob.vercel-storage.com/test.md',
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
+          createBlobResult('damilola.tech/content/test.md', 'https://blob.vercel-storage.com/test.md'),
         ],
         hasMore: false,
         cursor: undefined,
@@ -346,14 +302,7 @@ describe('fetchBlob', () => {
 
       mockList.mockResolvedValue({
         blobs: [
-          {
-            pathname: 'damilola.tech/content/test.md',
-            url: 'https://blob.vercel-storage.com/test.md',
-            downloadUrl: 'https://blob.vercel-storage.com/test.md',
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
+          createBlobResult('damilola.tech/content/test.md', 'https://blob.vercel-storage.com/test.md'),
         ],
         hasMore: false,
         cursor: undefined,
@@ -373,14 +322,7 @@ describe('fetchBlob', () => {
 
       mockList.mockResolvedValue({
         blobs: [
-          {
-            pathname: 'damilola.tech/content/test.md',
-            url: 'https://blob.vercel-storage.com/test.md',
-            downloadUrl: 'https://blob.vercel-storage.com/test.md',
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
+          createBlobResult('damilola.tech/content/test.md', 'https://blob.vercel-storage.com/test.md'),
         ],
         hasMore: false,
         cursor: undefined,
@@ -408,14 +350,7 @@ describe('fetchBlob', () => {
 
       mockList.mockResolvedValue({
         blobs: [
-          {
-            pathname: 'damilola.tech/content/test.md',
-            url: 'https://blob.vercel-storage.com/test.md',
-            downloadUrl: 'https://blob.vercel-storage.com/test.md',
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
+          createBlobResult('damilola.tech/content/test.md', 'https://blob.vercel-storage.com/test.md'),
         ],
         hasMore: false,
         cursor: undefined,
@@ -465,14 +400,7 @@ describe('fetchBlob', () => {
 
         mockList.mockResolvedValue({
           blobs: [
-            {
-              pathname: 'damilola.tech/content/test.md',
-              url: 'https://blob.vercel-storage.com/test.md',
-              downloadUrl: 'https://blob.vercel-storage.com/test.md',
-              size: 100,
-              uploadedAt: new Date(),
-            etag: 'test-etag',
-            },
+            createBlobResult('damilola.tech/content/test.md', 'https://blob.vercel-storage.com/test.md'),
           ],
           hasMore: false,
           cursor: undefined,
@@ -530,14 +458,7 @@ describe('clearBlobCache', () => {
 
     mockList.mockResolvedValue({
       blobs: [
-        {
-          pathname: 'damilola.tech/content/test.md',
-          url: 'https://blob.vercel-storage.com/test.md',
-          downloadUrl: 'https://blob.vercel-storage.com/test.md',
-          size: 100,
-          uploadedAt: new Date(),
-            etag: 'test-etag',
-        },
+        createBlobResult('damilola.tech/content/test.md', 'https://blob.vercel-storage.com/test.md'),
       ],
       hasMore: false,
       cursor: undefined,
@@ -588,20 +509,13 @@ describe('fetchAllReferenceMaterials', () => {
       { filename: 'technical-expertise.md', content: 'technical' },
     ];
 
-    mockList.mockImplementation(async (options) => {
+    mockList.mockImplementation(async (options): Promise<ListBlobResult> => {
       const filename = (options?.prefix || '').replace('damilola.tech/content/', '');
       const blob = mockBlobs.find((b) => b.filename === filename);
       return {
         blobs: blob
           ? [
-              {
-                pathname: options?.prefix || "",
-                url: `https://blob.vercel-storage.com/${filename}`,
-                downloadUrl: `https://blob.vercel-storage.com/${filename}`,
-                size: 100,
-                uploadedAt: new Date(),
-            etag: 'test-etag',
-              },
+              createBlobResult(options?.prefix || "", `https://blob.vercel-storage.com/${filename}`),
             ]
           : [],
         hasMore: false,
@@ -648,14 +562,7 @@ describe('fetchPromptTemplate', () => {
 
     mockList.mockResolvedValue({
       blobs: [
-        {
-          pathname: 'damilola.tech/content/chatbot-system-prompt.md',
-          url: 'https://blob.vercel-storage.com/prompt.md',
-          downloadUrl: 'https://blob.vercel-storage.com/prompt.md',
-          size: 100,
-          uploadedAt: new Date(),
-            etag: 'test-etag',
-        },
+        createBlobResult('damilola.tech/content/chatbot-system-prompt.md', 'https://blob.vercel-storage.com/prompt.md'),
       ],
       hasMore: false,
       cursor: undefined,
@@ -703,14 +610,7 @@ describe('fetchSharedContext', () => {
 
     mockList.mockResolvedValue({
       blobs: [
-        {
-          pathname: 'damilola.tech/content/shared-context.md',
-          url: 'https://blob.vercel-storage.com/shared.md',
-          downloadUrl: 'https://blob.vercel-storage.com/shared.md',
-          size: 100,
-          uploadedAt: new Date(),
-            etag: 'test-etag',
-        },
+        createBlobResult('damilola.tech/content/shared-context.md', 'https://blob.vercel-storage.com/shared.md'),
       ],
       hasMore: false,
       cursor: undefined,
@@ -754,14 +654,7 @@ describe('fetchChatbotInstructions', () => {
 
     mockList.mockResolvedValue({
       blobs: [
-        {
-          pathname: 'damilola.tech/content/chatbot-instructions.md',
-          url: 'https://blob.vercel-storage.com/instructions.md',
-          downloadUrl: 'https://blob.vercel-storage.com/instructions.md',
-          size: 100,
-          uploadedAt: new Date(),
-            etag: 'test-etag',
-        },
+        createBlobResult('damilola.tech/content/chatbot-instructions.md', 'https://blob.vercel-storage.com/instructions.md'),
       ],
       hasMore: false,
       cursor: undefined,
@@ -796,18 +689,11 @@ describe('fetchAllContent', () => {
   it('should fetch all 8 content files in parallel', async () => {
     process.env.BLOB_READ_WRITE_TOKEN = 'test-token';
 
-    mockList.mockImplementation(async (options) => {
+    mockList.mockImplementation(async (options): Promise<ListBlobResult> => {
       const filename = (options?.prefix || '').replace('damilola.tech/content/', '');
       return {
         blobs: [
-          {
-            pathname: options?.prefix || "",
-            url: `https://blob.vercel-storage.com/${filename}`,
-            downloadUrl: `https://blob.vercel-storage.com/${filename}`,
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
+          createBlobResult(options?.prefix || "", `https://blob.vercel-storage.com/${filename}`),
         ],
         hasMore: false,
         cursor: undefined,
@@ -872,14 +758,7 @@ describe('fetchFitAssessmentInstructions', () => {
 
     mockList.mockResolvedValue({
       blobs: [
-        {
-          pathname: 'damilola.tech/content/fit-assessment-instructions.md',
-          url: 'https://blob.vercel-storage.com/fit.md',
-          downloadUrl: 'https://blob.vercel-storage.com/fit.md',
-          size: 100,
-          uploadedAt: new Date(),
-            etag: 'test-etag',
-        },
+        createBlobResult('damilola.tech/content/fit-assessment-instructions.md', 'https://blob.vercel-storage.com/fit.md'),
       ],
       hasMore: false,
       cursor: undefined,
@@ -929,14 +808,7 @@ describe('fetchFitAssessmentInstructionsRequired', () => {
 
     mockList.mockResolvedValue({
       blobs: [
-        {
-          pathname: 'damilola.tech/content/fit-assessment-instructions.md',
-          url: 'https://blob.vercel-storage.com/fit.md',
-          downloadUrl: 'https://blob.vercel-storage.com/fit.md',
-          size: 100,
-          uploadedAt: new Date(),
-            etag: 'test-etag',
-        },
+        createBlobResult('damilola.tech/content/fit-assessment-instructions.md', 'https://blob.vercel-storage.com/fit.md'),
       ],
       hasMore: false,
       cursor: undefined,
@@ -980,18 +852,11 @@ describe('fetchFitExamples', () => {
   it('should fetch strong and weak fit examples in parallel', async () => {
     process.env.BLOB_READ_WRITE_TOKEN = 'test-token';
 
-    mockList.mockImplementation(async (options) => {
+    mockList.mockImplementation(async (options): Promise<ListBlobResult> => {
       const filename = (options?.prefix || '').replace('damilola.tech/content/', '');
       return {
         blobs: [
-          {
-            pathname: options?.prefix || "",
-            url: `https://blob.vercel-storage.com/${filename}`,
-            downloadUrl: `https://blob.vercel-storage.com/${filename}`,
-            size: 100,
-            uploadedAt: new Date(),
-            etag: 'test-etag',
-          },
+          createBlobResult(options?.prefix || "", `https://blob.vercel-storage.com/${filename}`),
         ],
         hasMore: false,
         cursor: undefined,
@@ -1052,14 +917,7 @@ describe('fetchAiContext', () => {
 
     mockList.mockResolvedValue({
       blobs: [
-        {
-          pathname: 'damilola.tech/content/ai-context.md',
-          url: 'https://blob.vercel-storage.com/ai-context.md',
-          downloadUrl: 'https://blob.vercel-storage.com/ai-context.md',
-          size: 100,
-          uploadedAt: new Date(),
-            etag: 'test-etag',
-        },
+        createBlobResult('damilola.tech/content/ai-context.md', 'https://blob.vercel-storage.com/ai-context.md'),
       ],
       hasMore: false,
       cursor: undefined,
@@ -1096,14 +954,7 @@ describe('fetchResumeGeneratorInstructionsRequired', () => {
 
     mockList.mockResolvedValue({
       blobs: [
-        {
-          pathname: 'damilola.tech/content/resume-generator-instructions.md',
-          url: 'https://blob.vercel-storage.com/resume.md',
-          downloadUrl: 'https://blob.vercel-storage.com/resume.md',
-          size: 100,
-          uploadedAt: new Date(),
-            etag: 'test-etag',
-        },
+        createBlobResult('damilola.tech/content/resume-generator-instructions.md', 'https://blob.vercel-storage.com/resume.md'),
       ],
       hasMore: false,
       cursor: undefined,
