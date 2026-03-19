@@ -49,6 +49,8 @@ jobs:
           PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.target_url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           ADMIN_PASSWORD_PREVIEW: ${{ steps.env.outputs.is_production == 'true' && secrets.ADMIN_PASSWORD_PRODUCTION || secrets.ADMIN_PASSWORD_PREVIEW }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
