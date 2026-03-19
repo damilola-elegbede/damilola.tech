@@ -501,7 +501,7 @@ function ResumePDF({ data, analysis, acceptedIndices, effectiveChanges, showFoot
         {/* Professional Experience */}
         <Text style={styles.sectionHeader}>Professional Experience</Text>
         {resume.experience.map((job, jobIndex) => (
-          <View key={jobIndex} style={styles.job}>
+          <View key={jobIndex} style={styles.job} minPresenceAhead={20}>
             {/* Company | Location */}
             <View style={styles.jobCompanyLine}>
               <Text style={styles.companyBold}>{job.company}</Text>
@@ -516,9 +516,9 @@ function ResumePDF({ data, analysis, acceptedIndices, effectiveChanges, showFoot
             {job.description && (
               <Text style={styles.jobDescription}>{job.description}</Text>
             )}
-            {/* Bullets - wrap={true} allows long text to flow to next line */}
-            {job.responsibilities.map((responsibility, bulletIndex) => (
-              <View key={bulletIndex} style={styles.bulletContainer} wrap={true}>
+            {/* Bullets - wrap={false} keeps bullet+text as atomic unit across page breaks */}
+            {job.responsibilities.filter((r) => r.trim()).map((responsibility, bulletIndex) => (
+              <View key={bulletIndex} style={styles.bulletContainer} wrap={false}>
                 <Text style={styles.bullet}>•</Text>
                 <Text style={styles.bulletText}>{responsibility}</Text>
               </View>
