@@ -1,1 +1,3 @@
-export { POST, runtime } from '@/app/api/v1/score-resume/route';
+export { POST } from '@/app/api/v1/score-resume/route';
+
+export const runtime = 'nodejs';
