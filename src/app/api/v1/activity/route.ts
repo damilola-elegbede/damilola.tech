@@ -213,14 +213,23 @@ export async function GET(req: Request) {
       }
     }
 
-    // Sort by weekEnding descending
+    // Sort by weekEnding descending, then by createdAt descending (latest correction first)
     summaries.sort((a, b) => {
       if (b.weekEnding < a.weekEnding) return -1;
       if (b.weekEnding > a.weekEnding) return 1;
-      return 0;
+      // Same weekEnding: prefer the most recently created (corrected) entry
+      return b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0;
     });
 
-    return apiSuccess(summaries.slice(0, limit));
+    // Deduplicate by weekEnding: keep the first (latest createdAt) entry per week
+    const seen = new Set<string>();
+    const deduped = summaries.filter((s) => {
+      if (seen.has(s.weekEnding)) return false;
+      seen.add(s.weekEnding);
+      return true;
+    });
+
+    return apiSuccess(deduped.slice(0, limit));
   } catch (error) {
     console.error("[api/v1/activity] Error listing activity summaries:", error);
     return Errors.internalError("Failed to list activity summaries.");
