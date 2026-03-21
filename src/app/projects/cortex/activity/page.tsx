@@ -41,8 +41,20 @@ async function getActivityData(): Promise<ActivitySummary[]> {
       }
     }
 
-    summaries.sort((a, b) => (b.weekEnding < a.weekEnding ? -1 : b.weekEnding > a.weekEnding ? 1 : 0));
-    return summaries.slice(0, 52);
+    // Sort by weekEnding desc, then by createdAt desc so corrections supersede originals
+    summaries.sort((a, b) => {
+      if (b.weekEnding < a.weekEnding) return -1;
+      if (b.weekEnding > a.weekEnding) return 1;
+      return b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0;
+    });
+    // Deduplicate: keep latest entry per week
+    const seen = new Set<string>();
+    const deduped = summaries.filter((s) => {
+      if (seen.has(s.weekEnding)) return false;
+      seen.add(s.weekEnding);
+      return true;
+    });
+    return deduped.slice(0, 52);
   } catch {
     return [];
   }
