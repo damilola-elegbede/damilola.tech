@@ -6,6 +6,7 @@ import { CHATBOT_SYSTEM_PROMPT } from '@/lib/generated/system-prompt';
 import { getClientIp } from '@/lib/rate-limit';
 import { getFullSystemPrompt } from '@/lib/system-prompt';
 import { logUsage } from '@/lib/usage-logger';
+import { xmlEscape } from '@/lib/xml-escape';
 
 export const runtime = 'nodejs';
 
@@ -28,10 +29,11 @@ interface ChatMessage {
 
 function validateMessages(messages: unknown): messages is ChatMessage[] {
   if (!Array.isArray(messages)) return false;
-  if (messages.length === 0) return false; // Empty array is invalid
+  if (messages.length === 0) return false;
   if (messages.length > MAX_MESSAGES) return false;
 
-  return messages.every(
+  // Verify each message has valid shape
+  const allValid = messages.every(
     (msg) =>
       typeof msg === 'object' &&
       msg !== null &&
@@ -39,15 +41,19 @@ function validateMessages(messages: unknown): messages is ChatMessage[] {
       typeof msg.content === 'string' &&
       msg.content.length <= MAX_MESSAGE_LENGTH
   );
-}
+  if (!allValid) return false;
 
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+  // Enforce conversation sequence invariants:
+  // 1. First message MUST be from user (no fabricated assistant turns at start)
+  // 2. Roles MUST strictly alternate user→assistant→user
+  const typed = messages as ChatMessage[];
+  if (typed[0].role !== 'user') return false;
+  for (let i = 1; i < typed.length; i++) {
+    const expectedRole = i % 2 === 0 ? 'user' : 'assistant';
+    if (typed[i].role !== expectedRole) return false;
+  }
+
+  return true;
 }
 
 export async function POST(req: Request) {
@@ -102,7 +108,7 @@ export async function POST(req: Request) {
         role: m.role,
         content:
           m.role === 'user'
-            ? `<user_message>${escapeXml(m.content)}</user_message>`
+            ? `<user_message>${xmlEscape(m.content)}</user_message>`
             : m.content,
       })),
     });
