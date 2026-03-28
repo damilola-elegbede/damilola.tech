@@ -66,7 +66,7 @@ describe('job-description-input SSRF handling', () => {
     await expect(
       resolveJobDescriptionInput('https://rebind.example.com/job', 'UnitTestBot/1.0')
     ).rejects.toEqual(
-      expect.objectContaining<JobDescriptionInputError>({
+      expect.objectContaining<{ message: string }>({
         message: expect.stringContaining('not allowed'),
       })
     );

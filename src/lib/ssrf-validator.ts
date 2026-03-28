@@ -102,7 +102,7 @@ export async function resolvePublicHttpUrl(urlString: string): Promise<ResolvedP
       throw new Error('DNS resolution unavailable - URL fetching disabled for security.');
     }
 
-    let results: Awaited<ReturnType<typeof lookup>>;
+    let results: import('node:dns').LookupAddress[];
     try {
       results = await lookup(hostname, { all: true });
     } catch {
