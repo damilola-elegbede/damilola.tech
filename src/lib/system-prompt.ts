@@ -73,7 +73,9 @@ export function clearSystemPromptCache(): void {
 }
 
 /**
- * Build shared context (profile data only, no chatbot-specific instructions)
+ * Build shared context (profile data only, no chatbot-specific instructions).
+ * Profile data is wrapped in <profile_context> tags to structurally separate
+ * it from instructions and reduce prompt injection surface.
  */
 function buildSharedContext(
   resume: string,
@@ -81,7 +83,8 @@ function buildSharedContext(
   leadership: string,
   technical: string
 ): string {
-  return `# Damilola Elegbede - Professional Context
+  return `<profile_context>
+# Damilola Elegbede - Professional Context
 
 ## Core Leadership Philosophy
 
@@ -142,11 +145,13 @@ ${leadership || 'No leadership philosophy content available'}
 
 ## Technical Expertise (Detailed)
 ${technical || 'No technical expertise content available'}
-`.trim();
+</profile_context>`.trim();
 }
 
 /**
- * Build chatbot system prompt (shared context + chatbot instructions)
+ * Build chatbot system prompt (shared context + chatbot instructions).
+ * Instructions are wrapped in <instructions> tags to structurally separate
+ * them from profile data and make injection harder.
  */
 function buildChatbotSystemPrompt(
   resume: string,
@@ -156,9 +161,7 @@ function buildChatbotSystemPrompt(
 ): string {
   const sharedContext = buildSharedContext(resume, starStories, leadership, technical);
 
-  const chatbotInstructions = `
----
-
+  const chatbotInstructions = `<instructions>
 ## Chatbot Behavior Instructions
 
 ### Your Identity
@@ -204,7 +207,7 @@ Example - Contact info format:
 
 ### Contact
 For deeper conversations: damilola.elegbede@gmail.com | [LinkedIn](https://linkedin.com/in/damilola-elegbede/)
-`.trim();
+</instructions>`;
 
   return sharedContext + '\n\n' + chatbotInstructions;
 }

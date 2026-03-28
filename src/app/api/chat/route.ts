@@ -10,6 +10,8 @@ import {
   RATE_LIMIT_CONFIGS,
 } from '@/lib/rate-limit';
 import { logUsage } from '@/lib/usage-logger';
+import { xmlEscape } from '@/lib/xml-escape';
+import { checkSessionTokenBudget, recordSessionTokens } from '@/lib/session-token-budget';
 
 // Use Node.js runtime for reliable Anthropic SDK streaming
 export const runtime = 'nodejs';
@@ -36,9 +38,11 @@ interface ChatMessage {
 
 function validateMessages(messages: unknown): messages is ChatMessage[] {
   if (!Array.isArray(messages)) return false;
+  if (messages.length === 0) return false;
   if (messages.length > MAX_MESSAGES) return false;
 
-  return messages.every(
+  // Verify each message has valid shape
+  const allValid = messages.every(
     (msg) =>
       typeof msg === 'object' &&
       msg !== null &&
@@ -46,18 +50,19 @@ function validateMessages(messages: unknown): messages is ChatMessage[] {
       typeof msg.content === 'string' &&
       msg.content.length <= MAX_MESSAGE_LENGTH
   );
-}
+  if (!allValid) return false;
 
-/**
- * Escape XML entities to prevent injection when wrapping user content in XML tags.
- */
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+  // Enforce conversation sequence invariants:
+  // 1. First message MUST be from user (no fabricated assistant turns at start)
+  // 2. Roles MUST strictly alternate user→assistant→user
+  const typed = messages as ChatMessage[];
+  if (typed[0].role !== 'user') return false;
+  for (let i = 1; i < typed.length; i++) {
+    const expectedRole = i % 2 === 0 ? 'user' : 'assistant';
+    if (typed[i].role !== expectedRole) return false;
+  }
+
+  return true;
 }
 
 export async function POST(req: Request) {
@@ -126,6 +131,18 @@ export async function POST(req: Request) {
       );
     }
 
+    // Per-session token budget check (complements IP rate limiting)
+    if (isValidSessionId) {
+      const budgetResult = await checkSessionTokenBudget(sessionId);
+      if (budgetResult.exceeded) {
+        console.log(`[chat] Session token budget exceeded: ${sessionId.slice(0, 13)}`);
+        return Response.json(
+          { error: 'Session token budget exceeded. Please start a new conversation.' },
+          { status: 429, headers: { 'Retry-After': '86400' } }
+        );
+      }
+    }
+
     // Use build-time generated prompt (production) or fetch at runtime (development)
     const basePrompt = isGeneratedPromptAvailable
       ? CHATBOT_SYSTEM_PROMPT
@@ -165,7 +182,7 @@ export async function POST(req: Request) {
         role: m.role,
         content:
           m.role === 'user'
-            ? `<user_message>${escapeXml(m.content)}</user_message>`
+            ? `<user_message>${xmlEscape(m.content)}</user_message>`
             : m.content,
       })),
     });
@@ -225,6 +242,13 @@ export async function POST(req: Request) {
               durationMs: Date.now() - startTime,
               cacheTtl: '1h',
             }).catch((err) => console.warn('[chat] Failed to log usage to blob:', err));
+
+            // Record tokens against per-session budget (fire-and-forget)
+            if (isValidSessionId) {
+              recordSessionTokens(sessionId, usage.input_tokens).catch(
+                (err) => console.warn('[chat] Failed to record session tokens:', err)
+              );
+            }
           } catch (usageError) {
             console.warn('[chat] Failed to log usage:', usageError);
           }
