@@ -12,9 +12,9 @@ test.describe('Home Page', () => {
     // Hero content - use locator scoped to hero section
     const hero = page.locator('#hero');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Damilola Elegbede');
-    await expect(hero.getByText('Engineering Manager', { exact: true })).toBeVisible();
+    await expect(hero.getByText('Distinguished Engineer — AI Systems & Infrastructure', { exact: true })).toBeVisible();
     await expect(
-      hero.getByText('I build engineering organizations that deliver results, retain top talent, and develop leaders')
+      hero.getByText('I architect multi-agent AI systems and the platform primitives that make them reliable, observable, and fast.')
     ).toBeVisible();
 
     // CTA button
@@ -54,7 +54,7 @@ test.describe('Home Page', () => {
     await expect(page.getByText(/enterprise-wide GCP cloud transformation/i)).toBeVisible();
 
     // Expand button for experiences with many bullets
-    await expect(page.getByRole('button', { name: /show 3 more/i }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /show 4 more/i }).first()).toBeVisible();
   });
 
   test('should display skills assessment cards', async ({ page }) => {

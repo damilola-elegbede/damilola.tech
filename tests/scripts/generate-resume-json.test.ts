@@ -50,7 +50,7 @@ describe("generateResumeJson", () => {
     const result = generateResumeJson(createExistingResumeJson());
 
     expect(result.tagline).toBe(
-      "I build engineering organizations that deliver results, retain top talent, and develop leaders",
+      "I architect multi-agent AI systems and the platform primitives that make them reliable, observable, and fast.",
     );
   });
 
@@ -58,6 +58,7 @@ describe("generateResumeJson", () => {
     const result = generateResumeJson(createExistingResumeJson());
 
     expect(result.experience[0].responsibilities).toEqual([
+      "Built the cloud infrastructure platform (GCP, CI/CD, developer tooling) that became the foundation for Verily's AI/ML workload migration — scaled platform to support 200+ engineers while cutting CI cycle time by 40%.",
       "Architected and executed enterprise-wide GCP cloud transformation supporting 30+ production systems, enabling successful launches of L'Oréal LDP and T1D healthcare platforms while establishing multi-cloud (GCP/AWS) capabilities.",
       "Built Cloud Infrastructure and developer experience functions from ground up, hiring and scaling an engineering team across multiple requisition cycles; promoted 3 ICs to senior roles, achieved high team retention with multiple internal transfers to the organization.",
       "Drove platform efficiency initiatives with significant CI efficiency improvement and establishing self-service infrastructure capabilities, improving developer velocity across a large engineering organization.",
