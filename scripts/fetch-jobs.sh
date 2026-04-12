@@ -185,7 +185,7 @@ for feed_def in "${FEEDS[@]}"; do
   echo "Fetching: ${company} (${ats})"
 
   feed_file="$WORKDIR/feed-${company}.json"
-  if ! curl -sS --max-time 15 "$feed_url" > "$feed_file" 2>/dev/null; then
+  if ! curl -fsS --max-time 15 "$feed_url" > "$feed_file" 2>/dev/null; then
     echo "  WARNING: Failed to fetch ${company} feed" >&2
     ERRORS=$((ERRORS + 1))
     continue
