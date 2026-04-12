@@ -9,12 +9,16 @@
 #   .tmp/analysis/scored-jobs-YYYY-MM-DD.md — Markdown table of scored listings
 #
 # Prerequisites:
-#   - DAMILOLA_SCORE_API_KEY env var: a dk_live_* key from damilola.tech admin
+#   - DAMILOLA_SCORE_API_KEY env var: a dk_live_* key, sourced from the Vercel
+#     project environment variables (never commit keys, never paste live keys
+#     into shell history or config files)
 #   - curl, jq, python3 (all standard on macOS)
 #   - damilola.tech PR #118 merged to production (score_job endpoint live)
 #
-# API key provisioning: if you don't have a key, retrieve one from the
-# Vercel project KV dashboard or damilola.tech admin endpoints.
+# Secret policy (repo rule):
+#   - API keys live in Vercel environment variables ONLY. Do not commit them.
+#   - Career/STAR/sensitive narrative data lives in Vercel Blob ONLY. Never
+#     commit career-data content to this public repo.
 
 set -euo pipefail
 
@@ -34,6 +38,12 @@ WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/fetch-jobs.XXXXXX")"
 if [[ -z "$API_KEY" ]]; then
   echo "ERROR: DAMILOLA_SCORE_API_KEY is not set." >&2
   echo "  Export it: export DAMILOLA_SCORE_API_KEY=dk_live_..." >&2
+  exit 1
+fi
+
+if [[ "$API_KEY" != dk_* ]]; then
+  echo "ERROR: DAMILOLA_SCORE_API_KEY must start with 'dk_'." >&2
+  echo "  Valid keys are minted via the damilola.tech admin UI; export a dk_ token." >&2
   exit 1
 fi
 
@@ -212,6 +222,7 @@ for feed_def in "${FEEDS[@]}"; do
     fi
   else
     echo "  WARNING: Unknown ATS type: ${ats}" >&2
+    ERRORS=$((ERRORS + 1))
     continue
   fi
 
