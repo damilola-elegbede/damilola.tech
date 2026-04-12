@@ -7,7 +7,7 @@ describe('resumeData', () => {
     it('has all required top-level fields', () => {
       expect(resumeData).toBeDefined();
       expect(resumeData.name).toBe('Damilola Elegbede');
-      expect(resumeData.title).toBe('Engineering Manager');
+      expect(resumeData.title).toBe('Distinguished Engineer — AI Systems & Infrastructure');
       expect(resumeData.tagline).toBeTruthy();
       expect(resumeData.brandingStatement).toBeTruthy();
       expect(resumeData.email).toBe('damilola.elegbede@gmail.com');
