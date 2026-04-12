@@ -27,7 +27,7 @@ OUTPUT_FILE=".tmp/analysis/scored-jobs-${OUTPUT_DATE}.md"
 MAX_ROLES_PER_COMPANY=5
 ROLE_KEYWORDS="staff engineer|principal engineer|senior staff|distinguished|infrastructure engineer|platform engineer|ai engineer|ml engineer|machine learning|backend engineer|software engineer|senior engineer|staff software"
 
-WORKDIR="/tmp/fetch-jobs-$$"
+WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/fetch-jobs.XXXXXX")"
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
 
@@ -45,6 +45,7 @@ for cmd in curl python3; do
 done
 
 mkdir -p .tmp/analysis "$WORKDIR"
+chmod 700 "$WORKDIR"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 echo "fetch-jobs.sh -- ${OUTPUT_DATE}"
@@ -125,32 +126,41 @@ PYEOF
 # Python script to score a job via REST API — args: api_url api_key job_url title company
 SCORE_JOB_PY="$WORKDIR/score_job.py"
 cat > "$SCORE_JOB_PY" << 'PYEOF'
-import json, sys, urllib.request, urllib.error
+import json, os, sys, time, urllib.request, urllib.error
 
-api_url, api_key, job_url, title, company = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+api_url, job_url, title, company = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+api_key = os.environ["DAMILOLA_SCORE_API_KEY"]
 
 payload = json.dumps({"url": job_url, "title": title, "company": company}).encode()
 req = urllib.request.Request(api_url, data=payload, method="POST")
 req.add_header("Content-Type", "application/json")
 req.add_header("X-API-Key", api_key)
 
-try:
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        d = json.loads(resp.read())
-    data = d["data"]
-    score = data["currentScore"]["total"]
-    max_score = data["maxPossibleScore"]
-    rec = data["recommendation"]
-    print(f"OK|{score}|{max_score}|{rec}")
-except urllib.error.HTTPError as e:
-    body = e.read().decode()
+for attempt in range(3):
     try:
-        err_msg = json.loads(body).get("error", {}).get("message", f"HTTP {e.code}")
-    except Exception:
-        err_msg = f"HTTP {e.code}"
-    print(f"ERROR|0|{err_msg}|N/A")
-except Exception as e:
-    print(f"ERROR|0|{e}|N/A")
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            d = json.loads(resp.read())
+        data = d["data"]
+        score = data["currentScore"]["total"]
+        max_score = data["maxPossibleScore"]
+        rec = data["recommendation"]
+        print(f"OK|{score}|{max_score}|{rec}")
+        break
+    except urllib.error.HTTPError as e:
+        if e.code == 429 and attempt < 2:
+            retry_after = int(e.headers.get("Retry-After", "60"))
+            time.sleep(retry_after)
+            continue
+        body = e.read().decode()
+        try:
+            err_msg = json.loads(body).get("error", {}).get("message", f"HTTP {e.code}")
+        except Exception:
+            err_msg = f"HTTP {e.code}"
+        print(f"ERROR|0|{err_msg}|N/A")
+        break
+    except Exception as e:
+        print(f"ERROR|0|{e}|N/A")
+        break
 PYEOF
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
@@ -203,7 +213,7 @@ for feed_def in "${FEEDS[@]}"; do
     TOTAL_FETCHED=$((TOTAL_FETCHED + 1))
     echo "  Scoring: ${title}"
 
-    result=$(python3 "$SCORE_JOB_PY" "$API_URL" "$API_KEY" "$job_url" "$title" "$company" 2>/dev/null || echo "ERROR|0|scoring failed|N/A")
+    result=$(DAMILOLA_SCORE_API_KEY="$API_KEY" python3 "$SCORE_JOB_PY" "$API_URL" "$job_url" "$title" "$company" 2>/dev/null || echo "ERROR|0|scoring failed|N/A")
 
     IFS='|' read -r status score max_or_err rec <<< "$result"
 

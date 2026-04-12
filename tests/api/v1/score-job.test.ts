@@ -193,6 +193,19 @@ describe('POST /api/v1/score-job', () => {
       expect(data.error.code).toBe('VALIDATION_ERROR');
     });
 
+    it('returns 400 when body is a JSON array', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const req = new Request('http://localhost/api/v1/score-job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify([validBody]),
+      });
+      const response = await POST(req);
+      const data = await response.json() as { error: { code: string } };
+      expect(response.status).toBe(400);
+      expect(data.error.code).toBe('VALIDATION_ERROR');
+    });
+
     it('returns 429 when rate limited', async () => {
       mockCheckGenericRateLimit.mockResolvedValue({ limited: true, remaining: 0, retryAfter: 60 });
       const { POST } = await import('@/app/api/v1/score-job/route');

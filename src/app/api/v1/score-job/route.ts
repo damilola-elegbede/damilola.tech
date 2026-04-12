@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       return Errors.badRequest('Invalid JSON body.');
     }
 
-    if (!body || typeof body !== 'object') {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return Errors.validationError('Request body must be a JSON object.');
     }
 
