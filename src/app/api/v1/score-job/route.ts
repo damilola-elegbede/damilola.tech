@@ -41,9 +41,14 @@ export async function POST(req: Request) {
       return Errors.rateLimited(rateLimit.retryAfter || 60);
     }
 
+    const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_SIZE) {
+      return Errors.badRequest('Request body too large.');
+    }
+
     let body: unknown;
     try {
-      body = await req.json();
+      body = JSON.parse(rawBody) as unknown;
     } catch {
       return Errors.badRequest('Invalid JSON body.');
     }
@@ -53,19 +58,30 @@ export async function POST(req: Request) {
     }
 
     const { url, title, company } = body as Record<string, unknown>;
+    const normalizedUrl = typeof url === 'string' ? url.trim() : url;
+    const normalizedTitle = typeof title === 'string' ? title.trim() : title;
+    const normalizedCompany = typeof company === 'string' ? company.trim() : company;
 
-    if (!url || typeof url !== 'string') {
+    if (!normalizedUrl || typeof normalizedUrl !== 'string') {
       return Errors.validationError('"url" is required and must be a string.');
     }
-    if (!title || typeof title !== 'string') {
+    try {
+      const parsed = new URL(normalizedUrl);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return Errors.validationError('"url" must be an http or https URL.');
+      }
+    } catch {
+      return Errors.validationError('"url" must be a valid URL.');
+    }
+    if (!normalizedTitle || typeof normalizedTitle !== 'string') {
       return Errors.validationError('"title" is required and must be a string.');
     }
-    if (!company || typeof company !== 'string') {
+    if (!normalizedCompany || typeof normalizedCompany !== 'string') {
       return Errors.validationError('"company" is required and must be a string.');
     }
 
     const resolvedInput = await resolveJobDescriptionInput(
-      url,
+      normalizedUrl,
       'Mozilla/5.0 (compatible; ResumeScoreBot/1.0)'
     );
 
@@ -106,9 +122,9 @@ export async function POST(req: Request) {
         : 'strong_fit';
 
     logApiAccess('api_score_job', authResult.apiKey, {
-      company,
-      title,
-      url,
+      company: normalizedCompany,
+      title: normalizedTitle,
+      url: normalizedUrl,
       inputType: resolvedInput.inputType,
       extractedUrl: resolvedInput.extractedUrl,
       currentScore: currentScore.total,
@@ -119,9 +135,9 @@ export async function POST(req: Request) {
     });
 
     return apiSuccess({
-      company,
-      title,
-      url,
+      company: normalizedCompany,
+      title: normalizedTitle,
+      url: normalizedUrl,
       currentScore,
       maxPossibleScore,
       gapAnalysis,

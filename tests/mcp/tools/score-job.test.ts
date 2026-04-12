@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { z } from 'zod';
 import { registerScoreJob } from '../../../mcp/tools/score-job.js';
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<{
@@ -123,5 +124,23 @@ describe('score_job tool', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toBe('Error: string error');
+  });
+
+  it('rejects blank and whitespace-only title and company via schema validation', () => {
+    const server = createMockServer();
+    const client = { scoreJob: vi.fn() } as never;
+    registerScoreJob(server as never, client);
+
+    // Extract the Zod schema from the tool registration call
+    const [,, schema] = (server.tool as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string, string, Record<string, z.ZodTypeAny>, unknown
+    ];
+    const validator = z.object(schema);
+
+    const blankTitle = validator.safeParse({ url: 'https://example.com', title: '   ', company: 'Corp' });
+    expect(blankTitle.success).toBe(false);
+
+    const blankCompany = validator.safeParse({ url: 'https://example.com', title: 'Engineer', company: '   ' });
+    expect(blankCompany.success).toBe(false);
   });
 });

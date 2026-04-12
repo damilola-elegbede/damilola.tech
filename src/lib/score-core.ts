@@ -65,11 +65,15 @@ export function buildGapAnalysisPrompt(currentScore: ReturnType<typeof buildScor
 }
 
 /**
- * Extracts the first text block from an Anthropic message content array.
+ * Extracts and concatenates all text blocks from an Anthropic message content array.
+ * Anthropic responses may contain multiple text blocks (e.g., cited responses);
+ * returning only the first block can silently truncate JSON responses.
  */
 export function extractTextContent(content: Array<{ type: string; text?: string }>): string {
-  const textBlock = content.find((block) => block.type === 'text' && typeof block.text === 'string');
-  return textBlock?.text ?? '';
+  return content
+    .filter((block) => block.type === 'text' && typeof block.text === 'string')
+    .map((block) => block.text)
+    .join('');
 }
 
 /**
@@ -77,18 +81,26 @@ export function extractTextContent(content: Array<{ type: string; text?: string 
  * surrounded by prose. Throws if no valid JSON object can be extracted.
  */
 export function parseJsonResponse(text: string): Record<string, unknown> {
+  const parseObject = (value: string): Record<string, unknown> => {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Invalid JSON response');
+    }
+    return parsed as Record<string, unknown>;
+  };
+
   const trimmed = text.trim();
   const withoutFence = trimmed
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/, '');
 
   try {
-    return JSON.parse(withoutFence) as Record<string, unknown>;
+    return parseObject(withoutFence);
   } catch {
     const start = withoutFence.indexOf('{');
     const end = withoutFence.lastIndexOf('}');
     if (start >= 0 && end > start) {
-      return JSON.parse(withoutFence.slice(start, end + 1)) as Record<string, unknown>;
+      return parseObject(withoutFence.slice(start, end + 1));
     }
     throw new Error('Invalid JSON response');
   }

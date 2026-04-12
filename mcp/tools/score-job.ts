@@ -8,8 +8,8 @@ export function registerScoreJob(server: McpServer, client: ApiClient) {
     'Score a job posting against Damilola\'s resume for fit and readiness. Returns readiness score, gap analysis, and recommendation.',
     {
       url: z.string().url().describe('Job posting URL'),
-      title: z.string().describe('Job title'),
-      company: z.string().describe('Company name'),
+      title: z.string().trim().min(1, 'Job title is required').describe('Job title'),
+      company: z.string().trim().min(1, 'Company name is required').describe('Company name'),
     },
     async ({ url, title, company }) => {
       try {

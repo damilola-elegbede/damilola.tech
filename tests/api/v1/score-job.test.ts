@@ -185,6 +185,14 @@ describe('POST /api/v1/score-job', () => {
       expect(data.error.code).toBe('VALIDATION_ERROR');
     });
 
+    it('returns 400 when url is a malformed string', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest({ ...validBody, url: 'not-a-url' }));
+      const data = await response.json() as { error: { code: string } };
+      expect(response.status).toBe(400);
+      expect(data.error.code).toBe('VALIDATION_ERROR');
+    });
+
     it('returns 429 when rate limited', async () => {
       mockCheckGenericRateLimit.mockResolvedValue({ limited: true, remaining: 0, retryAfter: 60 });
       const { POST } = await import('@/app/api/v1/score-job/route');
