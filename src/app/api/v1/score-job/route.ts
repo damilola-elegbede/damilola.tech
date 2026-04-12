@@ -41,19 +41,31 @@ export async function POST(req: Request) {
       return Errors.rateLimited(rateLimit.retryAfter || 60);
     }
 
-    let body: { input?: unknown };
+    let body: unknown;
     try {
       body = await req.json();
     } catch {
       return Errors.badRequest('Invalid JSON body.');
     }
 
-    if (!body.input || typeof body.input !== 'string') {
-      return Errors.validationError('Job description or URL is required in "input" field.');
+    if (!body || typeof body !== 'object') {
+      return Errors.validationError('Request body must be a JSON object.');
+    }
+
+    const { url, title, company } = body as Record<string, unknown>;
+
+    if (!url || typeof url !== 'string') {
+      return Errors.validationError('"url" is required and must be a string.');
+    }
+    if (!title || typeof title !== 'string') {
+      return Errors.validationError('"title" is required and must be a string.');
+    }
+    if (!company || typeof company !== 'string') {
+      return Errors.validationError('"company" is required and must be a string.');
     }
 
     const resolvedInput = await resolveJobDescriptionInput(
-      body.input,
+      url,
       'Mozilla/5.0 (compatible; ResumeScoreBot/1.0)'
     );
 
@@ -93,17 +105,23 @@ export async function POST(req: Request) {
         ? 'marginal_improvement'
         : 'strong_fit';
 
-    logApiAccess('api_score_resume', authResult.apiKey, {
+    logApiAccess('api_score_job', authResult.apiKey, {
+      company,
+      title,
+      url,
       inputType: resolvedInput.inputType,
       extractedUrl: resolvedInput.extractedUrl,
       currentScore: currentScore.total,
       maxPossibleScore,
       recommendation,
     }, ip).catch((error) => {
-      console.warn('[api/v1/score-resume] Failed to log audit:', error);
+      console.warn('[api/v1/score-job] Failed to log audit:', error);
     });
 
     return apiSuccess({
+      company,
+      title,
+      url,
       currentScore,
       maxPossibleScore,
       gapAnalysis,
@@ -114,7 +132,7 @@ export async function POST(req: Request) {
       return Errors.badRequest(error.message);
     }
 
-    console.error('[api/v1/score-resume] Error:', error);
+    console.error('[api/v1/score-job] Error:', error);
     return Errors.internalError('AI service error.');
   }
 }

@@ -1,0 +1,285 @@
+/**
+ * @vitest-environment node
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock api-key-auth
+const mockRequireApiKey = vi.fn();
+vi.mock('@/lib/api-key-auth', () => ({
+  requireApiKey: (req: Request) => mockRequireApiKey(req),
+}));
+
+// Mock rate-limit
+const mockCheckGenericRateLimit = vi.fn();
+vi.mock('@/lib/rate-limit', () => ({
+  getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
+  checkGenericRateLimit: (...args: unknown[]) => mockCheckGenericRateLimit(...args),
+  RATE_LIMIT_CONFIGS: { resumeGenerator: {} },
+}));
+
+// Mock job-description-input
+const mockResolveJobDescriptionInput = vi.fn();
+vi.mock('@/lib/job-description-input', () => ({
+  resolveJobDescriptionInput: (...args: unknown[]) => mockResolveJobDescriptionInput(...args),
+  JobDescriptionInputError: class JobDescriptionInputError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'JobDescriptionInputError';
+    }
+  },
+}));
+
+// Mock Anthropic
+const mockCreate = vi.fn();
+vi.mock('@anthropic-ai/sdk', () => ({
+  default: vi.fn().mockImplementation(() => ({
+    messages: { create: (...args: unknown[]) => mockCreate(...args) },
+  })),
+}));
+
+// Mock api-audit
+const mockLogApiAccess = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/lib/api-audit', () => ({
+  logApiAccess: (...args: unknown[]) => mockLogApiAccess(...args),
+}));
+
+// Mock score-core (to isolate route logic)
+const mockBuildScoringInput = vi.fn();
+const mockBuildScorePayload = vi.fn();
+const mockBuildGapAnalysisPrompt = vi.fn();
+const mockExtractTextContent = vi.fn();
+const mockParseJsonResponse = vi.fn();
+vi.mock('@/lib/score-core', () => ({
+  buildScoringInput: (...args: unknown[]) => mockBuildScoringInput(...args),
+  buildScorePayload: (...args: unknown[]) => mockBuildScorePayload(...args),
+  buildGapAnalysisPrompt: (...args: unknown[]) => mockBuildGapAnalysisPrompt(...args),
+  extractTextContent: (...args: unknown[]) => mockExtractTextContent(...args),
+  parseJsonResponse: (...args: unknown[]) => mockParseJsonResponse(...args),
+  scoringClient: {
+    messages: { create: (...args: unknown[]) => mockCreate(...args) },
+  },
+}));
+
+const mockValidApiKey = {
+  apiKey: { id: 'key-1', name: 'Test Key', enabled: true },
+};
+
+const validBody = {
+  url: 'https://example.com/jobs/senior-engineer',
+  title: 'Senior Software Engineer',
+  company: 'Acme Corp',
+};
+
+const mockScore = {
+  total: 75,
+  breakdown: {
+    roleRelevance: 22,
+    claritySkimmability: 22,
+    businessImpact: 18,
+    presentationQuality: 13,
+  },
+  matchedKeywords: ['typescript', 'node'],
+  missingKeywords: ['kubernetes'],
+  matchRate: 70,
+  keywordDensity: 5.0,
+};
+
+const mockAnthropicResponse = {
+  content: [{ type: 'text', text: '{"gapAnalysis":"Strong fit.","maxPossibleScore":88,"recommendation":"marginal_improvement"}' }],
+};
+
+function makeRequest(body?: unknown) {
+  return new Request('http://localhost/api/v1/score-job', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+}
+
+describe('POST /api/v1/score-job', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+
+    mockRequireApiKey.mockResolvedValue(mockValidApiKey);
+    mockCheckGenericRateLimit.mockResolvedValue({ limited: false, remaining: 9 });
+    mockResolveJobDescriptionInput.mockResolvedValue({
+      text: 'Senior Software Engineer at Acme Corp. TypeScript, Node.js required.',
+      inputType: 'url',
+      extractedUrl: 'https://example.com/jobs/senior-engineer',
+    });
+    mockBuildScoringInput.mockReturnValue({ readinessScore: { total: 75, breakdown: {}, details: {} } });
+    mockBuildScorePayload.mockReturnValue(mockScore);
+    mockBuildGapAnalysisPrompt.mockReturnValue('Analyze this...');
+    mockCreate.mockResolvedValue(mockAnthropicResponse);
+    mockExtractTextContent.mockReturnValue('{"gapAnalysis":"Strong fit.","maxPossibleScore":88,"recommendation":"marginal_improvement"}');
+    mockParseJsonResponse.mockReturnValue({
+      gapAnalysis: 'Strong fit.',
+      maxPossibleScore: 88,
+      recommendation: 'marginal_improvement',
+    });
+  });
+
+  describe('authentication', () => {
+    it('returns 401 when api key is missing', async () => {
+      mockRequireApiKey.mockResolvedValue(
+        Response.json(
+          { success: false, error: { code: 'UNAUTHORIZED', message: 'API key required' } },
+          { status: 401 }
+        )
+      );
+
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest(validBody));
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('validation', () => {
+    it('returns 400 when body is invalid JSON', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const req = new Request('http://localhost/api/v1/score-job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: 'not-json',
+      });
+      const response = await POST(req);
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 when url is missing', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const { url: _url, ...rest } = validBody;
+      void _url;
+      const response = await POST(makeRequest(rest));
+      const data = await response.json() as { error: { code: string } };
+      expect(response.status).toBe(400);
+      expect(data.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 400 when title is missing', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const { title: _title, ...rest } = validBody;
+      void _title;
+      const response = await POST(makeRequest(rest));
+      const data = await response.json() as { error: { code: string } };
+      expect(response.status).toBe(400);
+      expect(data.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 400 when company is missing', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const { company: _company, ...rest } = validBody;
+      void _company;
+      const response = await POST(makeRequest(rest));
+      const data = await response.json() as { error: { code: string } };
+      expect(response.status).toBe(400);
+      expect(data.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 400 when url is not a valid URL string', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest({ ...validBody, url: 123 }));
+      const data = await response.json() as { error: { code: string } };
+      expect(response.status).toBe(400);
+      expect(data.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 429 when rate limited', async () => {
+      mockCheckGenericRateLimit.mockResolvedValue({ limited: true, remaining: 0, retryAfter: 60 });
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest(validBody));
+      expect(response.status).toBe(429);
+    });
+  });
+
+  describe('success', () => {
+    it('returns 200 with company, title, url, and scoring fields', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest(validBody));
+      const data = await response.json() as { success: boolean; data: Record<string, unknown> };
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.company).toBe('Acme Corp');
+      expect(data.data.title).toBe('Senior Software Engineer');
+      expect(data.data.url).toBe('https://example.com/jobs/senior-engineer');
+      expect(data.data.currentScore).toBeDefined();
+      expect(data.data.maxPossibleScore).toBeDefined();
+      expect(data.data.gapAnalysis).toBe('Strong fit.');
+      expect(data.data.recommendation).toBe('marginal_improvement');
+    });
+
+    it('calls resolveJobDescriptionInput with the url', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      await POST(makeRequest(validBody));
+      expect(mockResolveJobDescriptionInput).toHaveBeenCalledWith(
+        'https://example.com/jobs/senior-engineer',
+        expect.any(String)
+      );
+    });
+
+    it('calls logApiAccess with api_score_job event type', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      await POST(makeRequest(validBody));
+      expect(mockLogApiAccess).toHaveBeenCalledWith(
+        'api_score_job',
+        mockValidApiKey.apiKey,
+        expect.objectContaining({
+          company: 'Acme Corp',
+          title: 'Senior Software Engineer',
+        }),
+        '127.0.0.1'
+      );
+    });
+
+    it('returns recommendation strong_fit when gap < 5', async () => {
+      mockBuildScorePayload.mockReturnValue({ ...mockScore, total: 85 });
+      mockParseJsonResponse.mockReturnValue({
+        gapAnalysis: 'Excellent.',
+        maxPossibleScore: 87,
+        recommendation: 'strong_fit',
+      });
+
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest(validBody));
+      const data = await response.json() as { data: { recommendation: string } };
+      expect(data.data.recommendation).toBe('strong_fit');
+    });
+
+    it('returns recommendation full_generation_recommended when gap > 15', async () => {
+      mockBuildScorePayload.mockReturnValue({ ...mockScore, total: 50 });
+      mockParseJsonResponse.mockReturnValue({
+        gapAnalysis: 'Large gap.',
+        maxPossibleScore: 90,
+        recommendation: 'full_generation_recommended',
+      });
+
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest(validBody));
+      const data = await response.json() as { data: { recommendation: string } };
+      expect(data.data.recommendation).toBe('full_generation_recommended');
+    });
+  });
+
+  describe('error handling', () => {
+    it('returns 400 when JobDescriptionInputError is thrown', async () => {
+      const { JobDescriptionInputError } = await import('@/lib/job-description-input');
+      mockResolveJobDescriptionInput.mockRejectedValue(
+        new JobDescriptionInputError('Cannot fetch URL')
+      );
+
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest(validBody));
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 500 on unexpected errors', async () => {
+      mockCreate.mockRejectedValue(new Error('Anthropic down'));
+
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest(validBody));
+      expect(response.status).toBe(500);
+    });
+  });
+});

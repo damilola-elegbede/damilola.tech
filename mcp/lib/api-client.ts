@@ -58,6 +58,12 @@ interface ScoreResumeResponse {
   recommendation: 'full_generation_recommended' | 'marginal_improvement' | 'strong_fit';
 }
 
+interface ScoreJobResponse extends ScoreResumeResponse {
+  company: string;
+  title: string;
+  url: string;
+}
+
 interface ApiClientConfig {
   apiKey: string;
   baseUrl: string;
@@ -198,6 +204,13 @@ export class ApiClient {
     return this._request<ScoreResumeResponse>('/api/v1/score-resume', {
       method: 'POST',
       body: { input },
+    });
+  }
+
+  async scoreJob(url: string, title: string, company: string): Promise<ScoreJobResponse> {
+    return this._request<ScoreJobResponse>('/api/v1/score-job', {
+      method: 'POST',
+      body: { url, title, company },
     });
   }
 
