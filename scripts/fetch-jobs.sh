@@ -263,7 +263,10 @@ echo "Done: ${TOTAL_SCORED} scored, ${ERRORS} errors"
 
   while IFS=$'\t' read -r company title score rec url; do
     [[ -z "$company" ]] && continue
-    echo "| ${company} | ${title} | ${score} | ${rec} | [view](${url}) |"
+    safe_company="${company//|/\\|}"
+    safe_title="${title//|/\\|}"
+    safe_rec="${rec//|/\\|}"
+    echo "| ${safe_company} | ${safe_title} | ${score} | ${safe_rec} | [view](${url}) |"
   done < "$RESULTS_FILE"
 } > "$OUTPUT_FILE"
 
