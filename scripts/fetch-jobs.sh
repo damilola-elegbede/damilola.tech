@@ -148,7 +148,11 @@ for attempt in range(3):
         break
     except urllib.error.HTTPError as e:
         if e.code == 429 and attempt < 2:
-            retry_after = int(e.headers.get("Retry-After", "60"))
+            raw_retry_after = e.headers.get("Retry-After", "60")
+            try:
+                retry_after = max(1, int(raw_retry_after))
+            except (TypeError, ValueError):
+                retry_after = 60
             time.sleep(retry_after)
             continue
         body = e.read().decode()
@@ -195,9 +199,17 @@ for feed_def in "${FEEDS[@]}"; do
   fi
 
   if [[ "$ats" == "greenhouse" ]]; then
-    matching_jobs=$(python3 "$PARSE_GREENHOUSE_PY" "$feed_file" "$ROLE_KEYWORDS" "$MAX_ROLES_PER_COMPANY" 2>/dev/null || true)
+    if ! matching_jobs=$(python3 "$PARSE_GREENHOUSE_PY" "$feed_file" "$ROLE_KEYWORDS" "$MAX_ROLES_PER_COMPANY" 2>/dev/null); then
+      echo "  WARNING: Failed to parse ${company} feed" >&2
+      ERRORS=$((ERRORS + 1))
+      continue
+    fi
   elif [[ "$ats" == "ashby" ]]; then
-    matching_jobs=$(python3 "$PARSE_ASHBY_PY" "$feed_file" "$ROLE_KEYWORDS" "$MAX_ROLES_PER_COMPANY" 2>/dev/null || true)
+    if ! matching_jobs=$(python3 "$PARSE_ASHBY_PY" "$feed_file" "$ROLE_KEYWORDS" "$MAX_ROLES_PER_COMPANY" 2>/dev/null); then
+      echo "  WARNING: Failed to parse ${company} feed" >&2
+      ERRORS=$((ERRORS + 1))
+      continue
+    fi
   else
     echo "  WARNING: Unknown ATS type: ${ats}" >&2
     continue
