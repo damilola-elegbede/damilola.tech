@@ -2,9 +2,9 @@ import type { ResumeData, SuggestedQuestion } from "@/types";
 
 export const resumeData: ResumeData = {
   name: "Damilola Elegbede",
-  title: "Engineering Manager",
+  title: "Distinguished Engineer — AI Systems & Infrastructure",
   tagline:
-    "I build engineering organizations that deliver results, retain top talent, and develop leaders",
+    "I architect multi-agent AI systems and the platform primitives that make them reliable, observable, and fast.",
   brandingStatement:
     "Strategic engineering leader with 15+ years scaling mission-critical infrastructure at Verily Life Sciences and Qualcomm. Designed a cloud transformation supporting 30+ production systems, enabling flagship product launches (L'Oréal LDP, T1D). Expert at building high-performance teams, driving GCP/AWS migrations, and establishing platform engineering practices that improve developer velocity and system reliability.",
   email: "damilola.elegbede@gmail.com",
@@ -12,17 +12,17 @@ export const resumeData: ResumeData = {
   github: "https://github.com/damilola-elegbede",
   location: "Boulder, CO",
   openToRoles: [
-    "Engineering Manager",
-    "Senior Engineering Manager",
-    "Director of Engineering",
+    "Distinguished Engineer",
+    "Principal Engineer",
+    "Staff Engineer",
+    "Engineering Director",
   ],
   experienceTags: [
-    "Engineering Management",
-    "Team Leadership",
-    "Cross-functional Leadership",
-    "Strategic Planning",
-    "Stakeholder Management",
-    "People Management",
+    "Multi-Agent Systems",
+    "AI Infrastructure",
+    "Platform Engineering",
+    "Distributed Systems",
+    "Engineering Leadership",
     "MBA + MS CS",
   ],
   experiences: [
@@ -35,6 +35,7 @@ export const resumeData: ResumeData = {
       startDate: "Sep 2022",
       endDate: "Nov 2024",
       highlights: [
+        "Built the cloud infrastructure platform (GCP, CI/CD, developer tooling) that became the foundation for Verily's AI/ML workload migration — scaled platform to support 200+ engineers while cutting CI cycle time by 40%.",
         "Architected and executed enterprise-wide GCP cloud transformation supporting 30+ production systems, enabling successful launches of L'Oréal LDP and T1D healthcare platforms while establishing multi-cloud (GCP/AWS) capabilities.",
         "Built Cloud Infrastructure and developer experience functions from ground up, hiring and scaling an engineering team across multiple requisition cycles; promoted 3 ICs to senior roles, achieved high team retention with multiple internal transfers to the organization.",
         "Drove platform efficiency initiatives with significant CI efficiency improvement and establishing self-service infrastructure capabilities, improving developer velocity across a large engineering organization.",
@@ -51,6 +52,7 @@ export const resumeData: ResumeData = {
       startDate: "Oct 2019",
       endDate: "Jul 2022",
       highlights: [
+        "Led infrastructure engineering for 4G/5G CI/CD at Qualcomm, establishing platform patterns for distributed build systems at scale — the same architectural discipline applied to modern AI training and inference pipelines.",
         "Transformed customer support operations from reactive to proactive model, dramatically reducing critical issue resolution time while scaling to support a large global customer deployment base.",
         "Created self-service 5G training platform replacing quarterly live sessions, enabling 24/7 customer enablement across global time zones and significantly reducing training operational costs.",
         "Led data-driven performance optimization using Splunk analytics, identifying and resolving signal-to-noise ratio issues across 40+ customer sites, directly improving chipset performance metrics.",
@@ -96,6 +98,17 @@ export const resumeData: ResumeData = {
     },
   ],
   skills: [
+    {
+      category: "AI & Agent Systems",
+      items: [
+        "Multi-agent system design",
+        "LLM infrastructure & prompt engineering",
+        "Agent orchestration (Claude SDK, MCP protocol)",
+        "AI observability (semantic event streaming, activity logging)",
+        "Autonomous workflow scheduling (launchd, cron)",
+        "Agent identity & credential management",
+      ],
+    },
     {
       category: "Leadership",
       items: [
@@ -166,6 +179,10 @@ export const resumeData: ResumeData = {
   ],
   skillsAssessment: {
     expert: [
+      "Multi-agent system design",
+      "Agent orchestration",
+      "LLM infrastructure",
+      "Prompt engineering at scale",
       "Cross-Functional Leadership",
       "Technical Strategy",
       "Executive Stakeholder Management",
@@ -179,6 +196,11 @@ export const resumeData: ResumeData = {
       "Training Development",
     ],
     proficient: [
+      "MCP protocol",
+      "AI observability",
+      "Autonomous scheduling",
+      "GitHub App identity management",
+      "Claude SDK",
       "GCP",
       "Kubernetes/GKE",
       "Terraform",
