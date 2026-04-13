@@ -24,7 +24,26 @@ export const dynamic = "force-dynamic";
 
 export default async function FleetDispatchArchitecturePost() {
   const contentPath = path.join(process.cwd(), "src/app/blog/fleet-dispatch-architecture/content.md");
-  const raw = await fs.readFile(contentPath, "utf-8");
+  let raw = "";
+  try {
+    raw = await fs.readFile(contentPath, "utf-8");
+  } catch {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          backgroundColor: "var(--color-bg)",
+          color: "var(--color-text)",
+          padding: "4rem 1.5rem",
+        }}
+      >
+        <article style={{ maxWidth: "720px", margin: "0 auto" }}>
+          <h1>Post unavailable</h1>
+          <p>Please try again later.</p>
+        </article>
+      </main>
+    );
+  }
   const { meta, body } = parseFrontmatter(raw);
 
   return (
