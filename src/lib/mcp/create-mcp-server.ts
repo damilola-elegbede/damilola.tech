@@ -15,6 +15,7 @@ import { registerGetStatsOnly } from '../../../mcp/tools/get-stats-only';
 import { registerChats } from '../../../mcp/tools/chats';
 import { registerAuditLog } from '../../../mcp/tools/audit-log';
 import { registerTraffic } from '../../../mcp/tools/traffic';
+import { registerScoreJob } from '../../../mcp/tools/score-job';
 
 /**
  * Creates an MCP server instance with all supported tools registered.
@@ -45,6 +46,7 @@ export function createMcpServer(apiKey: string, apiBaseUrl: string): McpServer {
   registerChats(server, client);
   registerAuditLog(server, client);
   registerTraffic(server, client);
+  registerScoreJob(server, client);
 
   return server;
 }

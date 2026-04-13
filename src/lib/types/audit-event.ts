@@ -24,6 +24,7 @@ export type AuditEventType =
   // API access events (via external API keys)
   | 'api_fit_assessment'
   | 'api_score_resume'
+  | 'api_score_job'
   | 'api_chat'
   | 'api_chats_list'
   | 'api_fit_assessments_list'

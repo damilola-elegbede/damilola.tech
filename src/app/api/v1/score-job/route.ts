@@ -41,19 +41,47 @@ export async function POST(req: Request) {
       return Errors.rateLimited(rateLimit.retryAfter || 60);
     }
 
-    let body: { input?: unknown };
+    const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_SIZE) {
+      return Errors.badRequest('Request body too large.');
+    }
+
+    let body: unknown;
     try {
-      body = await req.json();
+      body = JSON.parse(rawBody) as unknown;
     } catch {
       return Errors.badRequest('Invalid JSON body.');
     }
 
-    if (!body.input || typeof body.input !== 'string') {
-      return Errors.validationError('Job description or URL is required in "input" field.');
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return Errors.validationError('Request body must be a JSON object.');
+    }
+
+    const { url, title, company } = body as Record<string, unknown>;
+    const normalizedUrl = typeof url === 'string' ? url.trim() : url;
+    const normalizedTitle = typeof title === 'string' ? title.trim() : title;
+    const normalizedCompany = typeof company === 'string' ? company.trim() : company;
+
+    if (!normalizedUrl || typeof normalizedUrl !== 'string') {
+      return Errors.validationError('"url" is required and must be a string.');
+    }
+    try {
+      const parsed = new URL(normalizedUrl);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return Errors.validationError('"url" must be an http or https URL.');
+      }
+    } catch {
+      return Errors.validationError('"url" must be a valid URL.');
+    }
+    if (!normalizedTitle || typeof normalizedTitle !== 'string') {
+      return Errors.validationError('"title" is required and must be a string.');
+    }
+    if (!normalizedCompany || typeof normalizedCompany !== 'string') {
+      return Errors.validationError('"company" is required and must be a string.');
     }
 
     const resolvedInput = await resolveJobDescriptionInput(
-      body.input,
+      normalizedUrl,
       'Mozilla/5.0 (compatible; ResumeScoreBot/1.0)'
     );
 
@@ -93,17 +121,23 @@ export async function POST(req: Request) {
         ? 'marginal_improvement'
         : 'strong_fit';
 
-    logApiAccess('api_score_resume', authResult.apiKey, {
+    logApiAccess('api_score_job', authResult.apiKey, {
+      company: normalizedCompany,
+      title: normalizedTitle,
+      url: normalizedUrl,
       inputType: resolvedInput.inputType,
       extractedUrl: resolvedInput.extractedUrl,
       currentScore: currentScore.total,
       maxPossibleScore,
       recommendation,
     }, ip).catch((error) => {
-      console.warn('[api/v1/score-resume] Failed to log audit:', error);
+      console.warn('[api/v1/score-job] Failed to log audit:', error);
     });
 
     return apiSuccess({
+      company: normalizedCompany,
+      title: normalizedTitle,
+      url: normalizedUrl,
       currentScore,
       maxPossibleScore,
       gapAnalysis,
@@ -114,7 +148,7 @@ export async function POST(req: Request) {
       return Errors.badRequest(error.message);
     }
 
-    console.error('[api/v1/score-resume] Error:', error);
+    console.error('[api/v1/score-job] Error:', error);
     return Errors.internalError('AI service error.');
   }
 }
