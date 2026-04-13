@@ -117,6 +117,34 @@ async function fetchJobDescriptionHtml(
   }
 }
 
+export function resolvePreFetchedJobDescription(
+  content: string,
+  sourceUrl: string
+): { text: string; inputType: 'content'; extractedUrl: string } {
+  const looksLikeHtml = /<[a-z][\s\S]*?>/i.test(content);
+  const textContent = looksLikeHtml
+    ? extractTextFromHtml(content)
+    : content.replace(/\s+/g, ' ').trim();
+
+  if (textContent.length < MIN_EXTRACTED_CONTENT_LENGTH) {
+    throw new JobDescriptionInputError(
+      `Pre-fetched content too short (${textContent.length} chars, minimum ${MIN_EXTRACTED_CONTENT_LENGTH} required).`
+    );
+  }
+
+  if (!looksLikeJobDescription(textContent)) {
+    throw new JobDescriptionInputError(
+      'Pre-fetched content does not appear to be a job description.'
+    );
+  }
+
+  return {
+    text: textContent,
+    inputType: 'content',
+    extractedUrl: sourceUrl,
+  };
+}
+
 export async function resolveJobDescriptionInput(
   input: string,
   userAgent: string
