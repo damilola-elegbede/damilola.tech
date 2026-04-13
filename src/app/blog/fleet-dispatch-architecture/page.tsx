@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { parseFrontmatter, formatDate } from "@/lib/blog-frontmatter";
 
 export const metadata: Metadata = {
   title:
@@ -19,70 +20,7 @@ export const metadata: Metadata = {
   },
 };
 
-interface Frontmatter {
-  title: string;
-  subtitle?: string;
-  date: string;
-  tags: string[];
-  author: string;
-}
-
-function parseFrontmatter(raw: string): { meta: Frontmatter; body: string } {
-  const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  if (!match) {
-    return {
-      meta: {
-        title: "Untitled",
-        date: "",
-        tags: [],
-        author: "Damilola Elegbede",
-      },
-      body: raw,
-    };
-  }
-  const [, fm, body] = match;
-  const meta: Partial<Frontmatter> & { tags?: string[] } = {
-    tags: [],
-    author: "Damilola Elegbede",
-  };
-  for (const line of fm.split("\n")) {
-    const m = line.match(/^(\w+):\s*(.*)$/);
-    if (!m) continue;
-    const key = m[1];
-    const value = m[2].trim().replace(/^"(.*)"$/, "$1");
-    if (key === "tags") {
-      const inner = value.replace(/^\[/, "").replace(/\]$/, "");
-      meta.tags = inner
-        .split(",")
-        .map((s) => s.trim().replace(/^"(.*)"$/, "$1"))
-        .filter(Boolean);
-    } else if (key === "title" || key === "subtitle" || key === "date" || key === "author") {
-      (meta as Record<string, string>)[key] = value;
-    }
-  }
-  return {
-    meta: {
-      title: meta.title ?? "Untitled",
-      subtitle: meta.subtitle,
-      date: meta.date ?? "",
-      tags: meta.tags ?? [],
-      author: meta.author ?? "Damilola Elegbede",
-    },
-    body,
-  };
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
+export const dynamic = "force-dynamic";
 
 export default async function FleetDispatchArchitecturePost() {
   const contentPath = path.join(process.cwd(), "src/app/blog/fleet-dispatch-architecture/content.md");

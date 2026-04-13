@@ -43,7 +43,7 @@ Three seconds after that, a third cron piled on. By 04:06 all three jobs were
 wedged: tmux had interleaved their keystrokes into a single corrupted blob, and
 `claude -p` was trying to parse a prompt that now read, roughly:
 
-```
+```text
 /work-session-plan { Scan actiload current-state.md and advance up to 3 ta...
 ```
 
