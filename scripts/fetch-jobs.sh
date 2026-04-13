@@ -94,14 +94,15 @@ with open(feed_file) as f:
 
 matched = 0
 for job in data.get("jobs", []):
-    title = job.get("title", "")
+    title = str(job.get("title") or "")
     if not role_pattern.search(title):
         continue
-    url = job.get("absolute_url", job.get("url", ""))
+    url = str(job.get("absolute_url") or job.get("url") or "")
     if not url:
         continue
     # Greenhouse ?content=true returns HTML-escaped job description in "content" field
-    content = job.get("content", "") or ""
+    raw_content = job.get("content")
+    content = raw_content if isinstance(raw_content, str) else ""
     out_path = os.path.join(out_dir, f"job-{matched}.json")
     with open(out_path, "w") as out:
         json.dump({"title": title, "url": url, "content": content}, out)
@@ -133,22 +134,22 @@ elif isinstance(data, dict):
 
 matched = 0
 for job in jobs:
-    title = job.get("title", job.get("jobTitle", ""))
+    title = str(job.get("title") or job.get("jobTitle") or "")
     if not role_pattern.search(title):
         continue
-    url = job.get("applyUrl", job.get("jobUrl", ""))
+    url = str(job.get("applyUrl") or job.get("jobUrl") or "")
     job_id = job.get("id", job.get("jobId", ""))
     if not url and job_id:
         url = "https://jobs.ashbyhq.com/llamaindex/" + str(job_id)
     if not url:
         continue
     # Ashby exposes HTML or plain text description directly in the feed
-    content = (
+    raw_content = (
         job.get("descriptionHtml")
         or job.get("descriptionPlain")
-        or job.get("description", "")
-        or ""
+        or job.get("description")
     )
+    content = raw_content if isinstance(raw_content, str) else ""
     out_path = os.path.join(out_dir, f"job-ashby-{matched}.json")
     with open(out_path, "w") as out:
         json.dump({"title": title, "url": url, "content": content}, out)
@@ -175,8 +176,8 @@ body = {"url": job_url, "title": title, "company": company}
 if content_file and os.path.exists(content_file):
     with open(content_file) as f:
         job_meta = json.load(f)
-    content = job_meta.get("content") or ""
-    if content:
+    content = job_meta.get("content")
+    if isinstance(content, str) and content.strip():
         body["job_content"] = content
 
 payload = json.dumps(body).encode()
