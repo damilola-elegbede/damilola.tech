@@ -5,6 +5,8 @@ import { TrackingProvider } from '@/components/providers/TrackingProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.damilola.tech'),
+  alternates: { canonical: '/' },
   title: 'Damilola Elegbede | Engineering Manager',
   description:
     'Engineering Manager with 15+ years building high-performance organizations at Verily Life Sciences and Qualcomm. Specializing in cloud infrastructure, platform engineering, and developer experience.',

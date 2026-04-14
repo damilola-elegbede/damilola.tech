@@ -38,6 +38,23 @@ export default function Home() {
 
       <ChatFab onClick={toggleChat} isOpen={isChatOpen} />
       <ChatPanel isOpen={isChatOpen} onClose={closeChat} />
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Person',
+            name: 'Damilola Elegbede',
+            url: 'https://www.damilola.tech',
+            jobTitle: 'Engineering Manager',
+            sameAs: [
+              'https://linkedin.com/in/damilolaelegbede',
+              'https://github.com/damilola-elegbede',
+            ],
+          }),
+        }}
+      />
     </>
   );
 }
