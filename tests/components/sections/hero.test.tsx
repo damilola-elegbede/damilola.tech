@@ -11,7 +11,7 @@ describe('Hero', () => {
   it('renders the title', () => {
     render(<Hero onOpenChat={() => {}} />);
     // Title appears as both the main title and in the role bubbles
-    const titleElements = screen.getAllByText('Engineering Manager');
+    const titleElements = screen.getAllByText('Sr. Engineering Manager');
     expect(titleElements.length).toBeGreaterThanOrEqual(1);
     // Verify the main title has accent color styling
     const mainTitle = titleElements.find(el =>

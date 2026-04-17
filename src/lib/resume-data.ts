@@ -2,7 +2,7 @@ import type { ResumeData, SuggestedQuestion } from "@/types";
 
 export const resumeData: ResumeData = {
   name: "Damilola Elegbede",
-  title: "Engineering Manager",
+  title: "Sr. Engineering Manager",
   tagline:
     "I build engineering organizations that deliver results, retain top talent, and develop leaders",
   brandingStatement:
