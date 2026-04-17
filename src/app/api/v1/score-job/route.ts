@@ -8,7 +8,11 @@ import {
   RATE_LIMIT_CONFIGS,
 } from '@/lib/rate-limit';
 import { sanitizeScoreValue } from '@/lib/score-utils';
-import { JobDescriptionInputError, resolveJobDescriptionInput } from '@/lib/job-description-input';
+import {
+  JobDescriptionInputError,
+  resolveJobDescriptionInput,
+  resolvePreFetchedJobDescription,
+} from '@/lib/job-description-input';
 import {
   scoringClient,
   buildScorePayload,
@@ -20,7 +24,8 @@ import {
 
 export const runtime = 'nodejs';
 
-const MAX_BODY_SIZE = 50 * 1024;
+const MAX_BODY_SIZE = 256 * 1024;
+const MAX_JOB_CONTENT_SIZE = 200 * 1024;
 
 export async function POST(req: Request) {
   const authResult = await requireApiKey(req);
@@ -57,10 +62,11 @@ export async function POST(req: Request) {
       return Errors.validationError('Request body must be a JSON object.');
     }
 
-    const { url, title, company } = body as Record<string, unknown>;
+    const { url, title, company, job_content: jobContent } = body as Record<string, unknown>;
     const normalizedUrl = typeof url === 'string' ? url.trim() : url;
     const normalizedTitle = typeof title === 'string' ? title.trim() : title;
     const normalizedCompany = typeof company === 'string' ? company.trim() : company;
+    const hasJobContent = typeof jobContent === 'string' && jobContent.trim().length > 0;
 
     if (!normalizedUrl || typeof normalizedUrl !== 'string') {
       return Errors.validationError('"url" is required and must be a string.');
@@ -79,11 +85,19 @@ export async function POST(req: Request) {
     if (!normalizedCompany || typeof normalizedCompany !== 'string') {
       return Errors.validationError('"company" is required and must be a string.');
     }
+    if (jobContent !== undefined && typeof jobContent !== 'string') {
+      return Errors.validationError('"job_content" must be a string when provided.');
+    }
+    if (hasJobContent && new TextEncoder().encode(jobContent as string).byteLength > MAX_JOB_CONTENT_SIZE) {
+      return Errors.badRequest(`"job_content" exceeds ${MAX_JOB_CONTENT_SIZE} byte limit.`);
+    }
 
-    const resolvedInput = await resolveJobDescriptionInput(
-      normalizedUrl,
-      'Mozilla/5.0 (compatible; ResumeScoreBot/1.0)'
-    );
+    const resolvedInput = hasJobContent
+      ? resolvePreFetchedJobDescription(jobContent as string, normalizedUrl)
+      : await resolveJobDescriptionInput(
+          normalizedUrl,
+          'Mozilla/5.0 (compatible; ResumeScoreBot/1.0)'
+        );
 
     const { readinessScore } = buildScoringInput(resolvedInput.text);
     const currentScore = buildScorePayload(readinessScore);

@@ -14,6 +14,10 @@
 #     into shell history or config files)
 #   - curl, jq, python3 (all standard on macOS)
 #   - damilola.tech PR #118 merged to production (score_job endpoint live)
+#   - score_job endpoint supports optional `job_content` body field so the server
+#     can skip the URL fetch (required because Greenhouse/Ashby anti-bot blocks
+#     server-side scraping). This script pre-fetches each job's HTML from the
+#     ATS feed and forwards it as `job_content`.
 #
 # Secret policy (repo rule):
 #   - API keys live in Vercel environment variables ONLY. Do not commit them.
@@ -74,37 +78,48 @@ FEEDS=(
   "LlamaIndex|ashby|https://api.ashbyhq.com/posting-api/job-board/llamaindex"
 )
 
-# Python script to parse Greenhouse feed — args: feed_file role_keywords max_roles
+# Python script to parse Greenhouse feed — args: feed_file role_keywords max_roles out_dir
+# Writes one <out_dir>/job-<n>.json per matching role with {title, url, content} and
+# prints "<json_path>\t<title>\t<url>" lines on stdout (tab-separated for easy bash read).
 PARSE_GREENHOUSE_PY="$WORKDIR/parse_greenhouse.py"
 cat > "$PARSE_GREENHOUSE_PY" << 'PYEOF'
-import json, re, sys
+import json, os, re, sys
 
-feed_file, role_pattern_str, max_roles_str = sys.argv[1], sys.argv[2], sys.argv[3]
+feed_file, role_pattern_str, max_roles_str, out_dir = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 role_pattern = re.compile(role_pattern_str, re.IGNORECASE)
 max_roles = int(max_roles_str)
 
 with open(feed_file) as f:
     data = json.load(f)
 
-matched = []
+matched = 0
 for job in data.get("jobs", []):
-    title = job.get("title", "")
-    if role_pattern.search(title):
-        url = job.get("absolute_url", job.get("url", ""))
-        if url:
-            matched.append(title + "\t" + url)
-    if len(matched) >= max_roles:
+    title = str(job.get("title") or "")
+    if not role_pattern.search(title):
+        continue
+    url = str(job.get("absolute_url") or job.get("url") or "")
+    if not url:
+        continue
+    # Greenhouse ?content=true returns HTML-escaped job description in "content" field
+    raw_content = job.get("content")
+    content = raw_content if isinstance(raw_content, str) else ""
+    out_path = os.path.join(out_dir, f"job-{matched}.json")
+    with open(out_path, "w") as out:
+        json.dump({"title": title, "url": url, "content": content}, out)
+    print(f"{out_path}\t{title}\t{url}")
+    matched += 1
+    if matched >= max_roles:
         break
-
-print("\n".join(matched))
 PYEOF
 
-# Python script to parse Ashby feed — same args
+# Python script to parse Ashby feed — args: feed_file role_keywords max_roles out_dir
+# Ashby job-board API returns {title, jobUrl, descriptionHtml, descriptionPlain, ...}
+# Writes one JSON per matching role and prints "<json_path>\t<title>\t<url>" lines.
 PARSE_ASHBY_PY="$WORKDIR/parse_ashby.py"
 cat > "$PARSE_ASHBY_PY" << 'PYEOF'
-import json, re, sys
+import json, os, re, sys
 
-feed_file, role_pattern_str, max_roles_str = sys.argv[1], sys.argv[2], sys.argv[3]
+feed_file, role_pattern_str, max_roles_str, out_dir = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 role_pattern = re.compile(role_pattern_str, re.IGNORECASE)
 max_roles = int(max_roles_str)
 
@@ -117,31 +132,55 @@ if isinstance(data, list):
 elif isinstance(data, dict):
     jobs = data.get("jobPostings", data.get("jobs", []))
 
-matched = []
+matched = 0
 for job in jobs:
-    title = job.get("title", job.get("jobTitle", ""))
-    if role_pattern.search(title):
-        url = job.get("applyUrl", job.get("jobUrl", ""))
-        job_id = job.get("id", job.get("jobId", ""))
-        if not url and job_id:
-            url = "https://jobs.ashbyhq.com/llamaindex/" + str(job_id)
-        if url:
-            matched.append(title + "\t" + url)
-    if len(matched) >= max_roles:
+    title = str(job.get("title") or job.get("jobTitle") or "")
+    if not role_pattern.search(title):
+        continue
+    url = str(job.get("applyUrl") or job.get("jobUrl") or "")
+    job_id = job.get("id", job.get("jobId", ""))
+    if not url and job_id:
+        url = "https://jobs.ashbyhq.com/llamaindex/" + str(job_id)
+    if not url:
+        continue
+    # Ashby exposes HTML or plain text description directly in the feed
+    raw_content = (
+        job.get("descriptionHtml")
+        or job.get("descriptionPlain")
+        or job.get("description")
+    )
+    content = raw_content if isinstance(raw_content, str) else ""
+    out_path = os.path.join(out_dir, f"job-ashby-{matched}.json")
+    with open(out_path, "w") as out:
+        json.dump({"title": title, "url": url, "content": content}, out)
+    print(f"{out_path}\t{title}\t{url}")
+    matched += 1
+    if matched >= max_roles:
         break
-
-print("\n".join(matched))
 PYEOF
 
-# Python script to score a job via REST API — args: api_url api_key job_url title company
+# Python script to score a job via REST API.
+# Args: api_url job_url title company [content_json_file]
+# When content_json_file is provided, its "content" field is forwarded to the endpoint
+# as job_content so the server can skip the URL fetch (required for Greenhouse/Ashby
+# anti-bot blocking).
 SCORE_JOB_PY="$WORKDIR/score_job.py"
 cat > "$SCORE_JOB_PY" << 'PYEOF'
 import json, os, sys, time, urllib.request, urllib.error
 
 api_url, job_url, title, company = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+content_file = sys.argv[5] if len(sys.argv) > 5 else ""
 api_key = os.environ["DAMILOLA_SCORE_API_KEY"]
 
-payload = json.dumps({"url": job_url, "title": title, "company": company}).encode()
+body = {"url": job_url, "title": title, "company": company}
+if content_file and os.path.exists(content_file):
+    with open(content_file) as f:
+        job_meta = json.load(f)
+    content = job_meta.get("content")
+    if isinstance(content, str) and content.strip():
+        body["job_content"] = content
+
+payload = json.dumps(body).encode()
 req = urllib.request.Request(api_url, data=payload, method="POST")
 req.add_header("Content-Type", "application/json")
 req.add_header("X-API-Key", api_key)
@@ -208,14 +247,17 @@ for feed_def in "${FEEDS[@]}"; do
     continue
   fi
 
+  jobs_dir="$WORKDIR/jobs-${company}"
+  mkdir -p "$jobs_dir"
+
   if [[ "$ats" == "greenhouse" ]]; then
-    if ! matching_jobs=$(python3 "$PARSE_GREENHOUSE_PY" "$feed_file" "$ROLE_KEYWORDS" "$MAX_ROLES_PER_COMPANY" 2>/dev/null); then
+    if ! matching_jobs=$(python3 "$PARSE_GREENHOUSE_PY" "$feed_file" "$ROLE_KEYWORDS" "$MAX_ROLES_PER_COMPANY" "$jobs_dir" 2>/dev/null); then
       echo "  WARNING: Failed to parse ${company} feed" >&2
       ERRORS=$((ERRORS + 1))
       continue
     fi
   elif [[ "$ats" == "ashby" ]]; then
-    if ! matching_jobs=$(python3 "$PARSE_ASHBY_PY" "$feed_file" "$ROLE_KEYWORDS" "$MAX_ROLES_PER_COMPANY" 2>/dev/null); then
+    if ! matching_jobs=$(python3 "$PARSE_ASHBY_PY" "$feed_file" "$ROLE_KEYWORDS" "$MAX_ROLES_PER_COMPANY" "$jobs_dir" 2>/dev/null); then
       echo "  WARNING: Failed to parse ${company} feed" >&2
       ERRORS=$((ERRORS + 1))
       continue
@@ -231,12 +273,12 @@ for feed_def in "${FEEDS[@]}"; do
     continue
   fi
 
-  while IFS=$'\t' read -r title job_url; do
+  while IFS=$'\t' read -r content_file title job_url; do
     [[ -z "$title" || -z "$job_url" ]] && continue
     TOTAL_FETCHED=$((TOTAL_FETCHED + 1))
     echo "  Scoring: ${title}"
 
-    result=$(DAMILOLA_SCORE_API_KEY="$API_KEY" python3 "$SCORE_JOB_PY" "$API_URL" "$job_url" "$title" "$company" 2>/dev/null || echo "ERROR|0|scoring failed|N/A")
+    result=$(DAMILOLA_SCORE_API_KEY="$API_KEY" python3 "$SCORE_JOB_PY" "$API_URL" "$job_url" "$title" "$company" "$content_file" 2>/dev/null || echo "ERROR|0|scoring failed|N/A")
 
     IFS='|' read -r status score max_or_err rec <<< "$result"
 

@@ -19,8 +19,10 @@ vi.mock('@/lib/rate-limit', () => ({
 
 // Mock job-description-input
 const mockResolveJobDescriptionInput = vi.fn();
+const mockResolvePreFetchedJobDescription = vi.fn();
 vi.mock('@/lib/job-description-input', () => ({
   resolveJobDescriptionInput: (...args: unknown[]) => mockResolveJobDescriptionInput(...args),
+  resolvePreFetchedJobDescription: (...args: unknown[]) => mockResolvePreFetchedJobDescription(...args),
   JobDescriptionInputError: class JobDescriptionInputError extends Error {
     constructor(message: string) {
       super(message);
@@ -106,6 +108,11 @@ describe('POST /api/v1/score-job', () => {
     mockResolveJobDescriptionInput.mockResolvedValue({
       text: 'Senior Software Engineer at Acme Corp. TypeScript, Node.js required.',
       inputType: 'url',
+      extractedUrl: 'https://example.com/jobs/senior-engineer',
+    });
+    mockResolvePreFetchedJobDescription.mockReturnValue({
+      text: 'Senior Software Engineer at Acme Corp. TypeScript, Node.js required. Responsibilities include API design.',
+      inputType: 'content',
       extractedUrl: 'https://example.com/jobs/senior-engineer',
     });
     mockBuildScoringInput.mockReturnValue({ readinessScore: { total: 75, breakdown: {}, details: {} } });
@@ -280,6 +287,54 @@ describe('POST /api/v1/score-job', () => {
       const response = await POST(makeRequest(validBody));
       const data = await response.json() as { data: { recommendation: string } };
       expect(data.data.recommendation).toBe('full_generation_recommended');
+    });
+  });
+
+  describe('pre-fetched job_content', () => {
+    it('uses pre-fetched content when job_content is provided and does not call URL fetch', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest({
+        ...validBody,
+        job_content: '<html><body>Senior Engineer responsibilities and qualifications here.</body></html>',
+      }));
+      expect(response.status).toBe(200);
+      expect(mockResolvePreFetchedJobDescription).toHaveBeenCalledTimes(1);
+      expect(mockResolveJobDescriptionInput).not.toHaveBeenCalled();
+    });
+
+    it('passes job_content and url to resolvePreFetchedJobDescription', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      await POST(makeRequest({
+        ...validBody,
+        job_content: 'Plain text responsibilities and qualifications for the role.',
+      }));
+      expect(mockResolvePreFetchedJobDescription).toHaveBeenCalledWith(
+        'Plain text responsibilities and qualifications for the role.',
+        'https://example.com/jobs/senior-engineer'
+      );
+    });
+
+    it('falls back to URL fetch when job_content is empty string', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest({ ...validBody, job_content: '' }));
+      expect(response.status).toBe(200);
+      expect(mockResolveJobDescriptionInput).toHaveBeenCalledTimes(1);
+      expect(mockResolvePreFetchedJobDescription).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when job_content is not a string', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const response = await POST(makeRequest({ ...validBody, job_content: 12345 }));
+      const data = await response.json() as { error: { code: string } };
+      expect(response.status).toBe(400);
+      expect(data.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 400 when job_content exceeds the size limit', async () => {
+      const { POST } = await import('@/app/api/v1/score-job/route');
+      const oversized = 'x'.repeat(201 * 1024);
+      const response = await POST(makeRequest({ ...validBody, job_content: oversized }));
+      expect(response.status).toBe(400);
     });
   });
 

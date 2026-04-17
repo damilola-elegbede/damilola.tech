@@ -125,13 +125,13 @@ jobs:
       - name: Move linked issues to In Review
         env:
           GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_TOKEN }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          REPO: ${{ github.repository }}
         run: |
           PROJECT_ID="PVT_kwDOD5PYVc4BR8md"
           STATUS_FIELD_ID="PVTSSF_lADOD5PYVc4BR8mdzg_n8JE"
           IN_REVIEW_OPTION_ID="5534910d"
-          PR_BODY="${{ github.event.pull_request.body }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          REPO="${{ github.repository }}"
 
           # Extract issue numbers, keeping same-repo refs and bare #N,
           # discarding foreign-repo refs (e.g. ops#147).
@@ -198,13 +198,13 @@ jobs:
       - name: Move linked issues to Done
         env:
           GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_TOKEN }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          REPO: ${{ github.repository }}
         run: |
           PROJECT_ID="PVT_kwDOD5PYVc4BR8md"
           STATUS_FIELD_ID="PVTSSF_lADOD5PYVc4BR8mdzg_n8JE"
           DONE_OPTION_ID="7a9cbf98"
-          PR_BODY="${{ github.event.pull_request.body }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          REPO="${{ github.repository }}"
 
           REPO_NAME=$(echo "$REPO" | cut -d/ -f2)
           REPO_FULL="$REPO"
