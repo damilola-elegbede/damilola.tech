@@ -82,9 +82,8 @@ describe('resumeData', () => {
     });
 
     it('experiences are in reverse chronological order (most recent first)', () => {
-      // Verily should be first (most recent)
-      expect(resumeData.experiences[0].company).toBe('Verily Life Sciences');
-      expect(resumeData.experiences[0].startDate).toBe('Sep 2022');
+      expect(resumeData.experiences[0].company).toBe('Visa');
+      expect(resumeData.experiences[0].startDate).toBe('Apr 2026');
     });
   });
 

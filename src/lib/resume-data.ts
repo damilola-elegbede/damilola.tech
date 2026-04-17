@@ -27,6 +27,18 @@ export const resumeData: ResumeData = {
   ],
   experiences: [
     {
+      id: "visa",
+      company: "Visa",
+      title: "Sr. Manager, DX - Developer Tools Engineering",
+      location: "Boulder, CO",
+      startDate: "Apr 2026",
+      endDate: "Present",
+      highlights: [
+        "Leading Developer Experience and Developer Tools Engineering at Visa, accountable for the platforms and tooling that shape engineering velocity across the company's product organizations.",
+        "Driving strategic investments in build infrastructure, CI/CD, and self-service developer platforms to improve cycle time, reliability, and engineering productivity at Visa's scale.",
+      ],
+    },
+    {
       id: "verily",
       company: "Verily Life Sciences",
       title:
