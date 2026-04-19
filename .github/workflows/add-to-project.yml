@@ -152,13 +152,22 @@ jobs:
           fi
 
           for ISSUE_NUM in $ISSUES; do
-            echo "Processing issue #$ISSUE_NUM"
+            echo "Processing ref #$ISSUE_NUM"
 
-            if ! ISSUE_NODE_ID=$(gh api "repos/$REPO/issues/$ISSUE_NUM" --jq '.node_id' 2>/dev/null); then
-              echo "Issue #$ISSUE_NUM not found in $REPO — skipping"
+            if ! ISSUE_JSON=$(gh api "repos/$REPO/issues/$ISSUE_NUM" 2>/dev/null); then
+              echo "Ref #$ISSUE_NUM not found in $REPO — skipping"
               continue
             fi
-            [ -z "$ISSUE_NODE_ID" ] && { echo "Issue #$ISSUE_NUM not found in $REPO"; continue; }
+
+            # Skip PR refs: GH REST treats PRs as issues, but GraphQL `... on Issue`
+            # returns null for PR node_ids, which breaks the --jq iterator below.
+            if [ -n "$(echo "$ISSUE_JSON" | jq -r '.pull_request // empty')" ]; then
+              echo "Ref #$ISSUE_NUM is a pull request, not an issue — skipping"
+              continue
+            fi
+
+            ISSUE_NODE_ID=$(echo "$ISSUE_JSON" | jq -r '.node_id // empty')
+            [ -z "$ISSUE_NODE_ID" ] && { echo "Ref #$ISSUE_NUM has no node_id — skipping"; continue; }
 
             ITEM_ID=$(gh api graphql -f query='
               query($nodeId: ID!) {
