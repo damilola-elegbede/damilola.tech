@@ -22,6 +22,7 @@
     "resume:generate": "tsx scripts/generate-resume-json.ts",
     "resume:pull": "tsx scripts/resume-pull.ts",
     "resume:push": "tsx scripts/resume-push.ts",
+    "validate:resume": "tsx scripts/validate-resume.ts",
     "cleanup:chats": "tsx scripts/cleanup-chats.ts",
     "mcp": "tsx mcp/server.ts",
     "mcp:dev": "DK_API_BASE_URL=http://localhost:3000 tsx mcp/server.ts"
@@ -64,6 +65,8 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.0.17",
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
     "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "^16.1.7",
