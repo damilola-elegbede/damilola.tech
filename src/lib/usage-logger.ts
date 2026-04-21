@@ -10,7 +10,7 @@ import { getMTDayBounds } from './timezone';
 
 export interface UsageRequest {
   timestamp: string;
-  endpoint: 'chat' | 'chat-api' | 'fit-assessment' | 'fit-assessment-api' | 'resume-generator';
+  endpoint: 'chat' | 'chat-api' | 'fit-assessment' | 'fit-assessment-api' | 'resume-generator' | 'cover-letter';
   model: string;
   inputTokens: number;
   outputTokens: number;

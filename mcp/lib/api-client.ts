@@ -64,6 +64,32 @@ interface ScoreJobResponse extends ScoreResumeResponse {
   url: string;
 }
 
+export interface GenerateCoverLetterInput {
+  job_posting_url?: string;
+  job_posting_text?: string;
+  score_job_output?: string;
+  tone?: 'confident' | 'warm' | 'technical';
+  company?: string;
+  role?: string;
+}
+
+export interface CoverLetterResult {
+  cover_letter_markdown: string;
+  metadata: {
+    company: string;
+    role: string;
+    generated_at: string;
+    model: string;
+    input_source: 'url' | 'text';
+    score_job_used: boolean;
+    token_usage: {
+      input: number;
+      output: number;
+      cache_read: number;
+    };
+  };
+}
+
 interface ApiClientConfig {
   apiKey: string;
   baseUrl: string;
@@ -218,6 +244,13 @@ export class ApiClient {
     return this._request<unknown>('/api/v1/resume-generator', {
       method: 'POST',
       body: { input },
+    });
+  }
+
+  async generateCoverLetter(input: GenerateCoverLetterInput): Promise<CoverLetterResult> {
+    return this._request<CoverLetterResult>('/api/v1/generate-cover-letter', {
+      method: 'POST',
+      body: input,
     });
   }
 
