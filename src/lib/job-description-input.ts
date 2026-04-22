@@ -32,11 +32,20 @@ const MIN_EXTRACTED_CONTENT_LENGTH = 100;
 export const URL_FETCH_TIMEOUT = 10000;
 export const MAX_RESPONSE_SIZE = 1024 * 1024;
 
+export type JobDescriptionFailureMode =
+  | 'empty_body_spa'
+  | 'ua_blocked'
+  | 'posting_404'
+  | 'not_jd_content'
+  | 'fetch_timeout';
+
 export class JobDescriptionInputError extends Error {
   statusCode: number;
+  failureMode: JobDescriptionFailureMode;
 
-  constructor(message: string, statusCode = 400) {
+  constructor(message: string, failureMode: JobDescriptionFailureMode, statusCode = 400) {
     super(message);
+    this.failureMode = failureMode;
     this.statusCode = statusCode;
   }
 }
@@ -95,6 +104,28 @@ async function fetchJobDescriptionHtml(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
+    const name = error instanceof Error ? error.name : '';
+
+    if (name === 'TimeoutError' || name === 'AbortError') {
+      throw new JobDescriptionInputError(
+        'The request timed out. Please provide the job description text directly.',
+        'fetch_timeout'
+      );
+    }
+
+    if (message === 'HTTP 404' || message === 'HTTP 410') {
+      throw new JobDescriptionInputError(
+        'The job posting was not found. Please provide the job description text directly.',
+        'posting_404'
+      );
+    }
+
+    if (message === 'HTTP 403' || message === 'HTTP 429') {
+      throw new JobDescriptionInputError(
+        'Access to the job posting was denied. Please provide the job description text directly.',
+        'ua_blocked'
+      );
+    }
 
     if (
       message === 'Invalid URL format.' ||
@@ -102,15 +133,24 @@ async function fetchJobDescriptionHtml(
       message === 'This URL is not allowed.' ||
       message === 'DNS resolution unavailable - URL fetching disabled for security.'
     ) {
-      throw new JobDescriptionInputError(`${message} Please provide the job description text directly.`);
+      throw new JobDescriptionInputError(
+        `${message} Please provide the job description text directly.`,
+        'posting_404'
+      );
     }
 
     if (message.includes('Response too large')) {
-      throw new JobDescriptionInputError('The page is too large to process. Please provide the job description text directly.');
+      throw new JobDescriptionInputError(
+        'The page is too large to process. Please provide the job description text directly.',
+        'empty_body_spa'
+      );
     }
 
     if (message.includes('Too many redirects')) {
-      throw new JobDescriptionInputError('The URL redirected too many times. Please provide the job description text directly.');
+      throw new JobDescriptionInputError(
+        'The URL redirected too many times. Please provide the job description text directly.',
+        'posting_404'
+      );
     }
 
     throw error;
@@ -128,13 +168,15 @@ export function resolvePreFetchedJobDescription(
 
   if (textContent.length < MIN_EXTRACTED_CONTENT_LENGTH) {
     throw new JobDescriptionInputError(
-      `Pre-fetched content too short (${textContent.length} chars, minimum ${MIN_EXTRACTED_CONTENT_LENGTH} required).`
+      `Pre-fetched content too short (${textContent.length} chars, minimum ${MIN_EXTRACTED_CONTENT_LENGTH} required).`,
+      'empty_body_spa'
     );
   }
 
   if (!looksLikeJobDescription(textContent)) {
     throw new JobDescriptionInputError(
-      'Pre-fetched content does not appear to be a job description.'
+      'Pre-fetched content does not appear to be a job description.',
+      'not_jd_content'
     );
   }
 
@@ -161,13 +203,15 @@ export async function resolveJobDescriptionInput(
 
     if (textContent.length < MIN_EXTRACTED_CONTENT_LENGTH) {
       throw new JobDescriptionInputError(
-        `Content too short (${textContent.length} chars, minimum ${MIN_EXTRACTED_CONTENT_LENGTH} required). Please provide the job description text directly.`
+        `Content too short (${textContent.length} chars, minimum ${MIN_EXTRACTED_CONTENT_LENGTH} required). Please provide the job description text directly.`,
+        'empty_body_spa'
       );
     }
 
     if (!looksLikeJobDescription(textContent)) {
       throw new JobDescriptionInputError(
-        'The URL does not appear to contain a job description. Please provide the job description text directly.'
+        'The URL does not appear to contain a job description. Please provide the job description text directly.',
+        'not_jd_content'
       );
     }
 
@@ -183,11 +227,15 @@ export async function resolveJobDescriptionInput(
 
     const message = error instanceof Error ? error.message : 'Unknown error';
     if (message.includes('Response too large')) {
-      throw new JobDescriptionInputError('The page is too large to process. Please provide the job description text directly.');
+      throw new JobDescriptionInputError(
+        'The page is too large to process. Please provide the job description text directly.',
+        'empty_body_spa'
+      );
     }
 
     throw new JobDescriptionInputError(
-      'Could not fetch the job posting. The site may be unavailable or blocking access. Please provide the job description text directly.'
+      'Could not fetch the job posting. The site may be unavailable or blocking access. Please provide the job description text directly.',
+      'ua_blocked'
     );
   }
 }
