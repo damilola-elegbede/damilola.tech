@@ -1,4 +1,4 @@
-import { fetchWithResolvedPublicIp } from '@/lib/ssrf-validator';
+import { fetchWithResolvedPublicIp, resolvePublicHttpUrl } from '@/lib/ssrf-validator';
 
 const JD_KEYWORDS = [
   'responsibilities',
@@ -47,6 +47,8 @@ const EMPTY_SHELL_MARKERS: readonly RegExp[] = [
 
 export const URL_FETCH_TIMEOUT = 10000;
 export const MAX_RESPONSE_SIZE = 1024 * 1024;
+export const HEADLESS_TIMEOUT = 15000;
+const HEADLESS_FALLBACK_THRESHOLD = 500;
 
 export class JobDescriptionInputError extends Error {
   statusCode: number;
@@ -147,6 +149,36 @@ async function fetchJobDescriptionHtml(
   }
 }
 
+async function fetchJobDescriptionHeadless(url: string): Promise<string> {
+  // Validate the URL passes SSRF checks before handing it to Chromium
+  await resolvePublicHttpUrl(url);
+
+  const chromiumModule = await import('@sparticuz/chromium');
+  // @sparticuz/chromium types only expose args and executablePath; defaultViewport
+  // and headless are not typed but the chromium args already configure headless-shell mode
+  const chromium = chromiumModule.default;
+  const puppeteer = await import('puppeteer-core');
+
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: null,
+    executablePath: await chromium.executablePath(),
+    headless: 'shell',
+    acceptInsecureCerts: true,
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (compatible; ResumeScoreBot/1.0)');
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: HEADLESS_TIMEOUT });
+    // Allow SPA hydration to settle after network becomes idle
+    await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+    return await page.content();
+  } finally {
+    await browser.close();
+  }
+}
+
 export function resolvePreFetchedJobDescription(
   content: string,
   sourceUrl: string
@@ -196,7 +228,18 @@ export async function resolveJobDescriptionInput(
 
   try {
     const html = await fetchJobDescriptionHtml(urlToFetch, userAgent);
-    const textContent = extractTextFromHtml(html);
+    let textContent = extractTextFromHtml(html);
+
+    // If plain fetch returned too little content, try headless rendering for SPA/ATS pages
+    if (textContent.length < HEADLESS_FALLBACK_THRESHOLD) {
+      try {
+        const headlessHtml = await fetchJobDescriptionHeadless(urlToFetch);
+        textContent = extractTextFromHtml(headlessHtml);
+      } catch {
+        // Headless launch or navigation failed — fall through to validation below
+        // which will throw JobDescriptionInputError with the original short content
+      }
+    }
 
     if (detectEmptyShell(html)) {
       return {
