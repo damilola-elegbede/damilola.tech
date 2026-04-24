@@ -172,7 +172,7 @@ async function fetchJobDescriptionHeadless(url: string): Promise<string> {
     await page.setExtraHTTPHeaders({ Host: hostname });
     await page.goto(resolvedUrl, { waitUntil: 'networkidle2', timeout: HEADLESS_TIMEOUT });
     // Allow SPA hydration to settle after network becomes idle
-    await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+    await page.waitForTimeout(2000);
     return await page.content();
   } finally {
     await browser.close();
@@ -235,9 +235,10 @@ export async function resolveJobDescriptionInput(
       try {
         const headlessHtml = await fetchJobDescriptionHeadless(urlToFetch);
         textContent = extractTextFromHtml(headlessHtml);
-      } catch {
+      } catch (headlessError) {
         // Headless launch or navigation failed — fall through to validation below
         // which will throw JobDescriptionInputError with the original short content
+        console.warn('[score-job] headless fallback failed:', headlessError instanceof Error ? headlessError.message : String(headlessError));
       }
     }
 
