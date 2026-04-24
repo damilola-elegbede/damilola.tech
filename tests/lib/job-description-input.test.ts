@@ -21,13 +21,11 @@ const mockPageContent = vi.fn().mockResolvedValue(FULL_JD_HTML);
 const mockPageGoto = vi.fn().mockResolvedValue(null);
 const mockPageSetUserAgent = vi.fn().mockResolvedValue(undefined);
 const mockPageSetExtraHTTPHeaders = vi.fn().mockResolvedValue(undefined);
-const mockPageWaitForTimeout = vi.fn().mockResolvedValue(undefined);
 const mockBrowserClose = vi.fn().mockResolvedValue(undefined);
 const mockNewPage = vi.fn().mockResolvedValue({
   setUserAgent: mockPageSetUserAgent,
   setExtraHTTPHeaders: mockPageSetExtraHTTPHeaders,
   goto: mockPageGoto,
-  waitForTimeout: mockPageWaitForTimeout,
   content: mockPageContent,
 });
 const mockPuppeteerLaunch = vi.fn().mockResolvedValue({

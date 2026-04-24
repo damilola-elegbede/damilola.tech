@@ -172,7 +172,8 @@ async function fetchJobDescriptionHeadless(url: string): Promise<string> {
     await page.setExtraHTTPHeaders({ Host: hostname });
     await page.goto(resolvedUrl, { waitUntil: 'networkidle2', timeout: HEADLESS_TIMEOUT });
     // Allow SPA hydration to settle after network becomes idle
-    await page.waitForTimeout(2000);
+    // page.waitForTimeout removed in puppeteer v22; use native Promise
+    await new Promise<void>((r) => setTimeout(r, 2000));
     return await page.content();
   } finally {
     await browser.close();
