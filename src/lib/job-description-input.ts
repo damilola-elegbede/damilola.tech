@@ -150,8 +150,7 @@ async function fetchJobDescriptionHtml(
 }
 
 async function fetchJobDescriptionHeadless(url: string): Promise<string> {
-  // Validate the URL passes SSRF checks before handing it to Chromium
-  await resolvePublicHttpUrl(url);
+  const { resolvedUrl, hostname } = await resolvePublicHttpUrl(url);
 
   const chromiumModule = await import('@sparticuz/chromium');
   // @sparticuz/chromium types only expose args and executablePath; defaultViewport
@@ -170,7 +169,8 @@ async function fetchJobDescriptionHeadless(url: string): Promise<string> {
   try {
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (compatible; ResumeScoreBot/1.0)');
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: HEADLESS_TIMEOUT });
+    await page.setExtraHTTPHeaders({ Host: hostname });
+    await page.goto(resolvedUrl, { waitUntil: 'networkidle2', timeout: HEADLESS_TIMEOUT });
     // Allow SPA hydration to settle after network becomes idle
     await new Promise<void>((resolve) => setTimeout(resolve, 2000));
     return await page.content();

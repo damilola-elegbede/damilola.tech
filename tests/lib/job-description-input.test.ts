@@ -20,10 +20,12 @@ const FULL_JD_HTML = `<html><body>
 const mockPageContent = vi.fn().mockResolvedValue(FULL_JD_HTML);
 const mockPageGoto = vi.fn().mockResolvedValue(null);
 const mockPageSetUserAgent = vi.fn().mockResolvedValue(undefined);
+const mockPageSetExtraHTTPHeaders = vi.fn().mockResolvedValue(undefined);
 const mockPageWaitForTimeout = vi.fn().mockResolvedValue(undefined);
 const mockBrowserClose = vi.fn().mockResolvedValue(undefined);
 const mockNewPage = vi.fn().mockResolvedValue({
   setUserAgent: mockPageSetUserAgent,
+  setExtraHTTPHeaders: mockPageSetExtraHTTPHeaders,
   goto: mockPageGoto,
   waitForTimeout: mockPageWaitForTimeout,
   content: mockPageContent,
@@ -207,6 +209,7 @@ describe('job-description-input headless fallback', () => {
     mockPageContent.mockClear();
     mockPageGoto.mockClear();
     mockPageSetUserAgent.mockClear();
+    mockPageSetExtraHTTPHeaders.mockClear();
     mockPageWaitForTimeout.mockClear();
     mockBrowserClose.mockClear();
 
@@ -218,6 +221,7 @@ describe('job-description-input headless fallback', () => {
     });
     mockNewPage.mockResolvedValue({
       setUserAgent: mockPageSetUserAgent,
+      setExtraHTTPHeaders: mockPageSetExtraHTTPHeaders,
       goto: mockPageGoto,
       waitForTimeout: mockPageWaitForTimeout,
       content: mockPageContent,
@@ -275,6 +279,22 @@ describe('job-description-input headless fallback', () => {
     expect(mockPuppeteerLaunch).toHaveBeenCalledTimes(1);
     expect(result.inputType).toBe('url');
     expect(result.text).toContain('Responsibilities');
+  });
+
+  it('headless fallback navigates to resolved IP and sets Host header to prevent DNS rebinding', async () => {
+    mockDnsAndChromium();
+    mockSparseFetch();
+
+    const { resolveJobDescriptionInput } = await import('@/lib/job-description-input');
+    await resolveJobDescriptionInput('https://jobs.example.com/workday/ssrf', 'UnitTestBot/1.0');
+
+    // page.goto must use the IP-pinned URL, not the original hostname
+    expect(mockPageGoto).toHaveBeenCalledWith(
+      'https://93.184.216.34/workday/ssrf',
+      expect.objectContaining({ waitUntil: 'networkidle2' })
+    );
+    // Host header must preserve the original hostname for virtual hosting
+    expect(mockPageSetExtraHTTPHeaders).toHaveBeenCalledWith({ Host: 'jobs.example.com' });
   });
 
   it('throws JobDescriptionInputError when both plain fetch and headless fallback return short content', async () => {
