@@ -163,6 +163,8 @@ async function fetchJobDescriptionHeadless(url: string): Promise<string> {
     defaultViewport: null,
     executablePath: await chromium.executablePath(),
     headless: 'shell',
+    // resolvedUrl is an IP from SSRF pinning; the server's TLS SAN won't match. This flag
+    // applies browser-wide, but the instance is ephemeral and closed immediately after fetch.
     acceptInsecureCerts: true,
   });
 
