@@ -208,7 +208,6 @@ describe('job-description-input headless fallback', () => {
     mockPageGoto.mockClear();
     mockPageSetUserAgent.mockClear();
     mockPageSetExtraHTTPHeaders.mockClear();
-    mockPageWaitForTimeout.mockClear();
     mockBrowserClose.mockClear();
 
     // Restore defaults
@@ -221,7 +220,6 @@ describe('job-description-input headless fallback', () => {
       setUserAgent: mockPageSetUserAgent,
       setExtraHTTPHeaders: mockPageSetExtraHTTPHeaders,
       goto: mockPageGoto,
-      waitForTimeout: mockPageWaitForTimeout,
       content: mockPageContent,
     });
   });
