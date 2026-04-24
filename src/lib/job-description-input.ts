@@ -37,7 +37,9 @@ export type JobDescriptionFailureMode =
   | 'ua_blocked'
   | 'posting_404'
   | 'not_jd_content'
-  | 'fetch_timeout';
+  | 'fetch_timeout'
+  | 'invalid_url'
+  | 'network_error';
 
 export class JobDescriptionInputError extends Error {
   statusCode: number;
@@ -135,21 +137,21 @@ async function fetchJobDescriptionHtml(
     ) {
       throw new JobDescriptionInputError(
         `${message} Please provide the job description text directly.`,
-        'posting_404'
+        'invalid_url'
       );
     }
 
     if (message.includes('Response too large')) {
       throw new JobDescriptionInputError(
         'The page is too large to process. Please provide the job description text directly.',
-        'empty_body_spa'
+        'not_jd_content'
       );
     }
 
     if (message.includes('Too many redirects')) {
       throw new JobDescriptionInputError(
         'The URL redirected too many times. Please provide the job description text directly.',
-        'posting_404'
+        'fetch_timeout'
       );
     }
 
@@ -229,10 +231,20 @@ export async function resolveJobDescriptionInput(
     if (message.includes('Response too large')) {
       throw new JobDescriptionInputError(
         'The page is too large to process. Please provide the job description text directly.',
-        'empty_body_spa'
+        'not_jd_content'
       );
     }
 
+    const isNetworkError = /ENOTFOUND|ECONNRESET|ECONNREFUSED|ETIMEDOUT/.test(message);
+    if (isNetworkError) {
+      console.error('[job-description-input] Network-level fetch failure:', message);
+      throw new JobDescriptionInputError(
+        'Could not reach the job posting URL due to a network error. Please provide the job description text directly.',
+        'network_error'
+      );
+    }
+
+    console.error('[job-description-input] Unclassified fetch failure:', message);
     throw new JobDescriptionInputError(
       'Could not fetch the job posting. The site may be unavailable or blocking access. Please provide the job description text directly.',
       'ua_blocked'

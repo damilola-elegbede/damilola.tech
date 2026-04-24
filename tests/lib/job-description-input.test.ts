@@ -145,6 +145,33 @@ describe('JobDescriptionInputError failure modes', () => {
     expect((err as InstanceType<typeof JobDescriptionInputError>).failureMode).toBe('empty_body_spa');
   });
 
+  it('assigns invalid_url when URL validation fails (blocked host)', async () => {
+    vi.doMock('node:dns/promises', () => ({
+      lookup: vi.fn().mockResolvedValue([{ address: '169.254.169.254', family: 4 }]),
+    }));
+
+    const { resolveJobDescriptionInput, JobDescriptionInputError } = await import('@/lib/job-description-input');
+
+    const err = await resolveJobDescriptionInput('https://internal.corp/job', 'Bot/1.0').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(JobDescriptionInputError);
+    expect((err as InstanceType<typeof JobDescriptionInputError>).failureMode).toBe('invalid_url');
+  });
+
+  it('assigns network_error when fetch throws ENOTFOUND', async () => {
+    vi.doMock('node:dns/promises', () => ({
+      lookup: vi.fn().mockResolvedValue([{ address: '93.184.216.34', family: 4 }]),
+    }));
+
+    const networkErr = Object.assign(new Error('getaddrinfo ENOTFOUND jobs.example.com'), { code: 'ENOTFOUND' });
+    vi.mocked(global.fetch).mockRejectedValue(networkErr);
+
+    const { resolveJobDescriptionInput, JobDescriptionInputError } = await import('@/lib/job-description-input');
+
+    const err = await resolveJobDescriptionInput('https://jobs.example.com/job', 'Bot/1.0').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(JobDescriptionInputError);
+    expect((err as InstanceType<typeof JobDescriptionInputError>).failureMode).toBe('network_error');
+  });
+
   it('assigns not_jd_content when content is long enough but not a job description', async () => {
     vi.doMock('node:dns/promises', () => ({
       lookup: vi.fn().mockResolvedValue([{ address: '93.184.216.34', family: 4 }]),
