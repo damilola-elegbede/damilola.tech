@@ -28,6 +28,11 @@ export const projectsData: Project[] = [
         url: "/projects/cortex/activity",
         icon: "external",
       },
+      {
+        label: "Case Study",
+        url: "/projects/cortex/case-study",
+        icon: "external",
+      },
     ],
     stats: {
       label: "System Scale",
