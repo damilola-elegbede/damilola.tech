@@ -455,7 +455,7 @@ describe('projects-data - Consistency', () => {
     for (const project of projectsData) {
       const externalLinks = project.links.filter((l) => l.icon === 'external');
       for (const link of externalLinks) {
-        expect(['Live Site', 'Demo', 'Website', 'Activity']).toContain(link.label);
+        expect(['Live Site', 'Demo', 'Website', 'Activity', 'Case Study']).toContain(link.label);
       }
     }
   });
