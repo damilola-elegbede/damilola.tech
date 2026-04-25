@@ -361,6 +361,7 @@ describe('projects-data - Content Quality', () => {
 
   it('projects are in expected order', () => {
     const expectedOrder = [
+      'forge-intel',
       'cortex-agent-fleet',
       'alo-cubano',
       'damilola-tech',
@@ -455,7 +456,7 @@ describe('projects-data - Consistency', () => {
     for (const project of projectsData) {
       const externalLinks = project.links.filter((l) => l.icon === 'external');
       for (const link of externalLinks) {
-        expect(['Live Site', 'Demo', 'Website', 'Activity']).toContain(link.label);
+        expect(['Live Site', 'Demo', 'Website', 'Activity', 'Case Study']).toContain(link.label);
       }
     }
   });
