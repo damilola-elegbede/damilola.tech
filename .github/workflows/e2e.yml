@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e-${{ github.event.deployment.id || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -57,3 +57,4 @@ jobs:
           name: playwright-report-${{ matrix.project }}
           path: playwright-report/
           retention-days: 7
+
