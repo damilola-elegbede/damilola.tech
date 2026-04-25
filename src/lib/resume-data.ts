@@ -2,7 +2,7 @@ import type { ResumeData, SuggestedQuestion } from "@/types";
 
 export const resumeData: ResumeData = {
   name: "Damilola Elegbede",
-  title: "Engineering Manager",
+  title: "Sr. Engineering Manager",
   tagline:
     "I build engineering organizations that deliver results, retain top talent, and develop leaders",
   brandingStatement:
@@ -26,6 +26,18 @@ export const resumeData: ResumeData = {
     "MBA + MS CS",
   ],
   experiences: [
+    {
+      id: "visa",
+      company: "Visa",
+      title: "Sr. Manager, DX - Developer Tools Engineering",
+      location: "Boulder, CO",
+      startDate: "Apr 2026",
+      endDate: "Present",
+      highlights: [
+        "Leading Developer Experience and Developer Tools Engineering at Visa, accountable for the platforms and tooling that shape engineering velocity across the company's product organizations.",
+        "Driving strategic investments in build infrastructure, CI/CD, and self-service developer platforms to improve cycle time, reliability, and engineering productivity at Visa's scale.",
+      ],
+    },
     {
       id: "verily",
       company: "Verily Life Sciences",

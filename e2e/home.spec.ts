@@ -12,7 +12,7 @@ test.describe('Home Page', () => {
     // Hero content - use locator scoped to hero section
     const hero = page.locator('#hero');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Damilola Elegbede');
-    await expect(hero.getByText('Engineering Manager', { exact: true })).toBeVisible();
+    await expect(hero.getByText('Sr. Engineering Manager', { exact: true })).toBeVisible();
     await expect(
       hero.getByText('I build engineering organizations that deliver results, retain top talent, and develop leaders')
     ).toBeVisible();
