@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://damilola.tech/schemas/resume-full.schema.json",
+  "title": "Resume Full (career-data)",
+  "description": "Contract for career-data/data/resume-full.json — the single source of truth for resume content used by damilola.tech surfaces + career-data chatbot corpus. Schema lives in the public main repo so validation runs without requiring submodule access; the data file lives in the private career-data submodule.",
+  "type": "object",
+  "required": [
+    "name",
+    "title",
+    "phone",
+    "email",
+    "linkedin",
+    "website",
+    "location",
+    "tagline",
+    "summary",
+    "experience",
+    "education",
+    "skills",
+    "skillsAssessment",
+    "targetRoles"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Full legal name."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Current or most recent role title, or self-identified professional title."
+    },
+    "phone": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Contact phone (format not enforced — may be E.164, hyphenated, or dotted)."
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "Primary contact email."
+    },
+    "linkedin": {
+      "type": "string",
+      "format": "uri",
+      "description": "LinkedIn profile URL."
+    },
+    "website": {
+      "type": "string",
+      "format": "uri",
+      "description": "Personal / portfolio website URL."
+    },
+    "location": {
+      "type": "string",
+      "minLength": 1,
+      "description": "City, State/Country."
+    },
+    "tagline": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One-line positioning statement used in header surfaces."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Multi-sentence professional summary used in chatbot corpus + resume header."
+    },
+    "experience": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/experienceEntry" }
+    },
+    "education": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/educationEntry" }
+    },
+    "skills": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/skillsCategory" }
+    },
+    "skillsAssessment": {
+      "type": "object",
+      "required": ["expert", "proficient", "familiar"],
+      "additionalProperties": false,
+      "properties": {
+        "expert": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "proficient": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "familiar": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "description": "Three-tier skill assessment."
+    },
+    "targetRoles": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Curated list of target role titles for job-search matching heuristics."
+    }
+  },
+  "$defs": {
+    "experienceEntry": {
+      "type": "object",
+      "required": ["company", "title", "location", "dates", "description", "responsibilities"],
+      "additionalProperties": false,
+      "properties": {
+        "company": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "location": { "type": "string", "minLength": 1 },
+        "dates": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Free-form date range, e.g. 'Sep 2022 - Nov 2024' or 'Jan 2020 - Present'."
+        },
+        "description": { "type": "string", "minLength": 1 },
+        "responsibilities": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "educationEntry": {
+      "type": "object",
+      "required": ["degree", "institution", "year", "focus"],
+      "additionalProperties": false,
+      "properties": {
+        "degree": { "type": "string", "minLength": 1 },
+        "institution": { "type": "string", "minLength": 1 },
+        "year": {
+          "type": "integer",
+          "minimum": 1950,
+          "maximum": 2100,
+          "description": "Year of degree conferral."
+        },
+        "focus": { "type": "string", "minLength": 1 }
+      }
+    },
+    "skillsCategory": {
+      "type": "object",
+      "required": ["category", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "category": { "type": "string", "minLength": 1 },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

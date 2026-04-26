@@ -64,3 +64,38 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build
+
+  validate-resume:
+    name: Validate Resume Schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch career-data submodule (soft-fail)
+        continue-on-error: true
+        env:
+          CAREER_DATA_PAT: ${{ secrets.CAREER_DATA_PAT }}
+        run: |
+          if [[ -n "${CAREER_DATA_PAT}" ]]; then
+            git config --global url."https://x-access-token:${CAREER_DATA_PAT}@github.com/".insteadOf "https://github.com/"
+            git submodule update --init --recursive --depth=1 || \
+              echo "::warning::career-data submodule fetch failed with CAREER_DATA_PAT — validation will skip"
+          else
+            echo "::warning::CAREER_DATA_PAT not set — skipping career-data submodule fetch (validation will skip)"
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Check resume-full.json presence
+        id: check
+        run: |
+          if [[ -f career-data/data/resume-full.json ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::career-data submodule not checked out — skipping schema validation. Configure CAREER_DATA_PAT secret with repo access to enable hard-gating."
+          fi
+      - name: Run schema validation
+        if: steps.check.outputs.present == 'true'
+        run: npm run validate:resume
