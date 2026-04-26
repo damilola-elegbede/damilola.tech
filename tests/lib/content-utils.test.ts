@@ -17,10 +17,12 @@ describe('content-utils', () => {
       expect(FILE_ROUTING['chatbot-instructions.md']).toBe('instructions');
       expect(FILE_ROUTING['fit-assessment-instructions.md']).toBe('instructions');
       expect(FILE_ROUTING['resume-generator-instructions.md']).toBe('instructions');
+      expect(FILE_ROUTING['cover-letter-generator.md']).toBe('instructions');
     });
 
     it('contains all expected template files', () => {
       expect(FILE_ROUTING['shared-context.md']).toBe('templates');
+      expect(FILE_ROUTING['cover-letter.md']).toBe('templates');
     });
 
     it('contains all expected context files', () => {
@@ -43,8 +45,8 @@ describe('content-utils', () => {
       expect(FILE_ROUTING['fit-example-weak.md']).toBe('examples');
     });
 
-    it('has exactly 15 files mapped', () => {
-      expect(Object.keys(FILE_ROUTING).length).toBe(15);
+    it('has exactly 17 files mapped', () => {
+      expect(Object.keys(FILE_ROUTING).length).toBe(17);
     });
   });
 

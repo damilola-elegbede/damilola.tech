@@ -13,9 +13,11 @@ export const FILE_ROUTING: Record<string, string> = {
   'chatbot-instructions.md': 'instructions',
   'fit-assessment-instructions.md': 'instructions',
   'resume-generator-instructions.md': 'instructions',
+  'cover-letter-generator.md': 'instructions',
 
   // Templates
   'shared-context.md': 'templates',
+  'cover-letter.md': 'templates',
 
   // Context
   'ai-context.md': 'context',
