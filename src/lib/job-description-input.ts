@@ -29,6 +29,22 @@ const JD_KEYWORDS = [
 const MIN_JD_KEYWORDS = 2;
 const MIN_EXTRACTED_CONTENT_LENGTH = 100;
 
+const EMPTY_SHELL_MAX_VISIBLE_BYTES = 50;
+
+// Known client-side-rendered ATS/SPA framework markers. When the <body>
+// contains fewer than EMPTY_SHELL_MAX_VISIBLE_BYTES of visible text but one
+// of these markers appears in the raw HTML, we treat the page as an empty
+// SSR shell whose real content is fetched post-hydration.
+const EMPTY_SHELL_MARKERS: readonly RegExp[] = [
+  /\b__ASHBY_(?:JOB_ID|HYDRATE)__\b/,
+  /data-automation-id=["']wd-appRoot["']/i,
+  /\bid=["']wd-[A-Za-z][A-Za-z0-9_-]*["']/,
+  /\b__WD_BOOTSTRAP__\b/,
+  /\bid=["']__next["']/,
+  /\bid=["']root["']\s*>\s*<\/div>/i,
+  /<noscript>[^<]*enable\s+JavaScript[^<]*<\/noscript>/i,
+];
+
 export const URL_FETCH_TIMEOUT = 10000;
 export const MAX_RESPONSE_SIZE = 1024 * 1024;
 
@@ -65,6 +81,20 @@ export function extractTextFromHtml(html: string): string {
     });
 
   return text.replace(/\s+/g, ' ').trim();
+}
+
+function extractBodyHtml(html: string): string {
+  const match = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  return match ? match[1] : html;
+}
+
+export function detectEmptyShell(html: string): boolean {
+  const bodyHtml = extractBodyHtml(html);
+  const visibleBytes = new TextEncoder().encode(extractTextFromHtml(bodyHtml)).byteLength;
+  if (visibleBytes > EMPTY_SHELL_MAX_VISIBLE_BYTES) {
+    return false;
+  }
+  return EMPTY_SHELL_MARKERS.some((marker) => marker.test(html));
 }
 
 function looksLikeJobDescription(content: string): boolean {
@@ -120,11 +150,20 @@ async function fetchJobDescriptionHtml(
 export function resolvePreFetchedJobDescription(
   content: string,
   sourceUrl: string
-): { text: string; inputType: 'content'; extractedUrl: string } {
+): { text: string; inputType: 'content'; extractedUrl: string; isEmptyShell?: boolean } {
   const looksLikeHtml = /<[a-z][\s\S]*?>/i.test(content);
   const textContent = looksLikeHtml
     ? extractTextFromHtml(content)
     : content.replace(/\s+/g, ' ').trim();
+
+  if (looksLikeHtml && detectEmptyShell(content)) {
+    return {
+      text: textContent,
+      inputType: 'content',
+      extractedUrl: sourceUrl,
+      isEmptyShell: true,
+    };
+  }
 
   if (textContent.length < MIN_EXTRACTED_CONTENT_LENGTH) {
     throw new JobDescriptionInputError(
@@ -148,7 +187,7 @@ export function resolvePreFetchedJobDescription(
 export async function resolveJobDescriptionInput(
   input: string,
   userAgent: string
-): Promise<{ text: string; inputType: 'text' | 'url'; extractedUrl?: string }> {
+): Promise<{ text: string; inputType: 'text' | 'url'; extractedUrl?: string; isEmptyShell?: boolean }> {
   if (!isUrlInput(input)) {
     return { text: input, inputType: 'text' };
   }
@@ -158,6 +197,15 @@ export async function resolveJobDescriptionInput(
   try {
     const html = await fetchJobDescriptionHtml(urlToFetch, userAgent);
     const textContent = extractTextFromHtml(html);
+
+    if (detectEmptyShell(html)) {
+      return {
+        text: textContent,
+        inputType: 'url',
+        extractedUrl: urlToFetch,
+        isEmptyShell: true,
+      };
+    }
 
     if (textContent.length < MIN_EXTRACTED_CONTENT_LENGTH) {
       throw new JobDescriptionInputError(

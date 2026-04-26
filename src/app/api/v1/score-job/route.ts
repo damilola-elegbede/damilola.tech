@@ -27,6 +27,34 @@ export const runtime = 'nodejs';
 const MAX_BODY_SIZE = 256 * 1024;
 const MAX_JOB_CONTENT_SIZE = 200 * 1024;
 
+function buildEmptyShellFallbackText({
+  title,
+  company,
+  url,
+}: {
+  title: string;
+  company: string;
+  url: string;
+}): string {
+  const slugHint = (() => {
+    try {
+      const { pathname } = new URL(url);
+      return pathname.replace(/[-_/]+/g, ' ').replace(/\s+/g, ' ').trim();
+    } catch {
+      return '';
+    }
+  })();
+  return [
+    `Position: ${title}`,
+    `Company: ${company}`,
+    slugHint ? `Role keywords: ${slugHint}` : '',
+    `Source: ${url}`,
+    'Responsibilities and requirements unavailable — client-side-rendered posting; scoring from title and URL only.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 export async function POST(req: Request) {
   const authResult = await requireApiKey(req);
   if (authResult instanceof Response) {
@@ -99,7 +127,15 @@ export async function POST(req: Request) {
           'Mozilla/5.0 (compatible; ResumeScoreBot/1.0)'
         );
 
-    const { readinessScore } = buildScoringInput(resolvedInput.text);
+    const scoringText = resolvedInput.isEmptyShell
+      ? buildEmptyShellFallbackText({
+          title: normalizedTitle,
+          company: normalizedCompany,
+          url: normalizedUrl,
+        })
+      : resolvedInput.text;
+
+    const { readinessScore } = buildScoringInput(scoringText);
     const currentScore = buildScorePayload(readinessScore);
 
     const message = await scoringClient.messages.create({
@@ -141,6 +177,7 @@ export async function POST(req: Request) {
       url: normalizedUrl,
       inputType: resolvedInput.inputType,
       extractedUrl: resolvedInput.extractedUrl,
+      emptyShell: resolvedInput.isEmptyShell === true,
       currentScore: currentScore.total,
       maxPossibleScore,
       recommendation,
@@ -156,6 +193,7 @@ export async function POST(req: Request) {
       maxPossibleScore,
       gapAnalysis,
       recommendation,
+      ...(resolvedInput.isEmptyShell ? { emptyShellFallback: true } : {}),
     });
   } catch (error) {
     if (error instanceof JobDescriptionInputError) {
