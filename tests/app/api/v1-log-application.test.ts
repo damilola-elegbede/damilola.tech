@@ -11,8 +11,12 @@ vi.mock('@/lib/api-key-auth', () => ({
 
 // Mock applications-store
 const mockSaveApplication = vi.fn();
+const mockListApplicationIds = vi.fn();
+const mockGetApplications = vi.fn();
 vi.mock('@/lib/applications-store', () => ({
   saveApplication: (...args: unknown[]) => mockSaveApplication(...args),
+  listApplicationIds: () => mockListApplicationIds(),
+  getApplications: (...args: unknown[]) => mockGetApplications(...args),
 }));
 
 // Mock crypto.randomUUID so IDs are deterministic in tests
@@ -430,6 +434,197 @@ describe('POST /api/v1/log-application', () => {
         body: JSON.stringify(validBody),
       });
       const res = await POST(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(data.error.code).toBe('INTERNAL_ERROR');
+
+      consoleSpy.mockRestore();
+    });
+  });
+});
+
+describe('GET /api/v1/log-application', () => {
+  const originalEnv = { ...process.env };
+
+  const mockValidApiKey = {
+    apiKey: { id: 'key-1', name: 'Test Key', enabled: true },
+  };
+
+  const sampleApps = [
+    {
+      id: 'app-1',
+      company: 'Anthropic',
+      title: 'Staff Engineer',
+      url: 'https://anthropic.com/jobs/1',
+      role_id: null,
+      applied_at: '2026-04-20T10:00:00Z',
+      status: 'applied',
+      score: 90,
+      notes: null,
+      cover_letter_draft: null,
+      created_at: '2026-04-20T10:00:00Z',
+      updated_at: '2026-04-20T10:00:00Z',
+    },
+    {
+      id: 'app-2',
+      company: 'Netflix',
+      title: 'Principal Engineer',
+      url: null,
+      role_id: null,
+      applied_at: '2026-04-10T08:00:00Z',
+      status: 'interview',
+      score: 75,
+      notes: null,
+      cover_letter_draft: null,
+      created_at: '2026-04-10T08:00:00Z',
+      updated_at: '2026-04-10T08:00:00Z',
+    },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    process.env = { ...originalEnv };
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  describe('authentication', () => {
+    it('returns 401 without API key', async () => {
+      mockRequireApiKey.mockResolvedValue(
+        Response.json(
+          { success: false, error: { code: 'UNAUTHORIZED', message: 'API key required' } },
+          { status: 401 }
+        )
+      );
+
+      const { GET } = await import('@/app/api/v1/log-application/route');
+      const req = new Request('http://localhost/api/v1/log-application');
+      const res = await GET(req);
+
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('success cases', () => {
+    beforeEach(() => {
+      mockRequireApiKey.mockResolvedValue(mockValidApiKey);
+      mockListApplicationIds.mockResolvedValue(['app-1', 'app-2']);
+      mockGetApplications.mockResolvedValue(sampleApps);
+    });
+
+    it('returns 200 with all applications', async () => {
+      const { GET } = await import('@/app/api/v1/log-application/route');
+      const req = new Request('http://localhost/api/v1/log-application');
+      const res = await GET(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.applications).toHaveLength(2);
+      expect(data.data.total).toBe(2);
+    });
+
+    it('returns 200 with empty list when no applications', async () => {
+      mockListApplicationIds.mockResolvedValue([]);
+      mockGetApplications.mockResolvedValue([]);
+
+      const { GET } = await import('@/app/api/v1/log-application/route');
+      const req = new Request('http://localhost/api/v1/log-application');
+      const res = await GET(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.data.applications).toHaveLength(0);
+      expect(data.data.total).toBe(0);
+    });
+
+    it('filters by ?stage= (status alias)', async () => {
+      const { GET } = await import('@/app/api/v1/log-application/route');
+      const req = new Request('http://localhost/api/v1/log-application?stage=interview');
+      const res = await GET(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.data.applications).toHaveLength(1);
+      expect(data.data.applications[0].company).toBe('Netflix');
+    });
+
+    it('filters by ?status= (canonical param)', async () => {
+      const { GET } = await import('@/app/api/v1/log-application/route');
+      const req = new Request('http://localhost/api/v1/log-application?status=applied');
+      const res = await GET(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.data.applications).toHaveLength(1);
+      expect(data.data.applications[0].company).toBe('Anthropic');
+    });
+
+    it('filters by ?since= (excludes older applied_at)', async () => {
+      const { GET } = await import('@/app/api/v1/log-application/route');
+      // since=2026-04-15 excludes Netflix app (2026-04-10), keeps Anthropic (2026-04-20)
+      const req = new Request('http://localhost/api/v1/log-application?since=2026-04-15T00:00:00Z');
+      const res = await GET(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.data.applications).toHaveLength(1);
+      expect(data.data.applications[0].company).toBe('Anthropic');
+    });
+
+    it('respects ?limit= cap', async () => {
+      const { GET } = await import('@/app/api/v1/log-application/route');
+      const req = new Request('http://localhost/api/v1/log-application?limit=1');
+      const res = await GET(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.data.applications).toHaveLength(1);
+      expect(data.data.total).toBe(2);
+      expect(data.data.limit).toBe(1);
+    });
+  });
+
+  describe('validation', () => {
+    beforeEach(() => {
+      mockRequireApiKey.mockResolvedValue(mockValidApiKey);
+    });
+
+    it('returns 400 for invalid ?stage= value', async () => {
+      const { GET } = await import('@/app/api/v1/log-application/route');
+      const req = new Request('http://localhost/api/v1/log-application?stage=pending');
+      const res = await GET(req);
+
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error.message).toContain('pending');
+    });
+
+    it('returns 400 for invalid ?since= value', async () => {
+      const { GET } = await import('@/app/api/v1/log-application/route');
+      const req = new Request('http://localhost/api/v1/log-application?since=not-a-date');
+      const res = await GET(req);
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('error handling', () => {
+    beforeEach(() => {
+      mockRequireApiKey.mockResolvedValue(mockValidApiKey);
+    });
+
+    it('returns 500 when listApplicationIds throws', async () => {
+      mockListApplicationIds.mockRejectedValue(new Error('Redis down'));
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const { GET } = await import('@/app/api/v1/log-application/route');
+      const req = new Request('http://localhost/api/v1/log-application');
+      const res = await GET(req);
       const data = await res.json();
 
       expect(res.status).toBe(500);
