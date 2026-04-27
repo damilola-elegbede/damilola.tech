@@ -357,6 +357,41 @@ describe('POST /api/v1/log-application', () => {
       expect(res.status).toBe(201);
     });
 
+    it('persists and returns cover_letter_draft when provided', async () => {
+      const { POST } = await import('@/app/api/v1/log-application/route');
+
+      const coverLetter = 'Dear Hiring Manager,\n\nI am excited to apply.';
+      const req = new Request('http://localhost/api/v1/log-application', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...validBody, cover_letter_draft: coverLetter }),
+      });
+      const res = await POST(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(data.data.cover_letter_draft).toBe(coverLetter);
+      const saved = mockSaveApplication.mock.calls[0][0] as Record<string, unknown>;
+      expect(saved['cover_letter_draft']).toBe(coverLetter);
+    });
+
+    it('sets cover_letter_draft to null when not provided', async () => {
+      const { POST } = await import('@/app/api/v1/log-application/route');
+
+      const req = new Request('http://localhost/api/v1/log-application', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(validBody),
+      });
+      const res = await POST(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(data.data.cover_letter_draft).toBeNull();
+      const saved = mockSaveApplication.mock.calls[0][0] as Record<string, unknown>;
+      expect(saved['cover_letter_draft']).toBeNull();
+    });
+
     it('accepts all valid status values', async () => {
       const statuses = ['applied', 'screen', 'interview', 'offer', 'rejected', 'withdrawn'];
       for (const status of statuses) {

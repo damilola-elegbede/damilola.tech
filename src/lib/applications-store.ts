@@ -44,6 +44,7 @@ export async function saveApplication(app: Application): Promise<void> {
     status: app.status,
     score: app.score !== null ? String(app.score) : '',
     notes: app.notes ?? '',
+    cover_letter_draft: app.cover_letter_draft ?? '',
     created_at: app.created_at,
     updated_at: app.updated_at,
   };
@@ -110,6 +111,7 @@ function deserialize(raw: Record<string, string>): Application {
     status: (raw['status'] ?? 'applied') as Application['status'],
     score: raw['score'] !== '' && raw['score'] !== undefined ? Number(raw['score']) : null,
     notes: raw['notes'] || null,
+    cover_letter_draft: raw['cover_letter_draft'] || null,
     created_at: raw['created_at'] ?? '',
     updated_at: raw['updated_at'] ?? '',
   };

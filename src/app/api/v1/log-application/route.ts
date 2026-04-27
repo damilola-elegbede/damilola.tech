@@ -41,6 +41,7 @@ export async function POST(req: Request): Promise<Response> {
   const url = typeof b['url'] === 'string' ? b['url'].trim() : null;
   const role_id = typeof b['role_id'] === 'string' ? b['role_id'].trim() : null;
   const notes = typeof b['notes'] === 'string' ? b['notes'].trim() : null;
+  const cover_letter_draft = typeof b['cover_letter_draft'] === 'string' ? b['cover_letter_draft'] : null;
 
   // status — default "applied", validate against enum
   const rawStatus = b['status'];
@@ -100,6 +101,7 @@ export async function POST(req: Request): Promise<Response> {
     status,
     score,
     notes,
+    cover_letter_draft,
     created_at: now,
     updated_at: now,
   };
@@ -122,6 +124,7 @@ export async function POST(req: Request): Promise<Response> {
         status,
         score,
         url,
+        cover_letter_draft,
       },
     },
     { status: 201 }
