@@ -49,6 +49,7 @@ describe('Application stage field', () => {
 
     expect(mockSaveApplication).toHaveBeenCalledOnce();
     const saved = mockSaveApplication.mock.calls[0][0] as Record<string, unknown>;
+    expect(saved['id']).toBe('stage-test-uuid');
     expect(saved['stage']).toBe('Applied');
   });
 

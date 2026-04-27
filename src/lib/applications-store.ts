@@ -120,6 +120,11 @@ export async function updateApplicationStage(
 
   const raw = await client.hgetall(hashKey);
   if (!raw || Object.keys(raw).length === 0) return null;
+  // TOCTOU guard: if hset raced with a delete, the hash may be partial
+  if (!raw['created_at']) {
+    await client.del(hashKey);
+    return null;
+  }
   return deserialize(raw as Record<string, string>);
 }
 

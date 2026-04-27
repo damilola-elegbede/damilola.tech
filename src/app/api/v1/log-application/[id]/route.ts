@@ -46,7 +46,13 @@ export async function PATCH(
     );
   }
 
-  const updated = await updateApplicationStage(id, rawStage as ApplicationStage);
+  let updated: Awaited<ReturnType<typeof updateApplicationStage>>;
+  try {
+    updated = await updateApplicationStage(id, rawStage as ApplicationStage);
+  } catch (err) {
+    console.error('[PATCH /api/v1/log-application] updateApplicationStage failed:', err);
+    return Errors.internalError('Failed to update application stage.');
+  }
 
   if (!updated) {
     return Response.json(
