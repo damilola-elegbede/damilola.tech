@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { requireApiKey } from '@/lib/api-key-auth';
 import { Errors } from '@/lib/api-response';
-import { saveApplication } from '@/lib/applications-store';
+import { saveApplication, listApplicationIds, getApplications } from '@/lib/applications-store';
 import { APPLICATION_STATUSES } from '@/lib/types/application';
 import type { Application, ApplicationStatus } from '@/lib/types/application';
 
@@ -41,6 +41,7 @@ export async function POST(req: Request): Promise<Response> {
   const url = typeof b['url'] === 'string' ? b['url'].trim() : null;
   const role_id = typeof b['role_id'] === 'string' ? b['role_id'].trim() : null;
   const notes = typeof b['notes'] === 'string' ? b['notes'].trim() : null;
+  const cover_letter_draft = typeof b['cover_letter_draft'] === 'string' ? b['cover_letter_draft'] : null;
 
   // status — default "applied", validate against enum
   const rawStatus = b['status'];
@@ -100,6 +101,7 @@ export async function POST(req: Request): Promise<Response> {
     status,
     score,
     notes,
+    cover_letter_draft,
     created_at: now,
     updated_at: now,
   };
@@ -122,8 +124,67 @@ export async function POST(req: Request): Promise<Response> {
         status,
         score,
         url,
+        cover_letter_draft,
       },
     },
     { status: 201 }
   );
+}
+
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 100;
+
+export async function GET(req: Request): Promise<Response> {
+  const authResult = await requireApiKey(req);
+  if (authResult instanceof Response) {
+    return authResult;
+  }
+
+  const { searchParams } = new URL(req.url);
+
+  // ?stage= is the pipeline-facing alias for ?status=
+  const statusParam = searchParams.get('stage') ?? searchParams.get('status');
+  if (statusParam !== null && !APPLICATION_STATUSES.includes(statusParam as ApplicationStatus)) {
+    return Errors.validationError(`invalid status value: '${statusParam}'`);
+  }
+  const statusFilter = statusParam as ApplicationStatus | null;
+
+  // ?since= — include only applications with applied_at >= since
+  const sinceParam = searchParams.get('since');
+  let sinceMs: number | null = null;
+  if (sinceParam !== null) {
+    sinceMs = Date.parse(sinceParam);
+    if (isNaN(sinceMs)) {
+      return Errors.validationError('since must be a valid ISO date string.');
+    }
+  }
+
+  // ?limit=
+  const rawLimit = parseInt(searchParams.get('limit') ?? String(DEFAULT_LIMIT), 10);
+  const limit = isNaN(rawLimit) ? DEFAULT_LIMIT : Math.min(Math.max(1, rawLimit), MAX_LIMIT);
+
+  try {
+    const allIds = await listApplicationIds();
+    const allApps = await getApplications(allIds);
+
+    const filtered = allApps.filter((app: Application) => {
+      if (statusFilter !== null && app.status !== statusFilter) return false;
+      if (sinceMs !== null && Date.parse(app.applied_at) < sinceMs) return false;
+      return true;
+    });
+
+    const page = filtered.slice(0, limit);
+
+    return Response.json({
+      success: true,
+      data: {
+        applications: page,
+        total: filtered.length,
+        limit,
+      },
+    });
+  } catch (err) {
+    console.error('[api/v1/log-application GET] Failed to list applications:', err);
+    return Errors.internalError('Failed to list applications.');
+  }
 }

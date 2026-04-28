@@ -23,6 +23,7 @@ export interface Application {
   status: ApplicationStatus;
   score: number | null; // 0–100
   notes: string | null;
+  cover_letter_draft?: string | null;
   created_at: string; // ISO-Z
   updated_at: string; // ISO-Z
 }
@@ -30,5 +31,5 @@ export interface Application {
 /** Subset returned in POST 201 and GET list items */
 export type ApplicationSummary = Pick<
   Application,
-  'id' | 'company' | 'title' | 'applied_at' | 'status' | 'score' | 'url' | 'notes' | 'role_id'
+  'id' | 'company' | 'title' | 'applied_at' | 'status' | 'score' | 'url' | 'notes' | 'role_id' | 'cover_letter_draft'
 >;
