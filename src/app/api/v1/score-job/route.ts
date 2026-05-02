@@ -146,8 +146,8 @@ export async function POST(req: Request) {
 
     const basePrompt = buildGapAnalysisPrompt(currentScore);
     const userContent = interviewPrepMode
-      ? `${basePrompt}\n\nAdditionally, return exactly 5 "interviewPrepQuestions" in the JSON. Each must use behavioral framing — start with "Tell me about a time..." or "How would you approach...". Base questions on the top gap areas identified above.\n\nUpdated JSON schema: {"gapAnalysis":"...","maxPossibleScore":0-100,"recommendation":"...","interviewPrepQuestions":["Q1","Q2","Q3","Q4","Q5"]}\n\n<job_description>${xmlEscape(resolvedInput.text)}</job_description>`
-      : `${basePrompt}\n\n<job_description>${xmlEscape(resolvedInput.text)}</job_description>`;
+      ? `${basePrompt}\n\nAdditionally, return exactly 5 "interviewPrepQuestions" in the JSON. Each must use behavioral framing — start with "Tell me about a time..." or "How would you approach...". Base questions on the top gap areas identified above.\n\nUpdated JSON schema: {"gapAnalysis":"...","maxPossibleScore":0-100,"recommendation":"...","interviewPrepQuestions":["Q1","Q2","Q3","Q4","Q5"]}\n\n<job_description>${xmlEscape(scoringText)}</job_description>`
+      : `${basePrompt}\n\n<job_description>${xmlEscape(scoringText)}</job_description>`;
 
     const message = await scoringClient.messages.create({
       model: 'claude-opus-4-6',
@@ -172,9 +172,10 @@ export async function POST(req: Request) {
     const parsed = parseJsonResponse(responseText);
 
     const gapAnalysis = typeof parsed.gapAnalysis === 'string' ? parsed.gapAnalysis : '';
-    const interviewPrepQuestions = interviewPrepMode && Array.isArray(parsed.interviewPrepQuestions)
+    const _rawPrepQuestions = interviewPrepMode && Array.isArray(parsed.interviewPrepQuestions)
       ? (parsed.interviewPrepQuestions as unknown[]).slice(0, 5).filter((q): q is string => typeof q === 'string')
       : undefined;
+    const interviewPrepQuestions = _rawPrepQuestions?.length === 5 ? _rawPrepQuestions : undefined;
     const parsedMaxScore = sanitizeScoreValue(parsed.maxPossibleScore, 0, 100);
     const maxPossibleScore = Math.max(currentScore.total, parsedMaxScore);
     const gap = maxPossibleScore - currentScore.total;
