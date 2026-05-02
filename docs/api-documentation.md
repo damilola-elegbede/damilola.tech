@@ -219,6 +219,15 @@ All admin endpoints require authentication. Include JWT token cookie in requests
 
 Login to admin portal.
 
+**Request Headers:**
+
+```http
+X-CSRF-Token: <csrf_token>
+Content-Type: application/json
+```
+
+A valid CSRF token must be obtained first via `GET /api/admin/auth` (or the admin UI's session setup). Requests missing or carrying an invalid CSRF token receive `403 Forbidden`. This endpoint is intended to be called from the admin UI, not directly via `curl`.
+
 **Request Body:**
 
 ```json
@@ -247,7 +256,8 @@ Login to admin portal.
 
 ```json
 {
-  "error": "Too many attempts. Please try again later."
+  "error": "Too many login attempts. Please try again later.",
+  "retryAfter": 900
 }
 ```
 
@@ -277,7 +287,7 @@ Aggregate statistics for admin dashboard.
 
 **Query Parameters:**
 
-- `days` - Number of days to include (default: 30, max: 365)
+- `env` - Environment filter: `production` or `preview` (default: current Vercel environment)
 
 **Response:**
 
@@ -447,62 +457,51 @@ List fit assessment submissions.
 
 ### Resume Generation
 
-#### GET /api/admin/resumes
+#### GET /api/admin/resume-generations
 
-List generated resumes.
+List resume generation records.
 
 **Query Parameters:**
 
 - `cursor` - Pagination cursor (optional)
-- `limit` - Results per page (default: 100, max: 1000)
+- `status` - Filter by application status: `draft`, `applied`, `interview`, `offer`, `rejected` (optional)
+- `company` - Case-insensitive partial match on company name (optional)
+- `dateFrom` - ISO 8601 date (`YYYY-MM-DD`) — inclusive lower bound (optional)
+- `dateTo` - ISO 8601 date (`YYYY-MM-DD`) — inclusive upper bound (optional)
+- `minScore` - Minimum fit score after generation (optional)
+- `maxScore` - Maximum fit score after generation (optional)
 
 **Response:**
 
 ```json
 {
-  "resumes": [
+  "generations": [
     {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "id": "damilola.tech/resume-generations/production/...",
+      "jobId": "abc123",
+      "generationId": "550e8400-e29b-41d4-a716-446655440000",
+      "environment": "production",
       "timestamp": "2024-01-15T09:00:00Z",
-      "jobDescription": "Engineering Manager at Acme Corp...",
+      "updatedAt": "2024-01-15T09:05:00Z",
       "companyName": "Acme Corp",
-      "status": "applied",
-      "url": "https://blob.vercel-storage.com/..."
+      "roleTitle": "Engineering Manager",
+      "scoreBefore": 65,
+      "scoreAfter": 82,
+      "scorePossibleMax": 91,
+      "applicationStatus": "applied",
+      "url": "https://blob.vercel-storage.com/...",
+      "size": 4096,
+      "generationCount": 1
     }
   ],
-  "cursor": "next_page_token"
+  "cursor": "next_page_token",
+  "hasMore": true,
+  "totalFetched": 50,
+  "filtered": false
 }
 ```
 
 **Authentication:** Required
-
-#### POST /api/admin/resume/generate
-
-Generate recruiter-ready resume for job description.
-
-**Request Body:**
-
-```json
-{
-  "jobDescription": "Full job description text...",
-  "companyName": "Acme Corp"
-}
-```
-
-**Response:**
-
-- **Content-Type:** `text/plain; charset=utf-8`
-- **Transfer-Encoding:** `chunked`
-- **Body:** Streaming resume content in custom format
-
-**Authentication:** Required
-
-**Rate Limit:** 10 requests per hour per IP
-
-**Validation:**
-
-- Job description required
-- Max 50KB request body
 
 ### Audit Log
 
@@ -651,7 +650,6 @@ Retry-After: 300
 | Endpoint | Limit | Window | Per |
 |----------|-------|--------|-----|
 | `/api/admin/auth` | 5 | 15 min | IP |
-| `/api/admin/resume/generate` | 10 | 1 hour | IP |
 
 ### Implementation
 
@@ -779,7 +777,8 @@ curl http://localhost:3000/api/admin/stats \
 ANTHROPIC_API_KEY=sk-ant-...
 BLOB_READ_WRITE_TOKEN=vercel_blob_...
 JWT_SECRET=your_jwt_secret
-ADMIN_PASSWORD_PREVIEW=dev_password
+ADMIN_PASSWORD_PREVIEW=dev_password      # Used in preview/development environments
+ADMIN_PASSWORD_PRODUCTION=prod_password  # Required in production environments
 
 # Optional for rate limiting
 UPSTASH_REDIS_REST_URL=https://...
@@ -1209,12 +1208,12 @@ Returns a text content block containing the JSON response from the API. Pass the
 
 ### V1 Rate Limits
 
-V1 endpoints share the same rate limit configuration as `/api/admin/resume/generate`:
+V1 endpoints share the `resume-generator` rate limit bucket (key: `resume-generator`, sliding window):
 
 | Endpoint | Limit | Window | Per |
 |---|---|---|---|
-| `POST /api/v1/score-job` | 10 | 1 hour | IP |
-| `POST /api/v1/generate-cover-letter` | 10 | 1 hour | IP |
+| `POST /api/v1/score-job` | 100 | 1 hour | IP |
+| `POST /api/v1/generate-cover-letter` | 100 | 1 hour | IP |
 | `POST /api/v1/log-application` | No limit | — | — |
 | `GET /api/v1/log-application` | No limit | — | — |
 | `GET /api/v1/applications` | No limit | — | — |
