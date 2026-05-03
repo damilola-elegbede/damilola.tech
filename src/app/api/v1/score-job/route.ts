@@ -173,7 +173,11 @@ export async function POST(req: Request) {
 
     const gapAnalysis = typeof parsed.gapAnalysis === 'string' ? parsed.gapAnalysis : '';
     const _rawPrepQuestions = interviewPrepMode && Array.isArray(parsed.interviewPrepQuestions)
-      ? (parsed.interviewPrepQuestions as unknown[]).slice(0, 5).filter((q): q is string => typeof q === 'string')
+      ? (parsed.interviewPrepQuestions as unknown[])
+          .filter((q): q is string => typeof q === 'string')
+          .map((q) => q.trim())
+          .filter((q) => q.length > 0)
+          .slice(0, 5)
       : undefined;
     const interviewPrepQuestions = _rawPrepQuestions?.length === 5 ? _rawPrepQuestions : undefined;
     const parsedMaxScore = sanitizeScoreValue(parsed.maxPossibleScore, 0, 100);
