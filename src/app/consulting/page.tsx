@@ -166,7 +166,7 @@ export default function ConsultingPage() {
           structured 90-minute conversation that produces a written findings doc
           you keep regardless of next steps.
         </p>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { step: "01", label: "Discovery", detail: "90-min scoped session" },
             { step: "02", label: "Findings", detail: "Written report, yours to keep" },
