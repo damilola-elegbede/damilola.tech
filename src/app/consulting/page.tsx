@@ -120,7 +120,7 @@ export default function ConsultingPage() {
         <div className="mt-6">
           <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-2 text-sm text-[var(--color-text-muted)]">
             <span
-              className="inline-block h-2 w-2 rounded-full bg-[#39FF14]"
+              className="inline-block h-2 w-2 rounded-full bg-[var(--color-available)]"
               aria-hidden="true"
             />
             <span className="sr-only">Currently available — </span>

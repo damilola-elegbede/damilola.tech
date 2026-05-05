@@ -21,6 +21,7 @@ Personal career landing page with an AI chatbot. Recruiters and hiring managers 
 - **Projects Portfolio** - Showcase of key technical projects
 - **Experience Timeline** - Professional history and achievements
 - **Skills Assessment** - Technical and leadership capabilities
+- **Consulting** - Fractional VP Engineering advisory landing page (`/consulting`)
 
 ### Admin Portal
 
