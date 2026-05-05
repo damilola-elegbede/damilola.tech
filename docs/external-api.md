@@ -498,6 +498,8 @@ curl -X POST \
 }
 ```
 
+**Note:** The 201 response returns a subset of the stored record — `role_id`, `notes`, `created_at`, and `updated_at` are intentionally omitted. Use `GET /api/v1/log-application` or `GET /api/v1/applications` to retrieve the full record.
+
 **Error Responses:**
 
 | Status | Code | Condition |
@@ -510,7 +512,7 @@ curl -X POST \
 
 #### GET /api/v1/log-application
 
-List job applications with optional filters. The `stage` parameter is a pipeline-friendly alias for `status`.
+List job applications with optional filters. The `stage` parameter is a pipeline-friendly alias for `status`. Use this endpoint when filtering by recency (`since`) or by pipeline stage. For company name search or offset-based pagination, use `GET /api/v1/applications` instead.
 
 **Authentication:** API key required
 
@@ -518,7 +520,7 @@ List job applications with optional filters. The `stage` parameter is a pipeline
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `stage` | string | — | Filter by status (alias for `status`) |
+| `stage` | string | — | Filter by status (alias for `status`); takes precedence over `status` if both are provided |
 | `status` | string | — | Filter by status |
 | `since` | string | — | ISO 8601 timestamp; return only applications with `applied_at ≥ since` |
 | `limit` | number | 50 | Max results, 1–100 |
@@ -558,6 +560,8 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 }
 ```
 
+`total` is the full count of records matching the filters, before the `limit` is applied. If `total` exceeds `limit`, additional records exist but this endpoint has no pagination — results are silently truncated at the `limit` ceiling (max 100). Use `GET /api/v1/applications` with `offset` if you need to page through more than 100 records.
+
 **Error Responses:**
 
 | Status | Code | Condition |
@@ -569,7 +573,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 #### GET /api/v1/applications
 
-List job applications with pagination and company name filtering. Ordered by `applied_at` descending.
+List job applications with pagination and company name filtering. Ordered by `applied_at` descending. Use this endpoint when you need company name search or need to page past 100 records. For recency filtering (`since`) or pipeline stage filtering with the `stage` alias, use `GET /api/v1/log-application` instead.
 
 **Authentication:** API key required
 
@@ -631,7 +635,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 #### POST /api/v1/score-job
 
-Score a job posting against the stored resume and return a gap analysis. Accepts either a URL (fetched server-side) or pre-fetched job content. Use the output as `score_job_output` in `generate-cover-letter` for best fit context.
+Score a job posting against the stored resume and return a gap analysis. `url` is always required and is used for logging and metadata. Supply `job_content` to bypass the server-side URL fetch (useful when the page is client-side-rendered or behind auth). Use the output as `score_job_output` in `generate-cover-letter` for best fit context.
 
 **Authentication:** API key required
 
@@ -670,9 +674,10 @@ curl -X POST \
     "currentScore": {
       "total": 72,
       "breakdown": {
-        "keywords": 30,
-        "experience": 25,
-        "skills": 17
+        "roleRelevance": 22,
+        "claritySkimmability": 21,
+        "businessImpact": 18,
+        "presentationQuality": 11
       },
       "matchedKeywords": ["TypeScript", "distributed systems", "team leadership"],
       "missingKeywords": ["Kubernetes", "Go", "SRE"],
@@ -768,6 +773,8 @@ curl -X POST \
 
 The `cover_letter_markdown` field contains YAML frontmatter (`company`, `role`, `score_job_fit`) followed by the letter body in Markdown.
 
+**Note on `token_usage` key style:** This endpoint uses snake_case keys (`input`, `output`, `cache_read`) under `token_usage`, which differs from other endpoints that use camelCase under `usage` (e.g., `inputTokens`, `cacheReadTokens`). This is an implementation-level divergence; the fields map directly to Anthropic's `usage.input_tokens`, `usage.output_tokens`, and `usage.cache_read_input_tokens`.
+
 **Error Responses:**
 
 | Status | Code | Condition |
@@ -800,6 +807,22 @@ Generate a targeted cover letter for a job posting. Uses `score_job` output for 
 | `role` | string | No | Role title for output metadata |
 
 **Returns:** JSON object matching the `POST /api/v1/generate-cover-letter` response shape.
+
+---
+
+### `score_job`
+
+Score a job posting against Damilola's resume for fit and readiness. Mirrors `POST /api/v1/score-job`. Pass the full JSON output to `generate_cover_letter` as `score_job_output` for best results.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `url` | string (URL) | Yes | Job posting URL (http/https) |
+| `title` | string | Yes | Job title |
+| `company` | string | Yes | Company name |
+
+**Returns:** JSON object matching the `POST /api/v1/score-job` response shape. Pass the full stringified output as `score_job_output` to `generate_cover_letter` for fit-aware generation.
 
 ## Rate Limits
 
