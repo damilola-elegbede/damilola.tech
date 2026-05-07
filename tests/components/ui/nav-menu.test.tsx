@@ -71,6 +71,7 @@ describe('NavMenu', () => {
     const downloadLink = within(desktopNav).getByRole('link', { name: /download resume/i });
     expect(downloadLink).toBeInTheDocument();
     expect(downloadLink).toHaveAttribute('href', '/api/v1/resume.pdf');
+    expect(downloadLink).toHaveAttribute('download');
   });
 
   it('renders a download resume link in mobile menu', () => {
@@ -82,5 +83,6 @@ describe('NavMenu', () => {
     const downloadLink = within(mobileNav).getByRole('link', { name: /download resume/i });
     expect(downloadLink).toBeInTheDocument();
     expect(downloadLink).toHaveAttribute('href', '/api/v1/resume.pdf');
+    expect(downloadLink).toHaveAttribute('download');
   });
 });

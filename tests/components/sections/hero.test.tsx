@@ -53,6 +53,7 @@ describe('Hero', () => {
       (link) => link.getAttribute('href') === '/api/v1/resume.pdf'
     );
     expect(resumeLink).toBeInTheDocument();
+    expect(resumeLink).toHaveAttribute('download');
   });
 
   it('resume download link does not open in new tab', () => {
